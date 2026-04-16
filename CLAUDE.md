@@ -8,7 +8,7 @@ CodeLens V5 is the current and only version. V3/V4 are archived in the V4 reposi
 - **套件化**: 5 个套件（full_stack / architect / ai_engineer / quick_screen / deep_dive）
 - **Cursor 模式 MB**: 多文件 Monaco + AI Chat + Inline Completion
 - **6 维度评分**: technicalJudgment / aiEngineering / systemDesign / codeQuality / communication / metacognition
-- **40 信号**: 37 纯规则 + 3 LLM 白名单（仅 MD）
+- **43 信号**: 40 纯规则 + 3 LLM 白名单（仅 MD）
 
 ## 目录规范
 - 服务端：`packages/server/src/` 无版本前缀

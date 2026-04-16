@@ -717,7 +717,7 @@ V5.0 共 **43 信号**(不是 40),3 个 LLM 白名单全在 MD。
 | P0 | sBaselineReading | technicalJudgment | 否 | 标准 |
 | P0 | sAiCalibration | metacognition | 否 | 标准 |
 | P0 | sDecisionStyle | metacognition | 否 | 标准 |
-| P0 | sTechProfile | metacognition | 否 | **0.02 轻度** |
+| P0 | sTechProfile | metacognition | 否 | **0.1 轻度** |
 | MA | sSchemeJudgment | technicalJudgment | 否 | 标准 |
 | MA | sReasoningDepth | technicalJudgment | 否 | 标准 |
 | MA | sContextQuality | technicalJudgment | 否 | 标准 |
@@ -758,30 +758,31 @@ V5.0 共 **43 信号**(不是 40),3 个 LLM 白名单全在 MD。
 | MC | sCommunicationClarity | communication | 否 | 标准 |
 | MC | sReflectionDepth | metacognition | 否 | 标准 |
 
-**维度信号数分布**:
-- technicalJudgment: 8 个(P0×1 + MA×7)
-- aiEngineering: 12 个(MB×11 + MD×1)
-- codeQuality: 13 个(MA×3 + MB×10)
-- communication: 4 个(MB×1 + MC×2 + MD×0)
-- metacognition: 6 个(P0×3 + SE×1 + MC×1 + sTechProfile 特殊)
-- systemDesign: 2 个(MD×2)
+**维度信号数分布**(合计 43):
+- technicalJudgment: 7 个(P0×1 + MA×6)
+- aiEngineering: 13 个(MB×12 + MD×1)
+- codeQuality: 12 个(MA×3 + MB×9)
+- communication: 3 个(MB×1 + MC×2)
+- metacognition: 5 个(P0×3 + SE×1 + MC×1,含 sTechProfile)
+- systemDesign: 3 个(MD×3)
 
 **权重聚合规则**:
-- 同维度内信号等权平均
-- 例外:sTechProfile 在 metacognition 占 0.02,其他 metacognition 信号分摊 0.98
+- SignalDefinition 可选 `weight` 字段,默认 1.0;sTechProfile 唯一例外,weight = 0.1。
+- 维度分 = `sum(value * weight) / sum(weight)`,value 为 null 的信号从分子分母同时剔除(N/A rescaling)。
 
 ```typescript
-// metacognition 聚合示例
+// metacognition 聚合示例(weights: sTechProfile=0.1, 其余=1.0)
+// sum(weight) = 1 + 1 + 1 + 1 + 0.1 = 4.1
 meta = (
-  sAiCalibration * 0.245 +
-  sDecisionStyle * 0.245 +
-  sMetaCognition * 0.245 +
-  sReflectionDepth * 0.245 +
-  sTechProfile * 0.02
-)
+  sAiCalibration * 1.0 +
+  sDecisionStyle * 1.0 +
+  sMetaCognition * 1.0 +
+  sReflectionDepth * 1.0 +
+  sTechProfile * 0.1
+) / 4.1
 ```
 
-- 未参与模块的信号 = null,聚合时跳过(剩余信号归一化)
+- 未参与模块的信号 = null,按 N/A rescaling 从 sum(weight) 中同步剔除。
 
 ---
 

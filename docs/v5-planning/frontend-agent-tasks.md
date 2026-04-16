@@ -912,7 +912,7 @@ session 详情使用 Task 2 的 ReportRenderer 展示报告。
 这两份文档的关键特性
 一次性纳入所有内容：
 
-6 维度 / 40 信号 / 5 套件 / Cursor 模式 / 出题引擎
+6 维度 / 43 信号 / 5 套件 / Cursor 模式 / 出题引擎
 Module C 前后端完整方案
 18 个预生成题库（按 level 分档）
 Golden Path 全套件分层
