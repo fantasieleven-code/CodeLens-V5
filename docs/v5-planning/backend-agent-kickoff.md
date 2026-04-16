@@ -76,3 +76,27 @@ Task: Task 2 - ExamInstance Schema 拆分 + ExamDataService
 预估工时: 2.5 天
 依赖:无(Task 1 已 merge)
 下游依赖:Task 3 Suite 定义 / Task 4 scoring / Task 5+ 各模块 service
+
+## PR 合并授权
+
+你可以自主合并的 PR(用 `gh pr merge --squash --delete-branch`):
+- 只改 `packages/server/**` 的 PR
+- Signal 实现 / SandboxProvider / ModelProvider 等纯 server 内部
+- 文档、格式化、lint 修复类 PR
+- PR 描述里没有 "需裁决" / "偏离 tasks.md" / "增加 typecheck baseline" 标记
+
+必须等 Steve review + merge 的 PR:
+- 改 `packages/shared/**` 的任何 PR(跨 agent 契约)
+- 改 `packages/server/prisma/schema.prisma` 的 PR(数据模型决策)
+- 改 `.github/workflows/` 的 PR(CI 流程)
+- 新增 architectural scope(新 EventBus handler、新 service 层)
+- PR 里有破坏性操作(drop table / 删字段 / migration 不可逆)
+- Typecheck baseline 增加(即使按规则 delta≥0,baseline 上升也需 Steve 确认)
+- 自己觉得 "这个决策 Steve 应该看一眼" 的情况
+
+自然边界(不确定时):
+- push 后在 PR 描述末尾写 "ready to self-merge" 或 "awaiting review"
+- self-merge 前本地跑 `npm run lint` + server typecheck + vitest
+- self-merge 后汇报 Steve:"PR #N merged, commit X, 继续 Task/Step Y"
+
+自 Task 2 起生效。当前 Task 2 schema PR 必须走 review(schema 改动)。
