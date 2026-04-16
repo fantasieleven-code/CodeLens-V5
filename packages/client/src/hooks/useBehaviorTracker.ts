@@ -1,18 +1,5 @@
-// TODO V5: Replace V4BehaviorModule enum with V5 module names
-//   V5 modules: phase0, moduleA, mb, moduleD, selfAssess, modulec
-// TODO V5: Add Cursor mode events:
-//   - ai_completion_shown, ai_completion_accepted, ai_completion_rejected
-//   - chat_prompt_sent, chat_response_received
-//   - diff_accepted, diff_rejected
-//   - file_opened, file_switched, file_closed
-//   - cursor_move, key_press (count only, no content for privacy)
-//   - test_run
-// TODO V5: Keep PAYLOAD_LIMIT and flush mechanism unchanged
-// Original V4 path: packages/client/src/hooks/useBehaviorTracker.ts
-//
-
 /**
- * useBehaviorTracker — v4.1 candidate-side behavior collection.
+ * useBehaviorTracker — candidate-side behavior collection.
  *
  * Components call `track('eventType', data)` for discrete events and
  * `trackKeystroke()` for typing activity (count + duration only — never
@@ -23,30 +10,44 @@
  *   - `flush(module)` — call right before a module submit
  *   - automatic on `beforeunload` and `visibilitychange→hidden`
  *
- * Each flush JSON-serializes the buffer and emits `v4:behavior` over the
+ * Each flush JSON-serializes the buffer and emits `behavior:batch` (payload
+ * shape per shared ClientToServerEvents: `{ events: [...] }`) over the
  * shared socket. Payloads >50KB are split into halves recursively until each
  * chunk fits; an unsplittable >50KB singleton is dropped with a console
  * warning rather than risking server-side metadata bloat (the server also
  * enforces the 50KB cap and will drop oversized payloads regardless).
  *
- * The hook is module-scoped: pass the v4 module identifier on creation
- * so the hook knows which key to flush under and which page-hide cleanup
- * to bind. A page can have multiple trackers if it spans modules, but in
- * practice each v4 page mounts one.
+ * The hook is module-scoped: pass the V5ModuleKey on creation so the hook
+ * knows which module to attribute events to.
  */
 
 import { useCallback, useEffect, useRef } from 'react';
+import type { V5ModuleKey } from '@codelens-v5/shared';
 import { getSocket } from '../lib/socket.js';
 
-export type V4BehaviorModule =
-  | 'phase0'
-  | 'moduleA'
-  | 'mb1'
-  | 'mb2'
-  | 'selfAssess'
-  | 'modulec'
-  | 'moduleD'
-  | 'global';
+/**
+ * Cursor-mode behavior event type strings. Used as the `type` argument to
+ * `track()` so call sites have autocomplete without widening the hook API.
+ * These are NOT socket events — they're local string literals flushed under
+ * the `behavior:batch` envelope.
+ */
+export const CURSOR_BEHAVIOR_EVENTS = [
+  'ai_completion_shown',
+  'ai_completion_accepted',
+  'ai_completion_rejected',
+  'chat_prompt_sent',
+  'chat_response_received',
+  'diff_accepted',
+  'diff_rejected',
+  'file_opened',
+  'file_switched',
+  'file_closed',
+  'cursor_move',
+  'key_press',
+  'test_run',
+] as const;
+
+export type CursorBehaviorEvent = (typeof CURSOR_BEHAVIOR_EVENTS)[number];
 
 const PAYLOAD_LIMIT_BYTES = 50_000;
 
@@ -68,7 +69,7 @@ export interface UseBehaviorTrackerReturn {
   /** Record a paste event with content length only (privacy: never the text). */
   trackPaste: (length: number) => void;
   /**
-   * Drain the buffer and emit v4:behavior. Safe to call when empty (no-op).
+   * Drain the buffer and emit `behavior:batch`. Safe to call when empty (no-op).
    *
    * Overload semantics:
    *   flush()                       — just drain
@@ -80,13 +81,42 @@ export interface UseBehaviorTrackerReturn {
 }
 
 /**
+ * Flatten a BehaviorBuffer into the `{ type, timestamp, payload }[]` shape
+ * expected by shared ws.ts ClientToServerEvents['behavior:batch']. Array-valued
+ * keys become one event per array element; scalar/object values become a
+ * single event carrying the value under `payload.value`.
+ */
+function flattenBuffer(module: V5ModuleKey, chunk: BehaviorBuffer): Array<{
+  type: string;
+  timestamp: string;
+  payload: Record<string, unknown>;
+}> {
+  const out: Array<{ type: string; timestamp: string; payload: Record<string, unknown> }> = [];
+  for (const [type, val] of Object.entries(chunk)) {
+    if (Array.isArray(val)) {
+      for (const item of val) {
+        const rec = (item && typeof item === 'object' ? item : { value: item }) as Record<string, unknown>;
+        const ts = typeof rec.timestamp === 'number' ? new Date(rec.timestamp).toISOString() : new Date().toISOString();
+        const rest = { ...rec };
+        delete rest.timestamp;
+        out.push({ type, timestamp: ts, payload: { module, ...rest } });
+      }
+    } else {
+      const rec = (val && typeof val === 'object' ? val : { value: val }) as Record<string, unknown>;
+      out.push({ type, timestamp: new Date().toISOString(), payload: { module, ...rec } });
+    }
+  }
+  return out;
+}
+
+/**
  * Recursively split-and-emit a buffer chunk so each socket frame stays
  * under PAYLOAD_LIMIT_BYTES. Returns nothing — emits inline.
  */
-function emitChunk(socket: ReturnType<typeof getSocket>, module: V4BehaviorModule, chunk: BehaviorBuffer): void {
+function emitChunk(socket: ReturnType<typeof getSocket>, module: V5ModuleKey, chunk: BehaviorBuffer): void {
   const sz = JSON.stringify(chunk).length;
   if (sz <= PAYLOAD_LIMIT_BYTES) {
-    socket.emit('v4:behavior' as any, { module, data: chunk });
+    socket.emit('behavior:batch', { events: flattenBuffer(module, chunk) });
     return;
   }
   const keys = Object.keys(chunk);
@@ -120,7 +150,7 @@ function emitChunk(socket: ReturnType<typeof getSocket>, module: V4BehaviorModul
   emitChunk(socket, module, b);
 }
 
-export function useBehaviorTracker(module: V4BehaviorModule): UseBehaviorTrackerReturn {
+export function useBehaviorTracker(module: V5ModuleKey): UseBehaviorTrackerReturn {
   // useRef so accumulating events never causes re-renders. Buffers are
   // recreated on each flush so we never carry stale state between modules.
   const bufferRef = useRef<BehaviorBuffer>({});
