@@ -1,6 +1,7 @@
 import type { AIStreamChunk } from './ai.js';
 import type { FileState } from './sandbox.js';
 import type { TimerState, CheckpointTransition } from './session.js';
+import type { V5ModuleCAnswer } from './v5-submissions.js';
 
 // Client → Server events
 export interface ClientToServerEvents {
@@ -30,6 +31,15 @@ export interface ClientToServerEvents {
     data: { selfConfidence: number; selfIdentifiedRisk?: string; responseTimeMs: number },
     ack: (ok: boolean) => void,
   ) => void;
+  // v5: ModuleC — server handler in Task 11.
+  'v5:modulec:start': (data: V5ModuleCStartPayload, ack: (ok: boolean) => void) => void;
+  'v5:modulec:answer': (data: V5ModuleCAnswer, ack: (ok: boolean) => void) => void;
+  'v5:modulec:complete': (data: V5ModuleCCompletePayload, ack: (ok: boolean) => void) => void;
+  // v5: MB Cursor mode — payload skeletons; Task 5 MB backend iterates fields.
+  'v5:mb:chat_generate': (data: V5MBChatGeneratePayload, ack: (ok: boolean) => void) => void;
+  'v5:mb:completion_request': (data: V5MBCompletionRequestPayload, ack: (ok: boolean) => void) => void;
+  'v5:mb:file_change': (data: V5MBFileChangePayload) => void;
+  'v5:mb:run_test': (data: V5MBRunTestPayload, ack: (ok: boolean) => void) => void;
 }
 
 // Server → Client events
@@ -83,6 +93,41 @@ export interface SocketData {
   sessionId: string;
   candidateId: string;
   role: 'candidate' | 'admin';
+}
+
+// ─── V5 socket event payloads ───
+
+/** Client → Server: ack that candidate entered ModuleC. */
+export interface V5ModuleCStartPayload {
+  moduleKey: 'moduleC';
+}
+
+/** Client → Server: candidate finished ModuleC. */
+export interface V5ModuleCCompletePayload {
+  moduleKey: 'moduleC';
+  finishedAt: Date;
+}
+
+/**
+ * MB Cursor-mode socket payload skeletons. Task 5 MB backend iterates
+ * concrete fields (prompt templates, cursor context, selection state, etc.).
+ */
+export interface V5MBChatGeneratePayload {
+  prompt: string;
+}
+
+export interface V5MBCompletionRequestPayload {
+  filePath: string;
+  cursorOffset: number;
+}
+
+export interface V5MBFileChangePayload {
+  filePath: string;
+  content: string;
+}
+
+export interface V5MBRunTestPayload {
+  testCommand?: string;
 }
 
 export interface ReconnectState {
