@@ -939,14 +939,29 @@ const dangerFlag =
 
 **直接回答。**
 
-注意：**43 信号不是 40**（之前修正 2 确认过）。给你完整表：
+合计 43 个信号（3 个 LLM 白名单全在 MD）。Task 4 SignalRegistry 按下表注册。
+
+**按维度汇总**：
+
+| 维度 | 信号 | 数量 |
+|---|---|---|
+| technicalJudgment | sBaselineReading, sSchemeJudgment, sReasoningDepth, sContextQuality, sCriticalThinking, sArgumentResilience, sDiagnosisAccuracy | 7 |
+| aiEngineering | sTaskDecomposition, sInterfaceDesign, sFailureAnticipation, sPromptQuality, sIterationEfficiency, sPrecisionFix, sAiCompletionAcceptRate, sChatVsDirectRatio, sFileNavigationEfficiency, sTestFirstBehavior, sEditPatternQuality, sAgentGuidance, sAiOrchestrationQuality | 13 |
+| codeQuality | sCodeReviewQuality, sHiddenBugFound, sReviewPrioritization, sModifyQuality, sBlockSelectivity, sChallengeComplete, sVerifyDiscipline, sAiOutputReview, sRulesQuality, sRulesCoverage, sRulesSpecificity, sRuleEnforcement | 12 |
+| communication | sWritingQuality, sBoundaryAwareness, sCommunicationClarity | 3 |
+| metacognition | sAiCalibration, sDecisionStyle, sTechProfile, sMetaCognition, sReflectionDepth | 5 |
+| systemDesign | sDesignDecomposition, sConstraintIdentification, sTradeoffArticulation | 3 |
+
+LLM 白名单（仅 MD，3 个）：sDesignDecomposition, sTradeoffArticulation, sAiOrchestrationQuality。
+
+**按模块展开**：
 
 | 模块 | 信号 | 维度 | LLM 白名单 | 权重类型 |
 |---|---|---|---|---|
 | P0 | sBaselineReading | technicalJudgment | 否 | 标准 |
 | P0 | sAiCalibration | metacognition | 否 | 标准 |
 | P0 | sDecisionStyle | metacognition | 否 | 标准 |
-| P0 | sTechProfile | metacognition | 否 | **轻度（0.02）** |
+| P0 | sTechProfile | metacognition | 否 | **轻度（0.1）** |
 | MA | sSchemeJudgment | technicalJudgment | 否 | 标准 |
 | MA | sReasoningDepth | technicalJudgment | 否 | 标准 |
 | MA | sContextQuality | technicalJudgment | 否 | 标准 |
@@ -990,17 +1005,18 @@ const dangerFlag =
 **合计 43 个**，3 个 LLM 白名单（全在 MD）。
 
 **权重计算规则**：
-- 同维度内所有信号等权聚合（平均数），**除了 sTechProfile 权重 0.02**
-- sTechProfile 只在 metacognition 维度里占 2%，其他 metacognition 信号（sAiCalibration / sDecisionStyle / sMetaCognition / sReflectionDepth）分摊 98%
+- SignalDefinition 可选 `weight` 字段，默认 1.0；唯一例外 **sTechProfile = 0.1**（轻度）。
+- 维度分 = `sum(value * weight) / sum(weight)`，value 为 null 的信号从分子分母同时剔除（N/A rescaling）。
 
-例如 metacognition 维度计算：
+例如 metacognition 维度（sum(weight) = 1+1+1+1+0.1 = 4.1）：
 ```
-meta = 
-  sAiCalibration * 0.245 +
-  sDecisionStyle * 0.245 +
-  sMetaCognition * 0.245 +
-  sReflectionDepth * 0.245 +
-  sTechProfile * 0.02
+meta = (
+  sAiCalibration * 1.0 +
+  sDecisionStyle * 1.0 +
+  sMetaCognition * 1.0 +
+  sReflectionDepth * 1.0 +
+  sTechProfile * 0.1
+) / 4.1
 ```
 
 注意：有些信号可能因为模块未参与是 null，这时候 dim 的聚合只用参与的信号（再归一化）。
