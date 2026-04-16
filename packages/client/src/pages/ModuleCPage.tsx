@@ -1,17 +1,5 @@
-// TODO V5: Replace socket event prefix "v4:" with "v5:" (~15 occurrences)
-//   Examples: v4:modulec:answer → v5:modulec:answer, v4:modulec:start → v5:modulec:start
-// TODO V5: Update store imports: useV4ModuleStore → useModuleStore (V5 no version prefix)
-// TODO V5: Update submission types: V4ModuleCAnswerPayload → V5ModuleCAnswer
-// TODO V5: Keep unchanged (90% of the code):
-//   - Volcano RTC integration (entire SDK setup and connection management)
-//   - Emma voice conversation logic, ASR real-time transcription display
-//   - Session state machine (connecting/speaking/listening/transition/completed)
-//   - Error handling, reconnection logic, text input fallback mode
-//   - Round-by-round UI display
-// Original V4 path: packages/client/src/pages/v4/ModuleCPage.tsx
-
 /**
- * Module C — v4 语音追问环节 (voice interview UI).
+ * Module C — 语音追问环节 (voice interview UI).
  *
  * 4-state machine: IDLE → LISTENING → AI_THINKING → AI_SPEAKING → IDLE
  * Dual mode: Voice (VERTC SDK) with text fallback tab.
@@ -20,9 +8,10 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import type { V5ModuleCAnswer } from '@codelens-v5/shared';
 import { getSocket } from '../../lib/socket.js';
 import { useSessionStore } from '../../stores/session.store.js';
-import { useV4ModuleStore } from '../../stores/v4-module.store.js';
+import { useModuleStore } from '../../stores/module.store.js';
 import { useVoiceStore, type VoiceState as StoreVoiceState } from '../../stores/voice.store.js';
 import { useVoiceRTC } from '../../hooks/useVoiceRTC.js';
 import { useBehaviorTracker } from '../../hooks/useBehaviorTracker.js';
@@ -109,7 +98,7 @@ function ensureKeyframes() {
 export const ModuleCPage: React.FC = () => {
   const token = useSessionStore((s) => s.token);
   const sessionId = useSessionStore((s) => s.sessionId);
-  const advance = useV4ModuleStore((s) => s.advance);
+  const advance = useModuleStore((s) => s.advance);
   const behavior = useBehaviorTracker('moduleC');
 
   // Preflight gate — user must confirm headphones + mic test before RTC starts.
@@ -299,10 +288,15 @@ export const ModuleCPage: React.FC = () => {
     setTextSubmitting(true);
     const socket = getSocket();
     const prompt = PROBE_PROMPTS[currentRound];
+    const payload: V5ModuleCAnswer = {
+      round: currentRound + 1,
+      question: prompt,
+      answer: textAnswer.trim(),
+    };
     socket.emit(
-      'v4:modulec:answer' as any,
-      { answer: textAnswer.trim(), question: prompt, topic: ROUND_LABELS[currentRound] },
-      (ok?: boolean) => {
+      'v5:modulec:answer',
+      payload,
+      (ok: boolean) => {
         setTextSubmitting(false);
         if (!ok) return;
         flushRoundBehavior(currentRound, { textModeUsed: true });
@@ -363,9 +357,9 @@ export const ModuleCPage: React.FC = () => {
 
     // Notify server to mark session COMPLETED + trigger final scoring
     const socket = getSocket();
-    (socket as any).emit('v4:interview:end', { sessionId }, () => {});
+    socket.emit('session:end', () => {});
     advance();
-  }, [advance, sessionId, currentRound, mode, flushRoundBehavior, behavior]);
+  }, [advance, currentRound, mode, flushRoundBehavior, behavior]);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);

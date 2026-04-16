@@ -1,15 +1,9 @@
-// TODO V5: Update imports (remove V4-specific types)
-// TODO V5: Replace V4 store references (useV4ExamStore → useExamStore, useV4ModuleStore → useModuleStore)
-// TODO V5: Check "tier" references → should be "suiteId" (V5 uses session.metadata.suiteId)
-// TODO V5: Keep unchanged (90%+): Completion UI, animation, thank-you message, feedback form
-// Original V4 path: packages/client/src/pages/v4/CompletePage.tsx
-
 /**
  * Terminal page — shown when the candidate finishes the last module.
  *
- * Redesigned from blank thank-you → "completion receipt" with:
- *  - Summary stats (duration, modules done, interview rounds)
- *  - Per-module completion status with MB1 detail (rounds + pass rate)
+ * Shows a "completion receipt" with:
+ *  - Summary stats (duration, modules done, MC probe rounds)
+ *  - Per-module completion status with MB detail (pass rate)
  *  - Next-steps timeline (report → recruiter review → notification)
  *  - Session ID for traceability
  *
@@ -17,133 +11,54 @@
  */
 
 import React, { useMemo } from 'react';
-import { useSessionStore } from '../../stores/session.store.js';
-import { useV4ExamStore } from '../../stores/v4-exam.store.js';
-import { useV4ModuleStore, type V4ModuleId } from '../../stores/v4-module.store.js';
-import { colors, spacing, radii, fontSizes, fontWeights } from '../../lib/tokens.js';
+import type { V5ModuleKey, V5Submissions, V5MBSubmission } from '@codelens-v5/shared';
+import { useSessionStore } from '../stores/session.store.js';
+import { useModuleStore } from '../stores/module.store.js';
+import { colors, spacing, radii, fontSizes, fontWeights } from '../lib/tokens.js';
 
-// ─── Module labels (Chinese) ────────────────────────────────────────────────
-
-const MODULE_META: Record<string, { label: string; desc: string }> = {
+const MODULE_META: Record<V5ModuleKey, { label: string; desc: string }> = {
   phase0:     { label: 'Phase 0',     desc: '基线诊断' },
   moduleA:    { label: 'Module A',    desc: '方案选型 + 缺陷审查' },
-  mb1:        { label: 'Module B1',   desc: 'AI 指挥' },
-  mb2:        { label: 'Module B2',   desc: '约束设计' },
+  mb:         { label: 'Module B',    desc: 'Cursor 协作' },
   moduleD:    { label: 'Module D',    desc: '系统设计' },
   selfAssess: { label: '自我评估',     desc: '' },
   moduleC:    { label: 'Module C',    desc: '语音追问' },
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 function formatDuration(ms: number): number {
   return Math.max(1, Math.round(ms / 60_000));
 }
 
-function getMB1Detail(sub: Record<string, unknown>): string | null {
-  const mb1 = sub.mb1 as Record<string, unknown> | undefined;
-  if (!mb1) return null;
-  const rounds = mb1.rounds as Array<Record<string, unknown>> | undefined;
-  if (!rounds || rounds.length === 0) return null;
-
-  const count = rounds.length;
-  // Find last round with test result for pass rate
-  let passRate: number | null = null;
-  for (let i = rounds.length - 1; i >= 0; i--) {
-    const tr = rounds[i].testResult as Record<string, unknown> | undefined;
-    if (tr && typeof tr.passRate === 'number') {
-      passRate = tr.passRate;
-      break;
-    }
-  }
-  const parts = [`${count} 轮`];
-  if (passRate !== null) parts.push(`通过率 ${Math.round(passRate * 100)}%`);
-  return parts.join('，');
+function getMBDetail(mb: V5MBSubmission | undefined): string | null {
+  if (!mb) return null;
+  return `通过率 ${Math.round(mb.finalTestPassRate * 100)}%`;
 }
 
-function getMCRounds(sub: Record<string, unknown>): number {
-  const mc = sub.modulec as Record<string, unknown> | undefined;
-  if (!mc) return 0;
-  const rounds = mc.rounds as unknown[] | undefined;
-  return rounds?.length ?? 0;
-}
-
-// ─── Component ───────────────────────────────────────────────────────────────
-
-/** Map module id to all possible submission keys (backend uses lowercase 'modulec'). */
-function submissionKeys(m: string): string[] {
-  if (m === 'moduleC') return ['modulec', 'moduleC'];
-  if (m === 'moduleA') return ['moduleA', 'modulea'];
-  return [m];
-}
-
-function hasSub(submissions: Record<string, unknown>, m: string): boolean {
-  return submissionKeys(m).some((k) => submissions[k] != null);
-}
-
-/** Extract all submittedAt timestamps from the submissions tree. */
-function collectTimestamps(submissions: Record<string, unknown>): number[] {
-  const ts: number[] = [];
-  for (const val of Object.values(submissions)) {
-    if (val == null || typeof val !== 'object') continue;
-    const rec = val as Record<string, unknown>;
-    if (typeof rec.submittedAt === 'string' || typeof rec.submittedAt === 'number') {
-      const t = new Date(rec.submittedAt as string | number).getTime();
-      if (!isNaN(t)) ts.push(t);
-    }
-    // Check nested rounds (modulec, mb1)
-    const rounds = rec.rounds as unknown[] | undefined;
-    if (Array.isArray(rounds)) {
-      for (const r of rounds) {
-        if (r && typeof r === 'object') {
-          const rr = r as Record<string, unknown>;
-          if (typeof rr.submittedAt === 'string' || typeof rr.submittedAt === 'number') {
-            const t = new Date(rr.submittedAt as string | number).getTime();
-            if (!isNaN(t)) ts.push(t);
-          }
-        }
-      }
-    }
-  }
-  return ts;
+function hasSub(submissions: V5Submissions, m: V5ModuleKey): boolean {
+  return submissions[m] != null;
 }
 
 export const CompletePage: React.FC = () => {
   const sessionId = useSessionStore((s) => s.sessionId);
   const timer = useSessionStore((s) => s.timer);
-  const submissions = useV4ExamStore((s) => s.submissions) as Record<string, unknown>;
-  const order = useV4ModuleStore((s) => s.order);
+  const submissions = useSessionStore((s) => s.submissions);
+  const moduleOrder = useModuleStore((s) => s.moduleOrder);
 
   const stats = useMemo(() => {
-    // Duration: prefer submission timestamps, fallback to timer
-    const timestamps = collectTimestamps(submissions);
-    let minutes: number;
-    if (timestamps.length >= 2) {
-      const elapsed = Math.max(...timestamps) - Math.min(...timestamps);
-      minutes = formatDuration(elapsed);
-    } else {
-      const elapsedMs = timer?.elapsedMs ?? 0;
-      minutes = formatDuration(elapsedMs);
-    }
+    const elapsedMs = timer?.elapsedMs ?? 0;
+    const minutes = formatDuration(elapsedMs);
 
-    // Visible modules (exclude 'complete' sentinel)
-    const modules = order.filter((m): m is Exclude<V4ModuleId, 'complete'> => m !== 'complete');
-
-    // Count done modules
-    const moduleStatuses = modules.map((m) => ({
+    const moduleStatuses = moduleOrder.map((m) => ({
       id: m,
       done: hasSub(submissions, m),
     }));
     const doneCount = moduleStatuses.filter((m) => m.done).length;
 
-    // MC rounds
-    const mcRounds = getMCRounds(submissions);
+    const mcRounds = submissions.moduleC?.length ?? 0;
+    const mbDetail = getMBDetail(submissions.mb);
 
-    // MB1 detail
-    const mb1Detail = getMB1Detail(submissions);
-
-    return { minutes, modules, moduleStatuses, doneCount, mcRounds, mb1Detail };
-  }, [timer, submissions, order]);
+    return { minutes, moduleStatuses, doneCount, mcRounds, mbDetail };
+  }, [timer, submissions, moduleOrder]);
 
   const shortId = sessionId ? sessionId.slice(0, 8) : '--------';
 
@@ -186,7 +101,7 @@ export const CompletePage: React.FC = () => {
             const meta = MODULE_META[id];
             if (!meta) return null;
             const label = meta.desc ? `${meta.label} — ${meta.desc}` : meta.label;
-            const detail = id === 'mb1' && done ? stats.mb1Detail : null;
+            const detail = id === 'mb' && done ? stats.mbDetail : null;
             return (
               <div key={id} style={styles.moduleRow}>
                 <div style={styles.moduleInfo}>
@@ -210,7 +125,7 @@ export const CompletePage: React.FC = () => {
             <TimelineItem
               color={colors.green}
               title="报告生成"
-              desc="AI 正在分析你的作答，从 8 个维度生成评估报告。大约需要 2 分钟。"
+              desc="AI 正在分析你的作答，从 6 个维度生成评估报告。大约需要 2 分钟。"
               isFirst
             />
             <TimelineItem
@@ -242,8 +157,6 @@ export const CompletePage: React.FC = () => {
   );
 };
 
-// ─── Timeline Item ───────────────────────────────────────────────────────────
-
 const TimelineItem: React.FC<{
   color: string;
   title: string;
@@ -264,8 +177,6 @@ const TimelineItem: React.FC<{
   </div>
 );
 
-// ─── Styles (Catppuccin Mocha dark theme) ────────────────────────────────────
-
 const styles: Record<string, React.CSSProperties> = {
   container: {
     display: 'flex',
@@ -285,7 +196,6 @@ const styles: Record<string, React.CSSProperties> = {
     paddingBottom: 48,
   },
 
-  // Hero
   heroSection: {
     display: 'flex',
     flexDirection: 'column',
@@ -318,7 +228,6 @@ const styles: Record<string, React.CSSProperties> = {
     maxWidth: 400,
   },
 
-  // Stats
   statsRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
@@ -344,7 +253,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: colors.subtext0,
   },
 
-  // Card
   card: {
     backgroundColor: colors.mantle,
     borderRadius: radii.lg,
@@ -358,7 +266,6 @@ const styles: Record<string, React.CSSProperties> = {
     margin: `0 0 ${spacing.lg}`,
   },
 
-  // Module rows
   moduleRow: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -399,7 +306,6 @@ const styles: Record<string, React.CSSProperties> = {
     marginLeft: 12,
   },
 
-  // Timeline
   timeline: {
     display: 'flex',
     flexDirection: 'column',
@@ -444,7 +350,6 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.5,
   },
 
-  // Footer
   footer: {
     display: 'flex',
     flexDirection: 'column',
