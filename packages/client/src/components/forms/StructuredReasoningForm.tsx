@@ -1,29 +1,22 @@
-// TODO V5: Verify props interface matches V5ModuleASubmission.round1.structuredForm
-//   V5 fields: { scenario, tradeoff, decision, verification }
-//   If V4 used different names (assumptions/tradeoffs/risks/verification), rename to V5 names
-// TODO V5: Keep unchanged: 4-field structured input UI, validation logic, submit handler
-// TODO V5: Used by: packages/client/src/pages/ModuleAPage.tsx (Round 1 section)
-// Original V4 path: packages/client/src/components/v4/StructuredReasoningForm.tsx
-
 /**
  * Four-field structured reasoning form used by Module A Round 1.
  *
  * Signal contract (sReasoningDepth): each field counts toward 0.25 if it
- * reaches ≥20 "meaningful" characters. Field names here (assumptions /
- * tradeoffs / risks / verification) map to the signal engine's
- * scenario/tradeoff/decision/verification via scoring-orchestrator-v4.
+ * reaches ≥20 "meaningful" characters. Field names align with the V5 signal
+ * engine's V5ModuleASubmission.round1.structuredForm:
+ * scenario / tradeoff / decision / verification.
  *
- * Reused by ModuleAPage Round 1. Kept as a standalone component so tests
- * can verify the 20-char hint without mounting the full page.
+ * Kept as a standalone component so tests can verify the 20-char hint
+ * without mounting the full ModuleAPage.
  */
 
 import React from 'react';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../../lib/tokens.js';
 
 export interface StructuredReasoning {
-  assumptions: string;
-  tradeoffs: string;
-  risks: string;
+  scenario: string;
+  tradeoff: string;
+  decision: string;
   verification: string;
 }
 
@@ -38,23 +31,23 @@ const FIELDS: Array<{
   placeholder: string;
 }> = [
   {
-    key: 'assumptions',
-    label: '1. 你做了哪些假设？',
-    placeholder: '例：假设流量峰值 < 1000 QPS；假设数据库可支持行级锁…',
+    key: 'scenario',
+    label: '1. 场景与约束',
+    placeholder: '例：流量峰值 < 1000 QPS；数据库支持行级锁；跨机房部署…',
   },
   {
-    key: 'tradeoffs',
-    label: '2. 你权衡了哪些取舍？',
-    placeholder: '例：性能 vs 代码简洁度；一致性 vs 可用性…',
+    key: 'tradeoff',
+    label: '2. 关键权衡',
+    placeholder: '例：性能 vs 代码简洁度；强一致性 vs 高可用…',
   },
   {
-    key: 'risks',
-    label: '3. 你看到了哪些风险？',
-    placeholder: '例：并发写入可能导致 double-booking；缓存雪崩…',
+    key: 'decision',
+    label: '3. 决策与理由',
+    placeholder: '例：选 B 方案，因为在给定约束下它对可扩展性最友好…',
   },
   {
     key: 'verification',
-    label: '4. 你会如何验证？',
+    label: '4. 验证方式',
     placeholder: '例：单元测试覆盖边界；压测脚本模拟 10x 流量…',
   },
 ];

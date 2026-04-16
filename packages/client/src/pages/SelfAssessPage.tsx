@@ -1,38 +1,24 @@
-// TODO V5: Replace socket event prefix "v4:" with "v5:" (~5 occurrences)
-//   - v4:selfAssess:submit → v5:selfAssess:submit
-// TODO V5: Update store imports: useV4ModuleStore → useModuleStore
-// TODO V5: Update submission types: V4SelfAssessPayload → V5SelfAssessSubmission
-// TODO V5: ADD NEW FEATURE - Decision Summary Display
-//   Before the confidence slider, display a summary of key decisions
-//   the candidate made (MA scheme choice, MB approach, MD design choice).
-//   Component suggestion: components/selfassess/DecisionSummary.tsx
-// TODO V5: Keep unchanged: Confidence slider (0-100), reasoning textarea, submit flow
-// Original V4 path: packages/client/src/pages/v4/SelfAssessPage.tsx
-
 /**
  * Self-Assessment (SE) — feeds sMetaCognition.
  *
  * Candidate rates their overall performance on a 0-100 slider and writes a
  * short reasoning. sMetaCognition = 1 - |selfRating/100 - actualComposite/100|,
- * so accurate self-assessment (within ±10) scores highest. The two-pass
- * scoring in scoring-orchestrator-v4 uses this to compute the D-K gap.
- *
- * Also serves as the "initial scoring trigger" per interview-v4.ns.ts —
- * after SE submits, the orchestrator runs signals → score → profile. This
- * means the candidate is effectively done when SE is submitted (Module C
- * voice follow-up still comes, but it only augments existing dimensions).
+ * so accurate self-assessment (within ±10) scores highest. Also serves as
+ * the "initial scoring trigger": after SE submits, the orchestrator runs
+ * signals → score → profile.
  */
 
 import React, { useRef, useState } from 'react';
-import { getSocket } from '../../lib/socket.js';
-import { useV4ModuleStore } from '../../stores/v4-module.store.js';
-import { useBehaviorTracker } from '../../hooks/useBehaviorTracker.js';
-import { colors, spacing, fontSizes, fontWeights, radii } from '../../lib/tokens.js';
+import { getSocket } from '../lib/socket.js';
+import { useModuleStore } from '../stores/module.store.js';
+import { useBehaviorTracker } from '../hooks/useBehaviorTracker.js';
+import { colors, spacing, fontSizes, fontWeights, radii } from '../lib/tokens.js';
 
 export const SelfAssessPage: React.FC = () => {
-  const advance = useV4ModuleStore((s) => s.advance);
-  const tier = useV4ModuleStore((s) => s.tier);
+  const advance = useModuleStore((s) => s.advance);
+  const suiteId = useModuleStore((s) => s.suiteId);
   const behavior = useBehaviorTracker('selfAssess');
+  const mountTimeRef = useRef(Date.now());
 
   const [confidence, setConfidence] = useState(60);
   const [reasoning, setReasoning] = useState('');
@@ -79,9 +65,13 @@ export const SelfAssessPage: React.FC = () => {
 
     const socket = getSocket();
     socket.emit(
-      'v4:selfAssess:submit' as any,
-      { confidence, reasoning },
-      (ok?: boolean) => {
+      'self-assess:submit',
+      {
+        selfConfidence: confidence,
+        selfIdentifiedRisk: reasoning.trim() || undefined,
+        responseTimeMs: Date.now() - mountTimeRef.current,
+      },
+      (ok: boolean) => {
         setSubmitting(false);
         if (ok) {
           advance();
@@ -96,7 +86,7 @@ export const SelfAssessPage: React.FC = () => {
     <div style={styles.container}>
       <h1 style={styles.heading}>Self-Assessment · 自我评估</h1>
       <p style={styles.subheading}>
-        {tier === 'quick'
+        {suiteId === 'quick_screen'
           ? '评估你在本次快筛中的整体表现。'
           : '在进入语音追问之前，先评估一下你整场考试的表现。'}
         诚实比"看起来好"更有价值 —— 我们会对比你的自评和真实得分，评估你的元认知能力。

@@ -1,48 +1,44 @@
-// TODO V5: Rename export TopBarV4 → TopBar (component name + export)
-// TODO V5: Replace tier prop with suiteId if needed
-// TODO V5: Update text: "CodeLens V4" → "CodeLens" (remove version indicator)
-// TODO V5: Update store imports: useV4ModuleStore → useModuleStore
-// TODO V5: Keep unchanged: Logo area, progress indicator, layout/styling
-// Original V4 path: packages/client/src/components/v4/TopBarV4.tsx
-
 /**
- * TopBarV4 — simplified module progress indicator for "AI 审判模式".
+ * TopBar — simplified module progress indicator.
  *
- * Shows: tier label + linear module dots + current module Chinese label.
- * No timer yet — Week 3 Day 1 scope is pre-timer; timer wiring lands
- * alongside Module A when per-module time budgets become meaningful.
+ * Shows: suite label + linear module dots + current module Chinese label.
+ * No timer yet — per-module time budgets wire in alongside Module A.
  */
 
 import React from 'react';
-import { useV4ModuleStore, type V4ModuleId } from '../../stores/v4-module.store.js';
-import { colors, spacing, fontSizes, fontWeights, radii } from '../../lib/tokens.js';
+import type { V5ModuleKey, SuiteId } from '@codelens-v5/shared';
+import { useModuleStore } from '../stores/module.store.js';
+import { colors, spacing, fontSizes, fontWeights, radii } from '../lib/tokens.js';
 
-const MODULE_LABELS: Record<V4ModuleId, string> = {
+const MODULE_LABELS: Record<V5ModuleKey, string> = {
   phase0: '基线诊断',
   moduleA: 'AI 审判',
-  mb1: '指挥 AI',
-  mb2: '约束设计',
+  mb: 'Cursor 协作',
   moduleD: '系统设计',
   selfAssess: '自我评估',
   moduleC: '语音追问',
-  complete: '完成',
 };
 
-const TIER_LABELS: Record<string, string> = {
-  quick: '快筛 · 20 min',
-  standard: '标准 · 45 min',
-  campus: '校招 · 40 min',
-  deep: '深度 · 75 min',
+const SUITE_LABELS: Record<SuiteId, string> = {
+  full_stack: '全栈',
+  architect: '架构师',
+  ai_engineer: 'AI 工程师',
+  quick_screen: '快筛',
+  deep_dive: '深度',
 };
 
-export const TopBarV4: React.FC = () => {
-  const tier = useV4ModuleStore((s) => s.tier);
-  const current = useV4ModuleStore((s) => s.current);
-  const order = useV4ModuleStore((s) => s.order);
+export const TopBar: React.FC = () => {
+  const suiteId = useModuleStore((s) => s.suiteId);
+  const currentModule = useModuleStore((s) => s.currentModule);
+  const moduleOrder = useModuleStore((s) => s.moduleOrder);
 
-  const currentIdx = order.indexOf(current);
-  // Hide the 'complete' sentinel from the visible progress row.
-  const visible = order.filter((m) => m !== 'complete');
+  // 'complete' / null → all dots done; 'intro' → none done; ModuleKey → indexOf
+  const currentIdx =
+    currentModule === 'complete' || currentModule === null
+      ? moduleOrder.length
+      : currentModule === 'intro'
+        ? -1
+        : moduleOrder.indexOf(currentModule);
 
   return (
     <header
@@ -65,7 +61,7 @@ export const TopBarV4: React.FC = () => {
             letterSpacing: '0.5px',
           }}
         >
-          CodeLens · AI 审判
+          CodeLens
         </span>
         <span
           style={{
@@ -76,7 +72,7 @@ export const TopBarV4: React.FC = () => {
             backgroundColor: colors.surface0,
           }}
         >
-          {TIER_LABELS[tier] ?? tier}
+          {suiteId ? (SUITE_LABELS[suiteId] ?? suiteId) : ''}
         </span>
       </div>
 
@@ -87,10 +83,9 @@ export const TopBarV4: React.FC = () => {
           gap: spacing.md,
         }}
       >
-        {visible.map((id, idx) => {
-          const visibleIdx = order.indexOf(id);
-          const isActive = id === current;
-          const isDone = visibleIdx < currentIdx;
+        {moduleOrder.map((id, idx) => {
+          const isActive = id === currentModule;
+          const isDone = idx < currentIdx;
           const color = isDone ? colors.green : isActive ? colors.blue : colors.surface2;
           return (
             <div
@@ -103,7 +98,7 @@ export const TopBarV4: React.FC = () => {
                 color: isActive ? colors.text : colors.overlay1,
                 fontWeight: isActive ? fontWeights.semibold : fontWeights.normal,
               }}
-              data-testid={`v4-step-${id}`}
+              data-testid={`step-${id}`}
               data-active={isActive || undefined}
             >
               <span
@@ -116,7 +111,7 @@ export const TopBarV4: React.FC = () => {
                 }}
               />
               <span>{MODULE_LABELS[id]}</span>
-              {idx < visible.length - 1 && (
+              {idx < moduleOrder.length - 1 && (
                 <span style={{ color: colors.surface1, marginLeft: spacing.xs }}>→</span>
               )}
             </div>
