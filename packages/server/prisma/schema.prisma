@@ -1,45 +1,6 @@
-// TODO V5: SCHEMA CHANGES REQUIRED BEFORE FIRST MIGRATION
-//
-// KEEP unchanged:
-//   - Organization, OrgMember, Candidate, Template, User models
-//   - Authentication/Authorization related tables
-//
-// SIMPLIFY Session model:
-//   - Remove: schemaVersion field (all V5 going forward)
-//   - metadata field keeps as Json, but structure defined by V5Submissions in shared
-//
-// REFACTOR ExamInstance:
-//   - DELETE deprecated V3/V4 fields:
-//     * schemes, defectsInBest, failureScenario
-//     * v4Requirement, scaffold, phase0Questions
-//     * harnessReference, samples
-//   - ADD new V5 fields:
-//     * businessScenario: Json  (non-nullable, required)
-//     * techStack: String
-//     * domain: String
-//     * challengePattern: String
-//     * archStyle: String?
-//     * level: String
-//     * orgId: String?  (for future multi-tenancy)
-//
-// ADD new ExamModule table:
-//   model ExamModule {
-//     id              String       @id @default(uuid())
-//     examInstanceId  String
-//     examInstance    ExamInstance @relation(fields: [examInstanceId], references: [id])
-//     moduleType      String       // 'P0' | 'MA' | 'MB' | 'MD' | 'SE' | 'MC'
-//     scenarioRef     String       // references businessScenario path
-//     moduleSpecific  Json         // module-specific exam data
-//     version         Int          @default(1)
-//     createdAt       DateTime     @default(now())
-//     @@unique([examInstanceId, moduleType])
-//   }
-//
-// MIGRATION PLAN:
-//   1. Delete packages/server/prisma/migrations/ folder after schema changes
-//   2. Run: npx prisma migrate dev --name init_v5
-//   3. This creates a fresh initial migration with no V3/V4 history
-//
+// CodeLens V5 schema — zero V3/V4 residue. All exam data flows through
+// ExamInstance.businessScenario + ExamModule.moduleSpecific. V1/V2 checkpoint
+// tables remain for historical/non-exam paths (sessions, scoring, events).
 
 generator client {
   provider = "prisma-client-js"
@@ -62,11 +23,12 @@ model Organization {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  members    OrgMember[]
-  sessions   Session[]
-  candidates Candidate[]
-  templates  Template[]
-  webhooks   WebhookConfig[]
+  members       OrgMember[]
+  sessions      Session[]
+  candidates    Candidate[]
+  templates     Template[]
+  examInstances ExamInstance[]
+  webhooks      WebhookConfig[]
 }
 
 model OrgMember {
@@ -96,13 +58,12 @@ model Session {
   status            String             @default("CREATED") // CREATED, SANDBOX_READY, IN_PROGRESS, PAUSED, COMPLETED, EXPIRED, ERROR
   sandboxId         String?
   currentCheckpoint Int                @default(0)
-  schemaVersion     Int                @default(3) // 1=v1/v2 checkpoint, 3=v3 module, 4=v4 judgment mode
-  baselineScore     Float?             // Phase 0 baseline score (V3 only)
   experimentGroup   String?            // A/B test group identifier
   startedAt         DateTime?
   completedAt       DateTime?
   expiresAt         DateTime
-  metadata          Json               @default("{}")
+  metadata          Json               @default("{}") // V5Submissions — candidate产出
+  scoringResult     Json?              // V5 scoring 产物 { signals, dimensions, composite, grade, dangerFlag }
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
@@ -115,13 +76,6 @@ model Session {
   behaviorSignals   BehaviorSignal[]
   integrityReports  IntegrityReport[]
   feedback          SessionFeedback?
-  microVerifications MicroVerification[]
-  selfAssessments    SelfAssessment[]
-  candidateProfiles  CandidateProfile[]
-  silentMutations    SilentMutation[]
-  examInstances      ExamInstance[]
-  harnessSubmission  HarnessSubmission?
-  stage2Result       Stage2Result?
 
   @@index([candidateId])
   @@index([status])
@@ -423,164 +377,44 @@ model SessionFeedback {
   session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 }
 
-// ── V3 Tables ──
-
-model MicroVerification {
-  id              String    @id @default(uuid())
-  sessionId       String
-  modulePhase     String    // 'A', 'B', etc.
-  triggerType     String    // 'post_fix', 'post_feature', 'ai_adoption'
-  questionType    String    @default("reason") // 'locate' or 'reason'
-  question        String
-  candidateAnswer String?
-  answeredAt      DateTime?
-  evaluationResult Json?
-  confidenceScore Float?
-  createdAt       DateTime  @default(now())
-
-  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId])
-}
-
-model SelfAssessment {
-  id             String   @id @default(uuid())
-  sessionId      String
-  confidence     Int      // 1-5
-  risk           String   @default("")
-  responseTimeMs Int      @default(0)
-  createdAt      DateTime @default(now())
-
-  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId])
-}
-
-model CandidateProfile {
-  id          String   @id @default(uuid())
-  sessionId   String
-  dimensions  Json     // { efficiency, leverage, depth, reliability, planning? }
-  tier        String   // S, A, B, B_minus, C, D
-  riskFlags   Json     @default("[]")
-  signals     Json     @default("{}") // raw 20-signal snapshot
-  narrative   String?  // LLM-generated summary
-  createdAt   DateTime @default(now())
-
-  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId])
-}
-
-model SilentMutation {
-  id                 String    @id @default(uuid())
-  sessionId          String
-  modulePhase        String
-  mutationType       String    // 'A', 'B', 'C', 'D'
-  file               String
-  line               Int
-  originalCode       String    @db.Text
-  mutatedCode        String    @db.Text
-  injectedAt         DateTime  @default(now())
-  discoveredAt       DateTime?
-  fixedAt            DateTime?
-  resolutionSeconds  Int?
-  triggered          Boolean   @default(false)
-  discoveryMethod    String?   // 'test_driven'|'browsing'|'conflict_reveal'|'terminal_cat'|'ai_assisted'
-  affectedTestName   String?
-  testOutputSnapshot String?   @db.Text
-
-  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId])
-}
+// ── V5: Exam (BusinessScenario + per-module payload) ──
 
 model ExamInstance {
-  id                  String    @id @default(uuid())
-  templateModelId     String
-  seed                Int
-  issues              Json      @default("[]")
-  requirement         Json      @default("{}")
-  mutations           Json      @default("[]")
-  baselines           Json      @default("{}")
-  baselineQuestions   Json      @default("[]")   // Phase 0 baseline test questions
-  codebaseFiles       Json      @default("{}")
-  dependencyGraph     Json      @default("{}")
-  qualityLabels       Json      @default("{}")
-  harnessTask         Json      @default("{}")    // M3: B2 harness task definition
-  openTask            Json?                       // v3 deep: Module D open-ended task definition
+  id               String  @id @default(uuid())
+  seed             Int
+  businessScenario Json
+  techStack        String
+  domain           String
+  challengePattern String
+  archStyle        String?
+  level            String
+  orgId            String?
 
-  // ── v4 (schemaVersion=4) judgment-mode fields, all nullable ──
-  schemes             Json?     // 3 AI 方案对比（A 快有隐患/B 稳最优/C 折中有坑）
-  defectsInBest       Json?     // 最优方案植入的 4 个缺陷（性能/安全/逻辑/设计）
-  failureScenario     Json?     // Round 3 AI 失败场景: { matchKeywords[3], successCode, failedRetryCode }
-  v4Requirement       Json?     // MB1 v4 需求（标准/挑战 + 待填签名 + 测试）
-  scaffold            Json?     // MB1 初始代码 = 骨架 + 测试 + 待填签名
-  phase0Questions     Json?     // P0 题目（5 预判 + 3 决策 + 1 代码阅读 + groundTruth）
-  harnessReference    Json?     // MB2 Harness 参考约束
-  aiQualityReview     Json?     // 出题质量自检结果（5 项自动 + 1 LLM）
-  samples             Json?     // 4 级（S/A/B/D）模拟器预生成样本回答
-  harnessSkipReason   String?   // Stage 2 跳过原因: insufficient_baseline | model_failure | ...
-
-  discriminationScore Float?
+  // Analytics — V5.0 不主动维护,V5.1+ 启用
   usedCount           Int       @default(0)
-  deprecated          Boolean   @default(false)
-  generatedAt         DateTime  @default(now())
+  avgCompletionMins   Float?
+  avgCompositeScore   Float?
+  discriminationScore Float?
+  lastUsedAt          DateTime?
+  qualityReport       Json?
 
-  // M2: Calibration tracking
-  calibrationStatus   String    @default("uncalibrated")  // 'uncalibrated' | 'calibrated' | 'flagged'
-  lastCalibratedAt    DateTime?
+  organization Organization? @relation(fields: [orgId], references: [id])
+  modules      ExamModule[]
 
-  // V1 compatibility (optional session link)
-  sessionId           String?
-  session             Session?  @relation(fields: [sessionId], references: [id])
-
-  @@index([templateModelId])
-  @@index([templateModelId, deprecated])
+  @@index([orgId])
 }
 
-// ── M3: Harness (B2 Constraint Design) ──
+model ExamModule {
+  id             String       @id @default(uuid())
+  examInstanceId String
+  moduleType     String       // 'P0' | 'MA' | 'MB' | 'MD' | 'SE' | 'MC'
+  scenarioRef    String?
+  moduleSpecific Json
+  version        Int          @default(1)
+  createdAt      DateTime     @default(now())
 
-model HarnessSubmission {
-  id              String   @id @default(uuid())
-  sessionId       String   @unique
-  rulesContent    String   @db.Text
-  agentContent    String?  @db.Text
-  testFiles       Json     // [{ path, content }]
-  validationFiles Json?    // [{ path, content }]
-  submittedAt     DateTime @default(now())
+  examInstance ExamInstance @relation(fields: [examInstanceId], references: [id], onDelete: Cascade)
 
-  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-}
-
-model Stage2Result {
-  id                    String    @id @default(uuid())
-  sessionId             String    @unique
-  rounds                Int
-  exitReason            String    // 'converged'|'stagnated'|'degraded'|'repeated'|'no_constraints'|'safety_net'|'model_failure'
-  convergenceCurve      Json      // Array<{ round, candidateTestPass, standardTestPass }>
-  finalStandardTestPass Float
-  constraintViolations  Int       @default(0)
-  filesModified         Json      // string[]
-  totalDurationSeconds  Int
-  modelUsed             String    @default("deepseek-chat")
-  startedAt             DateTime
-  completedAt           DateTime?
-  error                 String?   @db.Text
-
-  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-}
-
-// ── V4: Calibration Labels (human ground truth for scoring calibration) ──
-
-model CalibrationLabel {
-  id              String   @id @default(uuid())
-  sessionId       String
-  labeledBy       String   // reviewer email or name
-  humanTier       String   // S+/S/A/B+/B/B-/C/D
-  humanDimensions Json     // { 产出: 1-5, 理解: 1-5, ... }
-  notes           String?  @db.Text
-  labeledAt       DateTime @default(now())
-
-  @@index([sessionId])
-  @@unique([sessionId, labeledBy])
+  @@unique([examInstanceId, moduleType])
+  @@index([examInstanceId])
 }
