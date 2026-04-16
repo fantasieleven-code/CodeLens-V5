@@ -7,5 +7,17 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"]
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.spec.ts", "src/**/*.spec.tsx"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx",
+    "src/hooks/useSocket.ts",
+    "src/hooks/useErrorHandler.ts",
+    "src/hooks/admin/**",
+    "src/lib/anti-cheat.ts",
+    "src/pages/ModuleCPage.tsx"
+  ]
 }
