@@ -1,36 +1,28 @@
-// TODO V5: Rename internal types from "Harness" to "Rules"
-// TODO V5: Verify import paths after move to components/editors/
-// TODO V5: Remove V4-specific prop names if any
-// Original V4 path: packages/client/src/components/v4/HarnessEditor.tsx
-// V5 usage: MB Stage 3 (RULES.md editor)
-//
-
 /**
- * HarnessEditor — v4 Module B2 writable Monaco editor.
+ * RulesEditor — MB Stage 3 writable Monaco editor for RULES.md (and optional AGENT.md).
  *
- * ⚠️  GLOBAL RULE: every Monaco in v4 is readOnly — this file is the ONE
- * exception. Candidates write RULES.md (and optionally AGENT.md) here to
+ * ⚠️  GLOBAL RULE: every Monaco editor is readOnly by default — this file is the
+ * ONE exception. Candidates write RULES.md (and optionally AGENT.md) here to
  * constrain how the Stage 2 autonomous runner uses the AI. The editor is
  * intentionally writable because candidates are producing English-language
- * constraints, not application code. See JudgmentLayout.tsx top comment and
- * CLAUDE.md rule 5.
+ * constraints, not application code.
  *
- * Any new readOnly=false Monaco instance in v4 MUST go through PR review.
+ * Any new readOnly=false Monaco instance MUST go through PR review.
  *
  * This component is a thin 2-tab wrapper around @monaco-editor/react. Parents
- * own the content state — HarnessEditor just forwards change events. The
- * RULES.md tab is required; AGENT.md is optional (per ExamV4HarnessReference,
- * AGENT.md captures higher-level orchestration guidance and may be omitted).
+ * own the content state — RulesEditor just forwards change events. The
+ * RULES.md tab is required; AGENT.md is optional (AGENT.md captures
+ * higher-level orchestration guidance and may be omitted).
  */
 
 import React, { useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../../lib/tokens.js';
 
-export type HarnessTabId = 'rules' | 'agent';
-type TabId = HarnessTabId;
+export type RulesTabId = 'rules' | 'agent';
+type TabId = RulesTabId;
 
-interface HarnessEditorProps {
+interface RulesEditorProps {
   rulesContent: string;
   agentContent: string | null;
   onRulesChange: (value: string) => void;
@@ -40,7 +32,7 @@ interface HarnessEditorProps {
   onTabChange?: (tab: TabId) => void;
 }
 
-export const HarnessEditor: React.FC<HarnessEditorProps> = ({
+export const RulesEditor: React.FC<RulesEditorProps> = ({
   rulesContent,
   agentContent,
   onRulesChange,
@@ -70,7 +62,7 @@ export const HarnessEditor: React.FC<HarnessEditorProps> = ({
   const activeValue = activeTab === 'rules' ? rulesContent : agentContent ?? '';
 
   return (
-    <div style={styles.container} data-testid="harness-editor">
+    <div style={styles.container} data-testid="rules-editor">
       <div style={styles.tabs}>
         <button
           type="button"
@@ -79,7 +71,7 @@ export const HarnessEditor: React.FC<HarnessEditorProps> = ({
             ...styles.tab,
             ...(activeTab === 'rules' ? styles.tabActive : {}),
           }}
-          data-testid="harness-tab-rules"
+          data-testid="rules-tab-rules"
         >
           RULES.md
           <span style={styles.required}>必填</span>
@@ -92,7 +84,7 @@ export const HarnessEditor: React.FC<HarnessEditorProps> = ({
               ...styles.tab,
               ...(activeTab === 'agent' ? styles.tabActive : {}),
             }}
-            data-testid="harness-tab-agent"
+            data-testid="rules-tab-agent"
           >
             AGENT.md
             <span style={styles.optional}>可选</span>
@@ -103,13 +95,13 @@ export const HarnessEditor: React.FC<HarnessEditorProps> = ({
           type="button"
           onClick={handleToggleAgent}
           style={styles.toggleAgent}
-          data-testid="harness-toggle-agent"
+          data-testid="rules-toggle-agent"
         >
           {hasAgent ? '− 移除 AGENT.md' : '+ 添加 AGENT.md'}
         </button>
       </div>
 
-      <div style={styles.editorWrap} data-testid={`harness-editor-pane-${activeTab}`}>
+      <div style={styles.editorWrap} data-testid={`rules-editor-pane-${activeTab}`}>
         <Editor
           key={activeTab}
           value={activeValue}

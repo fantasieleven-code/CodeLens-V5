@@ -110,7 +110,7 @@ export const ModuleCPage: React.FC = () => {
   const token = useSessionStore((s) => s.token);
   const sessionId = useSessionStore((s) => s.sessionId);
   const advance = useV4ModuleStore((s) => s.advance);
-  const behavior = useBehaviorTracker('modulec');
+  const behavior = useBehaviorTracker('moduleC');
 
   // Preflight gate — user must confirm headphones + mic test before RTC starts.
   // This prevents the "Tencent Meeting screen share" echo loop where Emma's own

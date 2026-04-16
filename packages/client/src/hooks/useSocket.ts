@@ -1,11 +1,3 @@
-// TODO V5: Change all "v4:" event prefixes to "v5:" (8 occurrences)
-// TODO V5: Update event payload types to V5 structures (from @codelens-v5/shared)
-// TODO V5: Keep connection management and reconnection logic unchanged
-// TODO V5: Add new V5 events for Cursor mode:
-//   - v5:mb:chat_generate, v5:mb:completion_request, v5:mb:diff_apply
-// Original V4 path: packages/client/src/hooks/useSocket.ts
-//
-
 import { useEffect, useRef } from 'react';
 import { connectSocket, disconnectSocket, type TypedSocket } from '../lib/socket.js';
 import { useSessionStore } from '../stores/session.store.js';
