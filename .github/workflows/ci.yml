@@ -17,6 +17,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      - name: Build shared package
+        run: npm run build --workspace=@codelens-v5/shared
       - name: TypeScript check (shared)
         run: npx tsc --noEmit -p packages/shared/tsconfig.json
       - name: TypeScript check (server)
