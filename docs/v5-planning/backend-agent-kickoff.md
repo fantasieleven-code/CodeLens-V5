@@ -99,4 +99,9 @@ Task: Task 2 - ExamInstance Schema 拆分 + ExamDataService
 - self-merge 前本地跑 `npm run lint` + server typecheck + vitest
 - self-merge 后汇报 Steve:"PR #N merged, commit X, 继续 Task/Step Y"
 
+Delta 判断细则(CI red ≠ 阻塞 self-merge):
+- PR 触的文件全部不在 `packages/server/**` 时,server typecheck 错误不计入 delta(PR 本身不可能引入 server 错误)
+- 自检路径:local `lint` + typecheck + vitest 全 pass,且 CI error count ≤ baseline,即可 self-merge,不因 CI red 再问
+- 反例:PR 一旦触 server/ 任何文件,CI 的 server typecheck count 是 delta 权威值,不能用 local 覆盖
+
 自 Task 2 起生效。当前 Task 2 schema PR 必须走 review(schema 改动)。
