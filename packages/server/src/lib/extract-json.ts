@@ -53,6 +53,7 @@ export function extractJSON<T = unknown>(text: string): ExtractResult<T> {
 
   // Pass 3: Aggressive cleanup
   try {
+    // eslint-disable-next-line no-control-regex
     const cleaned = text.replace(/[\x00-\x1F\x7F]/g, ' ');
     const s = cleaned.indexOf('{');
     const e = cleaned.lastIndexOf('}');

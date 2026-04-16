@@ -51,7 +51,9 @@ healthRouter.get('/', async (_req, res) => {
   let eventBufferStats = { eventBufferSize: 0, signalBufferSize: 0 };
   try {
     eventBufferStats = await eventBus.getBufferStats();
-  } catch {}
+  } catch {
+    // Redis/EventBus may be unavailable in dev/offline mode; leave defaults.
+  }
 
   const allOk = checks.db === 'ok' && checks.redis === 'ok';
   res.status(allOk ? 200 : 503).json({
