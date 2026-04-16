@@ -8,3 +8,12 @@ export * from './types/ws.js';
 export * from './types/template.js';
 export * from './schemas/index.js';
 export * from './constants.js';
+
+// ── V5 ──
+export * from './types/v5-dimensions.js';
+export * from './types/v5-business-scenario.js';
+export * from './types/v5-submissions.js';
+export * from './types/v5-suite.js';
+export * from './types/v5-events.js';
+export * from './types/v5-signals.js';
+export * from './constants/index.js';
