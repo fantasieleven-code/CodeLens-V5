@@ -19,7 +19,7 @@ npm run dev
 - **Unified BusinessScenario**: One business context spans all modules
 - **Suite system**: 5 pre-configured evaluation suites for different roles
 - **Cursor mode**: Candidates work in a multi-file IDE with AI assistance
-- **40 signals**: Data-driven scoring across 6 dimensions
+- **43 signals**: Data-driven scoring across 6 dimensions
 
 See `docs/v5-design-spec.md` for full architecture documentation.
 

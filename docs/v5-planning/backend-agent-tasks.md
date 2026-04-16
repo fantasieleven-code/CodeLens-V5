@@ -39,7 +39,7 @@ codeQuality           - MA R2 审查 + MB 审查/规则/审计
 communication         - MC + 写作横切
 metacognition         - SE + P0 AI 校准/决策风格
 
-### 40 信号（37 纯规则 + 3 LLM 白名单，全在 MD）
+### 43 信号（40 纯规则 + 3 LLM 白名单，全在 MD）
 
 每个信号独立文件放 `packages/server/src/signals/{module}/{signal-name}.ts`。
 通过 SignalRegistry 注册。
@@ -935,7 +935,7 @@ interface PromptRegistry {
 - async compute 支持
 - LLM 白名单超时 + 重试
 - Langfuse 调用日志记录
-- 覆盖 40 个信号的注册点
+- 覆盖 43 个信号的注册点
 
 **注意**：信号的 compute 实现由 Task 13 逐个做，这里只完善框架。
 
@@ -1309,7 +1309,7 @@ socket.on('v5:mb:audit:submit', async ({ violations }) => {
 
 ---
 
-### Task 13: 40 个信号实现（7 天）
+### Task 13: 43 个信号实现（7 天）
 
 按模块目录创建每个信号独立文件：
 packages/server/src/signals/
@@ -1456,11 +1456,11 @@ fallback: (input) => {
 ```
 
 **验收**：
-- 40 个信号全部注册
+- 43 个信号全部注册
 - 每个信号单元测试
 - LLM 白名单信号的 fallback 能正确降级
 
-**PR**: feat(signals): 40 signals implementation
+**PR**: feat(signals): 43 signals implementation
 
 ---
 
@@ -1594,7 +1594,7 @@ test.describe.serial('V5 Golden Path - full_stack', () => {
     const result = await runGoldenPath(fixture);
     expect(result.grade).toBe('S');
     expect(result.composite).toBeCloseTo(fixture.expectedComposite, 1);
-    // 验证 40 信号值
+    // 验证 43 信号值
     for (const [signalId, expectedValue] of Object.entries(fixture.expectedSignals)) {
       expect(result.signals[signalId]).toBeCloseTo(expectedValue, 2);
     }

@@ -8,7 +8,7 @@
 2. BusinessScenario Design
 3. Module Specifications (P0 / MA / MB / MD / SE / MC)
 4. Suite System (5 suites)
-5. Signal Registry (40 signals)
+5. Signal Registry (43 signals)
 6. Scoring System (6 dimensions)
 7. Cursor Mode MB Design
 8. Report Generation (section registry + 2-layer structure)
