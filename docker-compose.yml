@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: codelens-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: codelens
+      POSTGRES_USER: codelens
+      POSTGRES_PASSWORD: codelens
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U codelens']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: codelens-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: packages/server/Dockerfile
+    container_name: codelens-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://codelens:codelens@postgres:5432/codelens
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: production
+      PORT: 4000
+    ports:
+      - '4000:4000'
+    env_file:
+      - .env
+
+  nginx:
+    image: nginx:alpine
+    container_name: codelens-nginx
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - '80:80'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
+volumes:
+  pgdata:
+  redisdata:

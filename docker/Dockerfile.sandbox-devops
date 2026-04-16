@@ -1,0 +1,28 @@
+# sandbox-devops — DevOps/SRE assessment sandbox
+# Pre-installs mock CLI tools that simulate docker/terraform/kubectl/gh.
+# G-9: mock commands use grep/awk condition branches, not intelligent judgment.
+
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash coreutils jq curl grep gawk sed \
+    && rm -rf /var/lib/apt/lists/*
+
+# Non-root user
+RUN groupadd -r sandbox && useradd -r -g sandbox -m -d /home/sandbox sandbox
+
+# Install mock CLI tools
+COPY docker/mock/ /home/sandbox/.mock/
+RUN chmod +x /home/sandbox/.mock/bin/* && \
+    ln -sf /home/sandbox/.mock/bin/* /usr/local/bin/
+
+WORKDIR /workspace
+RUN mkdir -p /workspace && chown sandbox:sandbox /workspace
+
+LABEL codelens.sandbox.type="devops" \
+      codelens.sandbox.memory="536870912" \
+      codelens.sandbox.cpus="0.5" \
+      codelens.sandbox.pids="64"
+
+USER sandbox
+CMD ["bash"]

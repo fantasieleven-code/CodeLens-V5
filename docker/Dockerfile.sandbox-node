@@ -1,0 +1,54 @@
+# codelens-sandbox-node — JavaScript/TypeScript assessment sandbox
+# Pre-installs Jest + React ecosystem; network disabled at runtime.
+
+FROM node:20-slim
+
+# Install tini for proper PID 1 / zombie reaping
+RUN apt-get update && apt-get install -y --no-install-recommends tini && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user (matches python/java sandboxes)
+RUN useradd -m -s /bin/bash candidate
+
+# Fix PTY issues (matches python/java sandboxes)
+RUN echo 'set enable-bracketed-paste off' > /home/candidate/.inputrc && \
+    echo 'export TERM=xterm-256color' >> /home/candidate/.bashrc && \
+    echo 'export NO_COLOR=1' >> /home/candidate/.bashrc && \
+    echo 'export PS1="\[\e[32m\]\w\[\e[0m\]\$ "' >> /home/candidate/.bashrc && \
+    chown candidate:candidate /home/candidate/.inputrc /home/candidate/.bashrc
+
+# Pre-install global tools available to all JS/TS templates
+RUN npm install -g jest@^29 ts-jest@^29 typescript@^5 ts-node@^10 jest-environment-jsdom@^29 && npm cache clean --force
+
+# Pre-warm node_modules cache: install common deps into candidate home
+# Templates will get these via NODE_PATH or local node_modules symlink
+USER candidate
+WORKDIR /home/candidate/node_cache
+RUN npm init -y && \
+    npm install \
+      jest@^29 \
+      ts-jest@^29 \
+      typescript@^5 \
+      @types/jest@^29 \
+      @types/node@^20 \
+      jest-environment-jsdom@^29 \
+      react@^18 \
+      react-dom@^18 \
+      @types/react@^18 \
+      @types/react-dom@^18 \
+      @testing-library/react@^16 \
+      @testing-library/jest-dom@^6 \
+      esbuild@^0.21 \
+      zustand@^5 \
+    && npm cache clean --force
+
+# Set NODE_PATH so globally cached modules are found without local install
+ENV NODE_PATH=/home/candidate/node_cache/node_modules
+
+# Setup working directory
+USER root
+RUN mkdir -p /home/candidate/project && chown candidate:candidate /home/candidate/project
+WORKDIR /home/candidate/project
+
+USER candidate
+ENTRYPOINT ["tini", "--"]
+CMD ["sleep", "infinity"]

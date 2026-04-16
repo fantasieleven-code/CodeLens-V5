@@ -1,0 +1,49 @@
+FROM python:3.11-slim
+
+# Install tini for proper PID 1 / zombie reaping
+RUN apt-get update && apt-get install -y --no-install-recommends tini bats && rm -rf /var/lib/apt/lists/*
+
+# Pre-install all Python dependencies (network disabled at runtime)
+# B21 fix: include all packages that backend/test exam code may import
+RUN pip install --no-cache-dir \
+    sqlalchemy==2.0.36 \
+    pytest==8.3.4 \
+    pytest-json-report==1.5.0 \
+    pytest-asyncio==0.24.0 \
+    pytest-metadata==3.1.1 \
+    fastapi==0.115.5 \
+    "uvicorn[standard]==0.32.1" \
+    httpx==0.27.2 \
+    requests==2.32.3 \
+    pydantic==2.10.3 \
+    pydantic-settings==2.7.1 \
+    anyio==4.7.0 \
+    python-multipart==0.0.24 \
+    redis==5.2.1 \
+    fakeredis==2.26.2 \
+    email-validator==2.2.0 \
+    && pip cache purge
+
+# B11 fix: Configure pip to use Tsinghua mirror (network disabled at runtime, but
+# if candidate tries pip install it needs a mirror rather than hanging on PyPI timeout)
+RUN mkdir -p /etc && printf '[global]\nindex-url = https://pypi.tuna.tsinghua.edu.cn/simple\ntrusted-host = pypi.tuna.tsinghua.edu.cn\n' > /etc/pip.conf
+
+# Create non-root user
+RUN useradd -m -s /bin/bash candidate
+
+# Fix PTY issues:
+# 1. Disable bracketed paste (causes 'p prefix on paste in Docker exec PTY)
+# 2. Set TERM properly for clean ANSI output
+RUN echo 'set enable-bracketed-paste off' > /home/candidate/.inputrc && \
+    echo 'export TERM=xterm-256color' >> /home/candidate/.bashrc && \
+    echo 'export NO_COLOR=1' >> /home/candidate/.bashrc && \
+    echo 'export PS1="\[\e[32m\]\w\[\e[0m\]\$ "' >> /home/candidate/.bashrc && \
+    chown candidate:candidate /home/candidate/.inputrc /home/candidate/.bashrc
+
+# Setup working directory
+WORKDIR /home/candidate/project
+RUN chown candidate:candidate /home/candidate/project
+
+USER candidate
+ENTRYPOINT ["tini", "--"]
+CMD ["sleep", "infinity"]

@@ -1,0 +1,52 @@
+{
+  "name": "@codelens-v5/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "tsx prisma/seed.ts",
+    "demo": "tsx prisma/demo-seed.ts",
+    "db:studio": "prisma studio",
+    "db:generate": "prisma generate",
+    "test": "vitest run",
+    "test:golden-set": "vitest run golden-set.regression",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@e2b/code-interpreter": "^1.0.0",
+    "@prisma/client": "^5.10.0",
+    "@socket.io/redis-adapter": "^8.2.0",
+    "cors": "^2.8.5",
+    "dockerode": "^4.0.10",
+    "dotenv": "^17.3.1",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.1.0",
+    "helmet": "^7.1.0",
+    "ioredis": "^5.3.0",
+    "js-tiktoken": "^1.0.21",
+    "jsonwebtoken": "^9.0.0",
+    "langfuse": "^3.0.0",
+    "openai": "^4.30.0",
+    "p-limit": "^5.0.0",
+    "socket.io": "^4.7.0",
+    "zod": "^3.22.0",
+    "@codelens-v5/shared": "*"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/diff": "^7.0.2",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^20.11.0",
+    "prisma": "^5.10.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^4.0.18"
+  }
+}

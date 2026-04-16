@@ -1,0 +1,586 @@
+// TODO V5: SCHEMA CHANGES REQUIRED BEFORE FIRST MIGRATION
+//
+// KEEP unchanged:
+//   - Organization, OrgMember, Candidate, Template, User models
+//   - Authentication/Authorization related tables
+//
+// SIMPLIFY Session model:
+//   - Remove: schemaVersion field (all V5 going forward)
+//   - metadata field keeps as Json, but structure defined by V5Submissions in shared
+//
+// REFACTOR ExamInstance:
+//   - DELETE deprecated V3/V4 fields:
+//     * schemes, defectsInBest, failureScenario
+//     * v4Requirement, scaffold, phase0Questions
+//     * harnessReference, samples
+//   - ADD new V5 fields:
+//     * businessScenario: Json  (non-nullable, required)
+//     * techStack: String
+//     * domain: String
+//     * challengePattern: String
+//     * archStyle: String?
+//     * level: String
+//     * orgId: String?  (for future multi-tenancy)
+//
+// ADD new ExamModule table:
+//   model ExamModule {
+//     id              String       @id @default(uuid())
+//     examInstanceId  String
+//     examInstance    ExamInstance @relation(fields: [examInstanceId], references: [id])
+//     moduleType      String       // 'P0' | 'MA' | 'MB' | 'MD' | 'SE' | 'MC'
+//     scenarioRef     String       // references businessScenario path
+//     moduleSpecific  Json         // module-specific exam data
+//     version         Int          @default(1)
+//     createdAt       DateTime     @default(now())
+//     @@unique([examInstanceId, moduleType])
+//   }
+//
+// MIGRATION PLAN:
+//   1. Delete packages/server/prisma/migrations/ folder after schema changes
+//   2. Run: npx prisma migrate dev --name init_v5
+//   3. This creates a fresh initial migration with no V3/V4 history
+//
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Multi-tenancy (V2.0 — schema ready, auth wiring deferred) ───
+// V1.0: Admin login uses env ADMIN_EMAIL/ADMIN_PASSWORD (single-tenant).
+// V2.0: Wire OrgMember.passwordHash + bcrypt for multi-tenant org login.
+
+model Organization {
+  id              String      @id @default(uuid())
+  name            String
+  plan            String      @default("trial") // trial, pro, enterprise
+  interviewCount  Int         @default(0) // usage tracking for quota
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  members    OrgMember[]
+  sessions   Session[]
+  candidates Candidate[]
+  templates  Template[]
+  webhooks   WebhookConfig[]
+}
+
+model OrgMember {
+  id           String    @id @default(uuid())
+  orgId        String
+  email        String
+  name         String
+  passwordHash String
+  role         String    @default("MEMBER") // OWNER, MEMBER
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, email])
+  @@index([email])
+}
+
+// ─── Core ───
+
+model Session {
+  id                String             @id @default(uuid())
+  candidateId       String
+  templateId        String
+  orgId             String?
+  status            String             @default("CREATED") // CREATED, SANDBOX_READY, IN_PROGRESS, PAUSED, COMPLETED, EXPIRED, ERROR
+  sandboxId         String?
+  currentCheckpoint Int                @default(0)
+  schemaVersion     Int                @default(3) // 1=v1/v2 checkpoint, 3=v3 module, 4=v4 judgment mode
+  baselineScore     Float?             // Phase 0 baseline score (V3 only)
+  experimentGroup   String?            // A/B test group identifier
+  startedAt         DateTime?
+  completedAt       DateTime?
+  expiresAt         DateTime
+  metadata          Json               @default("{}")
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  candidate         Candidate          @relation(fields: [candidateId], references: [id])
+  template          Template           @relation(fields: [templateId], references: [id])
+  organization      Organization?      @relation(fields: [orgId], references: [id])
+  checkpointResults CheckpointResult[]
+  scoringResults    ScoringResult[]
+  eventsLog         EventLog[]
+  behaviorSignals   BehaviorSignal[]
+  integrityReports  IntegrityReport[]
+  feedback          SessionFeedback?
+  microVerifications MicroVerification[]
+  selfAssessments    SelfAssessment[]
+  candidateProfiles  CandidateProfile[]
+  silentMutations    SilentMutation[]
+  examInstances      ExamInstance[]
+  harnessSubmission  HarnessSubmission?
+  stage2Result       Stage2Result?
+
+  @@index([candidateId])
+  @@index([status])
+  @@index([orgId])
+}
+
+model Candidate {
+  id             String    @id @default(uuid())
+  name           String
+  email          String    @unique
+  orgId          String?
+  token          String?
+  tokenExpiresAt DateTime?
+  metadata       Json      @default("{}")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization? @relation(fields: [orgId], references: [id])
+  sessions     Session[]
+
+  @@index([orgId])
+}
+
+model CheckpointResult {
+  id              String    @id @default(uuid())
+  sessionId       String
+  checkpointIndex Int
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+  status          String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, SKIPPED
+  data            Json      @default("{}")
+  createdAt       DateTime  @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, checkpointIndex])
+  @@index([sessionId])
+}
+
+// ─── Scoring ───
+
+model ScoringResult {
+  id             String   @id @default(uuid())
+  sessionId      String
+  dimension      String   // V1, V2, V3, V4, V5
+  score          Float
+  maxScore       Float    @default(100)
+  evidence       Json     @default("[]") // string[]
+  aiRationale    String   @default("")
+  promptVersion  String?
+  data           Json     @default("{}") // calibrationRuns, metadata
+  createdAt      DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model ScoringWeightProfile {
+  id         String   @id @default(uuid())
+  name       String   @unique
+  isDefault  Boolean  @default(false)
+  weights    Json     // { V1: 0.30, V2: 0.25, ... }
+  thresholds Json     // { L1: 25, L2: 50, ... }
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ─── Events ───
+
+model EventLog {
+  id        String   @id @default(uuid())
+  sessionId String
+  category  String   // FILE, TERMINAL, AI, CHECKPOINT, SESSION, SIGNAL, SYSTEM
+  type      String
+  payload   Json     @default("{}")
+  timestamp DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([category])
+  @@index([timestamp])
+  @@index([sessionId, timestamp])
+  @@index([sessionId, category, timestamp])
+}
+
+model BehaviorSignal {
+  id         String   @id @default(uuid())
+  sessionId  String
+  signalType String
+  value      Float
+  context    Json     @default("{}")
+  timestamp  DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([signalType])
+}
+
+// ─── Templates ───
+
+model Template {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String   @default("")
+  language    String   @default("python")
+  orgId       String?
+  isSystem    Boolean  @default(false) // system templates visible to all orgs
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organization      Organization?        @relation(fields: [orgId], references: [id])
+  files              TemplateFile[]
+  plantedBugs        PlantedBug[]
+  plantedHallucinations PlantedHallucination[]
+  checkpointConfigs  CheckpointConfig[]
+  followupTemplates  FollowupTemplate[]
+  sessions           Session[]
+
+  @@index([orgId])
+}
+
+model TemplateFile {
+  id         String   @id @default(uuid())
+  templateId String
+  path       String
+  content    String
+  isHidden   Boolean  @default(false) // e.g., test_hidden.py
+  createdAt  DateTime @default(now())
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, path])
+}
+
+model PlantedBug {
+  id          String @id @default(uuid())
+  templateId  String
+  name        String
+  description String
+  file        String
+  lineStart   Int
+  lineEnd     Int
+  severity    String @default("medium") // low, medium, high
+  hints       Json   @default("[]") // string[]
+  solution    String @default("")
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+}
+
+model PlantedHallucination {
+  id          String @id @default(uuid())
+  templateId  String
+  description String
+  trigger     String // What AI might suggest
+  reality     String // What actually exists
+  dimension   String @default("V2") // Scoring dimension
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+}
+
+model CheckpointConfig {
+  id              String @id @default(uuid())
+  templateId      String
+  checkpointIndex Int
+  title           String
+  description     String
+  durationMinutes Int    @default(15)
+  instructions    Json   @default("{}") // AI interviewer instructions
+  criteria        Json   @default("[]") // Evaluation criteria
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, checkpointIndex])
+}
+
+model FollowupTemplate {
+  id              String @id @default(uuid())
+  templateId      String
+  checkpointIndex Int
+  category        String // e.g., "deepening", "alternative", "edge_case"
+  question        String
+  expectedTopics  Json   @default("[]") // string[]
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId, checkpointIndex])
+}
+
+// ─── Integrity ───
+
+model IntegrityReport {
+  id        String   @id @default(uuid())
+  sessionId String
+  flags     Json     @default("[]") // string[]
+  score     Float    @default(100)
+  details   Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model SignalAnalysisResult {
+  id        String   @id @default(uuid())
+  sessionId String
+  type      String   @default("general") // M3-1: anomaly type identifier
+  analysis  Json     @default("{}")
+  summary   String   @default("")
+  createdAt DateTime @default(now())
+
+  @@unique([sessionId, type], name: "sessionId_type")
+  @@index([sessionId])
+}
+
+// ─── Leads (Landing Page Demo Requests) ───
+
+model Lead {
+  id        String   @id @default(uuid())
+  name      String
+  company   String
+  email     String
+  phone     String   @default("")
+  source    String   @default("landing_page") // landing_page, referral, etc.
+  status    String   @default("new") // new, contacted, converted
+  notes     String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([createdAt])
+}
+
+// ─── Scoring Calibration ───
+
+model GoldenAnswer {
+  id            String   @id @default(uuid())
+  dimension     String   // V1, V2, V3, V4, V5
+  context       String   // The scoring context input
+  expectedScore Float
+  tolerance     Float    @default(10) // Acceptable deviation +/-
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now())
+
+  @@index([dimension])
+}
+
+// ─── Prompt Version Management (AR-10) ───
+
+model PromptVersion {
+  id        String   @id @default(uuid())
+  name      String   // e.g. "interviewer_system", "scoring_v1", "assistant_system"
+  version   Int      @default(1)
+  content   String   // The prompt content
+  isActive  Boolean  @default(false)
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, version])
+  @@index([name, isActive])
+}
+
+// ─── ATS Webhook ───
+
+model WebhookConfig {
+  id        String   @id @default(uuid())
+  orgId     String
+  url       String   // HTTPS callback URL
+  secret    String   // HMAC signing secret
+  events    String[] @default(["interview.completed"]) // event types to send
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
+
+// ─── Candidate Feedback ───
+
+model SessionFeedback {
+  id         String   @id @default(uuid())
+  sessionId  String   @unique
+  rating     Int      // 1-5 stars
+  difficulty String   @default("") // too_easy, just_right, too_hard
+  fairness   String   @default("") // very_fair, fair, neutral, unfair, very_unfair
+  comment    String   @default("")
+  createdAt  DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+// ── V3 Tables ──
+
+model MicroVerification {
+  id              String    @id @default(uuid())
+  sessionId       String
+  modulePhase     String    // 'A', 'B', etc.
+  triggerType     String    // 'post_fix', 'post_feature', 'ai_adoption'
+  questionType    String    @default("reason") // 'locate' or 'reason'
+  question        String
+  candidateAnswer String?
+  answeredAt      DateTime?
+  evaluationResult Json?
+  confidenceScore Float?
+  createdAt       DateTime  @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model SelfAssessment {
+  id             String   @id @default(uuid())
+  sessionId      String
+  confidence     Int      // 1-5
+  risk           String   @default("")
+  responseTimeMs Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model CandidateProfile {
+  id          String   @id @default(uuid())
+  sessionId   String
+  dimensions  Json     // { efficiency, leverage, depth, reliability, planning? }
+  tier        String   // S, A, B, B_minus, C, D
+  riskFlags   Json     @default("[]")
+  signals     Json     @default("{}") // raw 20-signal snapshot
+  narrative   String?  // LLM-generated summary
+  createdAt   DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model SilentMutation {
+  id                 String    @id @default(uuid())
+  sessionId          String
+  modulePhase        String
+  mutationType       String    // 'A', 'B', 'C', 'D'
+  file               String
+  line               Int
+  originalCode       String    @db.Text
+  mutatedCode        String    @db.Text
+  injectedAt         DateTime  @default(now())
+  discoveredAt       DateTime?
+  fixedAt            DateTime?
+  resolutionSeconds  Int?
+  triggered          Boolean   @default(false)
+  discoveryMethod    String?   // 'test_driven'|'browsing'|'conflict_reveal'|'terminal_cat'|'ai_assisted'
+  affectedTestName   String?
+  testOutputSnapshot String?   @db.Text
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model ExamInstance {
+  id                  String    @id @default(uuid())
+  templateModelId     String
+  seed                Int
+  issues              Json      @default("[]")
+  requirement         Json      @default("{}")
+  mutations           Json      @default("[]")
+  baselines           Json      @default("{}")
+  baselineQuestions   Json      @default("[]")   // Phase 0 baseline test questions
+  codebaseFiles       Json      @default("{}")
+  dependencyGraph     Json      @default("{}")
+  qualityLabels       Json      @default("{}")
+  harnessTask         Json      @default("{}")    // M3: B2 harness task definition
+  openTask            Json?                       // v3 deep: Module D open-ended task definition
+
+  // ── v4 (schemaVersion=4) judgment-mode fields, all nullable ──
+  schemes             Json?     // 3 AI 方案对比（A 快有隐患/B 稳最优/C 折中有坑）
+  defectsInBest       Json?     // 最优方案植入的 4 个缺陷（性能/安全/逻辑/设计）
+  failureScenario     Json?     // Round 3 AI 失败场景: { matchKeywords[3], successCode, failedRetryCode }
+  v4Requirement       Json?     // MB1 v4 需求（标准/挑战 + 待填签名 + 测试）
+  scaffold            Json?     // MB1 初始代码 = 骨架 + 测试 + 待填签名
+  phase0Questions     Json?     // P0 题目（5 预判 + 3 决策 + 1 代码阅读 + groundTruth）
+  harnessReference    Json?     // MB2 Harness 参考约束
+  aiQualityReview     Json?     // 出题质量自检结果（5 项自动 + 1 LLM）
+  samples             Json?     // 4 级（S/A/B/D）模拟器预生成样本回答
+  harnessSkipReason   String?   // Stage 2 跳过原因: insufficient_baseline | model_failure | ...
+
+  discriminationScore Float?
+  usedCount           Int       @default(0)
+  deprecated          Boolean   @default(false)
+  generatedAt         DateTime  @default(now())
+
+  // M2: Calibration tracking
+  calibrationStatus   String    @default("uncalibrated")  // 'uncalibrated' | 'calibrated' | 'flagged'
+  lastCalibratedAt    DateTime?
+
+  // V1 compatibility (optional session link)
+  sessionId           String?
+  session             Session?  @relation(fields: [sessionId], references: [id])
+
+  @@index([templateModelId])
+  @@index([templateModelId, deprecated])
+}
+
+// ── M3: Harness (B2 Constraint Design) ──
+
+model HarnessSubmission {
+  id              String   @id @default(uuid())
+  sessionId       String   @unique
+  rulesContent    String   @db.Text
+  agentContent    String?  @db.Text
+  testFiles       Json     // [{ path, content }]
+  validationFiles Json?    // [{ path, content }]
+  submittedAt     DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model Stage2Result {
+  id                    String    @id @default(uuid())
+  sessionId             String    @unique
+  rounds                Int
+  exitReason            String    // 'converged'|'stagnated'|'degraded'|'repeated'|'no_constraints'|'safety_net'|'model_failure'
+  convergenceCurve      Json      // Array<{ round, candidateTestPass, standardTestPass }>
+  finalStandardTestPass Float
+  constraintViolations  Int       @default(0)
+  filesModified         Json      // string[]
+  totalDurationSeconds  Int
+  modelUsed             String    @default("deepseek-chat")
+  startedAt             DateTime
+  completedAt           DateTime?
+  error                 String?   @db.Text
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+// ── V4: Calibration Labels (human ground truth for scoring calibration) ──
+
+model CalibrationLabel {
+  id              String   @id @default(uuid())
+  sessionId       String
+  labeledBy       String   // reviewer email or name
+  humanTier       String   // S+/S/A/B+/B/B-/C/D
+  humanDimensions Json     // { 产出: 1-5, 理解: 1-5, ... }
+  notes           String?  @db.Text
+  labeledAt       DateTime @default(now())
+
+  @@index([sessionId])
+  @@unique([sessionId, labeledBy])
+}

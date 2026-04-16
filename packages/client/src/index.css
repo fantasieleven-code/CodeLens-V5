@@ -1,0 +1,92 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  background-color: #1e1e2e;
+  color: #cdd6f4;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Admin pages need scrolling; IDE layout sets its own overflow:hidden */
+.admin-layout {
+  overflow: auto;
+  height: 100vh;
+}
+
+/* Focus ring for keyboard accessibility */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #89b4fa;
+  outline-offset: 2px;
+}
+
+/* Button hover/active states */
+button:not(:disabled):hover {
+  filter: brightness(1.1);
+}
+
+button:not(:disabled):active {
+  filter: brightness(0.95);
+  transform: scale(0.98);
+}
+
+/* Interactive button base transition */
+button {
+  transition: filter 0.15s, transform 0.1s, opacity 0.15s;
+}
+
+/* Input focus state */
+input:focus,
+textarea:focus {
+  border-color: #89b4fa !important;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #45475a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #585b70;
+}
+
+::selection {
+  background: #45475a;
+}
+
+/* Admin page overrides */
+body:has(.admin-layout) {
+  overflow: auto;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

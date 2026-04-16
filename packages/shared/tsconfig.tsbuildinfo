@@ -1,0 +1,1 @@
+{"root":["./src/constants.ts","./src/index.ts","./src/schemas/index.ts","./src/types/ai.ts","./src/types/candidate.ts","./src/types/events.ts","./src/types/sandbox.ts","./src/types/scoring.ts","./src/types/session.ts","./src/types/template.ts","./src/types/ws.ts"],"version":"5.9.3"}

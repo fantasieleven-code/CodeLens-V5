@@ -1,0 +1,49 @@
+FROM gradle:8.5-jdk17
+
+# Install tini for proper PID 1 / zombie reaping
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends tini maven && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user (gradle image has a "gradle" user; we use "candidate" to match other sandboxes)
+RUN useradd -m -s /bin/bash candidate
+
+# Fix PTY issues: disable bracketed paste, set TERM
+RUN echo 'set enable-bracketed-paste off' > /home/candidate/.inputrc && \
+    echo 'export TERM=xterm-256color' >> /home/candidate/.bashrc && \
+    echo 'export NO_COLOR=1' >> /home/candidate/.bashrc && \
+    echo 'export PS1="\[\e[32m\]\w\[\e[0m\]\$ "' >> /home/candidate/.bashrc && \
+    chown candidate:candidate /home/candidate/.inputrc /home/candidate/.bashrc
+
+# Pre-warm Gradle daemon + JUnit cache so first ./gradlew test is fast
+# This caches org.junit.jupiter:junit-jupiter and JUnit platform launcher
+USER candidate
+WORKDIR /tmp/gradle-warmup
+RUN mkdir -p src/main/java src/test/java && \
+    printf 'plugins { id "java" }\nrepositories { mavenCentral() }\ndependencies { testImplementation "org.junit.jupiter:junit-jupiter:5.10.1"; testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.10.1" }\ntest { useJUnitPlatform() }\n' > build.gradle && \
+    printf 'public class Main {}\n' > src/main/java/Main.java && \
+    gradle dependencies --quiet 2>/dev/null || true && \
+    gradle test --quiet 2>/dev/null || true
+
+# Pre-warm Maven + Spring Boot 3.2.0 dependencies (used by Java templates)
+# Downloads ~200MB of Spring Boot jars into ~/.m2 so mvn works offline in sandboxes
+USER candidate
+WORKDIR /tmp/maven-warmup
+RUN mkdir -p src/main/java src/test/java && \
+    printf '<?xml version="1.0"?>\n<project xmlns="http://maven.apache.org/POM/4.0.0">\n<modelVersion>4.0.0</modelVersion>\n<parent><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-parent</artifactId><version>3.2.0</version><relativePath/></parent>\n<groupId>com.warmup</groupId><artifactId>warmup</artifactId><version>1.0.0</version>\n<properties><java.version>17</java.version></properties>\n<dependencies>\n<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>\n<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>\n<dependency><groupId>com.h2database</groupId><artifactId>h2</artifactId><scope>runtime</scope></dependency>\n<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-validation</artifactId></dependency>\n<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>\n</dependencies>\n</project>\n' > pom.xml && \
+    printf '@org.springframework.boot.autoconfigure.SpringBootApplication\npublic class App { public static void main(String[] a) {} }\n' > src/main/java/App.java && \
+    mkdir -p src/test/java && \
+    printf 'import org.junit.jupiter.api.Test;\nimport static org.junit.jupiter.api.Assertions.assertTrue;\nclass WarmupTest { @Test void ok() { assertTrue(true); } }\n' > src/test/java/WarmupTest.java && \
+    mvn dependency:resolve --batch-mode -q 2>/dev/null || true && \
+    mvn test --batch-mode -q 2>/dev/null || true && \
+    mvn spring-boot:run --batch-mode -q -Dspring-boot.run.arguments=--server.port=9999 2>/dev/null || true
+
+USER root
+RUN rm -rf /tmp/gradle-warmup /tmp/maven-warmup
+
+# Setup working directory
+RUN mkdir -p /home/candidate/project && chown candidate:candidate /home/candidate/project
+WORKDIR /home/candidate/project
+
+USER candidate
+ENTRYPOINT ["tini", "--"]
+CMD ["sleep", "infinity"]
