@@ -10,7 +10,10 @@
 import { redis } from '../config/redis.js';
 import { prisma } from '../config/db.js';
 import { logger } from '../lib/logger.js';
-import type { EventCategory } from '@codelens-v5/shared';
+import type { EventCategory, V5Event, V5EventPayload } from '@codelens-v5/shared';
+import { buildBufferedEvent, type BufferedEvent } from './event-bus.helpers.js';
+
+export { buildBufferedEvent, type BufferedEvent };
 
 /**
  * Signal name normalization: client sends lowercase names (useSignalCollector),
@@ -32,14 +35,6 @@ const EVENT_BUFFER_KEY = 'eventbus:buffer';
 const SIGNAL_BUFFER_KEY = 'eventbus:signals';
 const FLUSH_INTERVAL_MS = 1000;
 const FLUSH_THRESHOLD = 100;
-
-interface BufferedEvent {
-  sessionId: string;
-  category: EventCategory;
-  type: string;
-  payload: Record<string, unknown>;
-  timestamp: string; // ISO string for Redis serialization
-}
 
 interface BufferedSignal {
   sessionId: string;
@@ -70,22 +65,26 @@ class EventBusService {
     logger.info('[event-bus] Stopped');
   }
 
-  /** Emit an event (buffered in Redis) */
+  /**
+   * V5 form: emit a V5Event with a payload carrying `sessionId`.
+   * Category is derived from the event via `deriveV5EventCategory`.
+   */
+  async emit(event: V5Event, payload: V5EventPayload): Promise<void>;
+  /** V4 form: emit with explicit sessionId / category / type. */
   async emit(
     sessionId: string,
     category: EventCategory,
     type: string,
-    payload: Record<string, unknown> = {},
-  ) {
-    const event: BufferedEvent = {
-      sessionId,
-      category,
-      type,
-      payload,
-      timestamp: new Date().toISOString(),
-    };
-
-    const len = await redis.rpush(EVENT_BUFFER_KEY, JSON.stringify(event));
+    payload?: Record<string, unknown>,
+  ): Promise<void>;
+  async emit(
+    arg0: V5Event | string,
+    arg1: V5EventPayload | EventCategory,
+    arg2?: string,
+    arg3?: Record<string, unknown>,
+  ): Promise<void> {
+    const buffered = buildBufferedEvent(arg0, arg1, arg2, arg3);
+    const len = await redis.rpush(EVENT_BUFFER_KEY, JSON.stringify(buffered));
 
     // Flush immediately if threshold reached
     if (len >= FLUSH_THRESHOLD) {
@@ -124,10 +123,7 @@ class EventBusService {
     this.flushing = true;
 
     try {
-      await Promise.all([
-        this.flushEvents(),
-        this.flushSignals(),
-      ]);
+      await Promise.all([this.flushEvents(), this.flushSignals()]);
     } catch (error) {
       logger.error('[event-bus] Flush error:', error);
     } finally {
@@ -172,7 +168,10 @@ class EventBusService {
       });
       logger.debug(`[event-bus] Flushed ${events.length} events to PG`);
     } catch (err) {
-      logger.warn(`[event-bus] Failed to flush ${events.length} events to PG (PrismaValidation?):`, err);
+      logger.warn(
+        `[event-bus] Failed to flush ${events.length} events to PG (PrismaValidation?):`,
+        err,
+      );
     }
   }
 
@@ -211,7 +210,10 @@ class EventBusService {
       });
       logger.debug(`[event-bus] Flushed ${signals.length} signals to PG`);
     } catch (err) {
-      logger.warn(`[event-bus] Failed to flush ${signals.length} signals to PG (PrismaValidation?):`, err);
+      logger.warn(
+        `[event-bus] Failed to flush ${signals.length} signals to PG (PrismaValidation?):`,
+        err,
+      );
       return; // Skip downstream analysis if persist failed
     }
 

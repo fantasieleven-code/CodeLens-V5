@@ -16,6 +16,7 @@ import { useVoiceStore } from '../stores/voice.store.js';
 import { useModuleStore } from '../stores/module.store.js';
 import { useIssueStore } from '../stores/issue.store.js';
 import { useBaselineStore } from '../stores/baseline.store.js';
+import type { BaselineQuestion } from '../stores/baseline.store.js';
 
 export function useSocket() {
   const socketRef = useRef<TypedSocket | null>(null);
@@ -228,7 +229,7 @@ export function useSocket() {
     socket.on('baseline:trigger' as any, (data: unknown) => {
       const detail = data as { questions?: unknown[] } | null;
       if (detail?.questions && detail.questions.length > 0) {
-        useBaselineStore.getState().load(detail.questions as import('../stores/baseline.store.js').BaselineQuestion[]);
+        useBaselineStore.getState().load(detail.questions as BaselineQuestion[]);
         useBaselineStore.getState().setPending(true);
       }
       window.dispatchEvent(new CustomEvent('baseline:trigger', { detail: data }));

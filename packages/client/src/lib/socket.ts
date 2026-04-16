@@ -1,4 +1,5 @@
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerToClientEvents } from '@codelens-v5/shared';
 
 export type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
