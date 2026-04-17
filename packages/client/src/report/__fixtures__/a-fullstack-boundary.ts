@@ -175,6 +175,12 @@ export const aFullStackBoundaryFixture: ReportViewModel = {
         diffAnalysis: '成功版本加入了 retry ceiling,和幂等 key 校验一致。',
         diagnosisText: '失败版本在 L87 未校验 requestId,重试会重复扣款。',
       },
+      round4: {
+        response:
+          '迁移到"短信重发"场景同样成立,核心原则是"幂等 + 重试上限"。参数需要调整:短信网关有全局限流,retry ceiling 要降到 3,同时加入 backoff。',
+        submittedAt: 1_713_401_900_000,
+        timeSpentSec: 240,
+      },
     },
     mb: {
       planning: {

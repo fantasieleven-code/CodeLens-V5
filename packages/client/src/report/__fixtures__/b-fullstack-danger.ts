@@ -177,6 +177,12 @@ export const bFullStackDangerFixture: ReportViewModel = {
         diffAnalysis: '看着长度差不多,应该是 failed 版本。',
         diagnosisText: '不太确定 rootCause,可能是时序问题。',
       },
+      round4: {
+        response:
+          '新场景应该也选 C 吧,理由差不多。具体参数我没想清楚,先按老办法来。',
+        submittedAt: 1_713_401_900_000,
+        timeSpentSec: 90,
+      },
     },
     mb: {
       planning: {

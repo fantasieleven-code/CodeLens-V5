@@ -23,6 +23,12 @@ export interface StructuredReasoning {
 interface Props {
   value: StructuredReasoning;
   onChange: (next: StructuredReasoning) => void;
+  /**
+   * data-testid prefix. Defaults to `reasoning-field` for standalone usage;
+   * ModuleAPage R1 passes `ma-r1-structured` to satisfy the canonical
+   * testid names from frontend-agent-tasks.md Task 5 L441.
+   */
+  testIdPrefix?: string;
 }
 
 const FIELDS: Array<{
@@ -54,7 +60,11 @@ const FIELDS: Array<{
 
 const MIN_CHARS = 20;
 
-export const StructuredReasoningForm: React.FC<Props> = ({ value, onChange }) => {
+export const StructuredReasoningForm: React.FC<Props> = ({
+  value,
+  onChange,
+  testIdPrefix = 'reasoning-field',
+}) => {
   return (
     <div style={styles.container}>
       {FIELDS.map((f) => {
@@ -81,7 +91,7 @@ export const StructuredReasoningForm: React.FC<Props> = ({ value, onChange }) =>
               placeholder={f.placeholder}
               rows={3}
               style={styles.textarea}
-              data-testid={`reasoning-field-${f.key}`}
+              data-testid={`${testIdPrefix}-${f.key}`}
             />
           </div>
         );

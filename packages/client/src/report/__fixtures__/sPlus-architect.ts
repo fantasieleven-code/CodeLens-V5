@@ -166,6 +166,13 @@ export const sPlusArchitectFixture: ReportViewModel = {
         diffAnalysis: '失败版本缺少补偿事务的幂等键,重试会双扣。',
         diagnosisText: 'rootCause 在 L142 补偿函数未校验 requestId。',
       },
+      round4: {
+        response:
+          '迁移到"跨境支付对账"同样适用 SETNX + 补偿原则,底层是"幂等分布式互斥 + 最终一致"。但新场景延迟预算宽松(分钟级),实现要调整:' +
+          '锁 TTL 从 30s 升到 5min,补偿周期从实时改为每 10 分钟一批,幂等键用 (txnId, day) 组合避免跨日污染。',
+        submittedAt: 1_713_398_300_000,
+        timeSpentSec: 210,
+      },
     },
     moduleD: {
       subModules: [

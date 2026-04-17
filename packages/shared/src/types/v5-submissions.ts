@@ -60,6 +60,20 @@ export interface V5ModuleASubmission {
     diffAnalysis: string;
     diagnosisText: string;
   };
+  /**
+   * R4 迁移验证(新增轮次)。
+   *
+   * 候选人在"相关但业务不同"的新场景下,回答 R1 选的方案是否仍成立 +
+   * 哪些参数需要调整。sPrincipleAbstraction 信号的输入来源。
+   *
+   * 字段 shape 定稿于 docs/v5-planning/v5-design-clarifications.md
+   * Round 3 Part 3 调整 2 L358-372。
+   */
+  round4: {
+    response: string;
+    submittedAt: number;
+    timeSpentSec: number;
+  };
 }
 
 // ───────────────────────────── MB ─────────────────────────────
