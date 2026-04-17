@@ -70,12 +70,12 @@ registry、exam generator、SandboxProvider、ModelProvider 等。
 - 不要假设 Frontend 的文件结构,不要主动读 Frontend 代码
 
 ## 当前 Task 状态
-Task: Task 2 - ExamInstance Schema 拆分 + ExamDataService
-状态: 已启动(kickoff 创建后等 Steve 发主体指令)
-分支: feat/backend-task2
-预估工时: 2.5 天
-依赖:无(Task 1 已 merge)
-下游依赖:Task 3 Suite 定义 / Task 4 scoring / Task 5+ 各模块 service
+Task: Task 3 - Suite 定义 + moduleOrder 数据化
+状态: 待启动(Task 2 已全部完成,PR #5/#7/#12 均 merged)
+分支: feat/backend-task3
+预估工时: 2 天
+依赖: 无(Task 2 已完成)
+下游依赖: Task 4 gradeCandidate / Task 11+ 各模块 service
 
 ## PR 合并授权
 
@@ -105,3 +105,31 @@ Delta 判断细则(CI red ≠ 阻塞 self-merge):
 - 反例:PR 一旦触 server/ 任何文件,CI 的 server typecheck count 是 delta 权威值,不能用 local 覆盖
 
 自 Task 2 起生效。当前 Task 2 schema PR 必须走 review(schema 改动)。
+
+## V5 Design Clarifications（Round-2 补丁文档）
+
+docs/v5-planning/v5-design-clarifications.md 是 V5 设计的权威补丁层,
+覆盖 backend-agent-tasks.md 的相应段落。
+
+**冲突规则:clarifications 覆盖 tasks。**
+
+**每个 Task 启动前的读文档顺序**:
+1. backend-agent-kickoff.md（本文件）
+2. backend-agent-tasks.md（找当前 Task）
+3. v5-design-clarifications.md（找当前 Task 对应的 Part,如果涉及）
+
+**哪些 Task 涉及 clarifications**:
+- Task 9（Step 0 Prompt 调优）→ Part 3 调整 1,调整 2
+- Task 10（Step 1-8 Generator）→ Part 3 调整 2（Step 2.5 迁移场景）
+- Task 11（MC 后端）→ Part 3 调整 3（sBeliefUpdateMagnitude）
+- Task 12（MB Cursor Endpoints）→ Part 3 调整 4（visibility 事件流）
+- Task 13（47 信号实现）→ Part 2 + Part 3 调整 1-4 + Part 7 CI 断言
+- Task 15（Admin API）→ Part 3 调整 5（cursor-behavior-label）
+- Task 17（Golden Path fixture）→ Part 5 fixture baseline
+
+**不涉及 clarifications 的 Task**:Task 3-8（基建）,Task 14（MD 后端,暂无改动）,
+Task 16（Cursor fixture generator）,Task 18-21（测试 + 收尾）。
+
+**信号总数从 43 更新为 47**（4 个新信号）。
+
+遇到 clarifications 和 tasks 冲突或疑惑,停下报告 Steve。
