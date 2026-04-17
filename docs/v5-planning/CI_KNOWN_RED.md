@@ -5,6 +5,7 @@
 | Job | 失败原因 | Task owner | 状态 |
 |---|---|---|---|
 | prompt-regression | `packages/server/promptfooconfig.yaml` 未创建 | Task 7 | known-red |
+| e2e | Playwright webServer 启动超时 — `npm run dev` (tsx) 报 `ERR_MODULE_NOT_FOUND: src/index.ts`。种子/迁移已通过,失败发生在 `npx playwright test` 起 dev server 阶段。疑似 tsx ESM resolution 配置问题或 server 入口依赖未装。 | Task 19 | known-red |
 
 ## 约定
 
