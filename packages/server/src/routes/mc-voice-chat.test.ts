@@ -8,6 +8,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as McProbeEngineModule from '../services/mc-probe-engine.js';
 
 // mc-voice-chat.ts reads env at module load time (OpenAI client init). The
 // server .env is loaded from packages/server/.env in prod; for unit tests
@@ -42,10 +43,8 @@ vi.mock('../services/voice-chat.service.js', () => ({
   CANDIDATE_QA_BOUNDARY: '',
 }));
 
-vi.mock('../services/mc-probe-engine.js', async () => {
-  const actual = await vi.importActual<typeof import('../services/mc-probe-engine.js')>(
-    '../services/mc-probe-engine.js',
-  );
+vi.mock('../services/mc-probe-engine.js', async (importActual) => {
+  const actual = await importActual<typeof McProbeEngineModule>();
   return { ...actual };
 });
 

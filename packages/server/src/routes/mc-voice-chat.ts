@@ -26,7 +26,7 @@
  */
 
 import crypto from 'crypto';
-import { Router } from 'express';
+import { Router, type Response as ExpressResponse } from 'express';
 import OpenAI from 'openai';
 import { logger } from '../lib/logger.js';
 import { env } from '../config/env.js';
@@ -330,7 +330,7 @@ mcVoiceChatRouter.post('/voice-chat', async (req, res) => {
 // ─── SSE helpers (identical shape to V4; VERTC parses this verbatim) ─────
 
 function writeSSEChunk(
-  res: import('express').Response,
+  res: ExpressResponse,
   id: string,
   content: string,
   isFirst: boolean,
@@ -351,7 +351,7 @@ function writeSSEChunk(
   res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
-function writeSSEStop(res: import('express').Response, id: string): void {
+function writeSSEStop(res: ExpressResponse, id: string): void {
   const data = {
     id,
     object: 'chat.completion.chunk',
@@ -363,7 +363,7 @@ function writeSSEStop(res: import('express').Response, id: string): void {
   res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
-function sendErrorSSE(res: import('express').Response, id: string, message: string): void {
+function sendErrorSSE(res: ExpressResponse, id: string, message: string): void {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   writeSSEChunk(res, id, message, true);
