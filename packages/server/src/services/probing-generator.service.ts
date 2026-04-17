@@ -10,7 +10,7 @@
  * Max 6 probes, priority-sorted.
  */
 
-import { aiRouter } from './ai-router.service.js';
+import { modelFactory } from './model/index.js';
 import { extractJSON } from '../lib/extract-json.js';
 import { logger } from '../lib/logger.js';
 import type { ScoringDimension } from '@codelens-v5/shared';
@@ -102,8 +102,7 @@ class ProbingGeneratorService {
 
     try {
       let fullResponse = '';
-      const stream = aiRouter.chatStream({
-        role: 'scoring',
+      const stream = modelFactory.stream('scoring', {
         messages: [
           { role: 'system', content: PROBE_GENERATION_PROMPT },
           { role: 'user', content: contextParts.join('\n') },

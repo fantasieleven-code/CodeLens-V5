@@ -19,4 +19,5 @@ export * from './types/v5-signals.js';
 export * from './types/v5-exam-modules.js';
 export * from './types/v5-grade.js';
 export * from './types/v5-capability-profile.js';
+export * from './types/v5-model-provider.js';
 export * from './constants/index.js';

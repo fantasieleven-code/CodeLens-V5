@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../config/db.js';
 import { redis } from '../config/redis.js';
-import { aiRouter } from '../services/ai-router.service.js';
+import { modelFactory } from '../services/model/index.js';
 import { eventBus } from '../services/event-bus.service.js';
 import { sandboxFactory } from '../services/sandbox/index.js';
 
@@ -32,8 +32,8 @@ healthRouter.get('/', async (_req, res) => {
     checks.sandbox = degraded ? 'degraded' : sandboxReport.e2b.ok ? 'ok' : 'degraded';
   }
 
-  const aiStatus = aiRouter.getStatus();
-  checks.ai = aiStatus.length > 0 ? 'ok' : 'no_providers';
+  const modelStatus = modelFactory.getStatus();
+  checks.ai = modelStatus.some((p) => p.available) ? 'ok' : 'no_providers';
 
   let eventBufferStats = { eventBufferSize: 0, signalBufferSize: 0 };
   try {
@@ -47,7 +47,7 @@ healthRouter.get('/', async (_req, res) => {
     status: allOk ? 'ok' : 'degraded',
     services: checks,
     sandbox: sandboxReport,
-    aiProviders: aiStatus,
+    modelProviders: modelStatus,
     eventBuffer: eventBufferStats,
   });
 });

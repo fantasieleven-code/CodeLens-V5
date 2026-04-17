@@ -1,3 +1,41 @@
+/**
+ * ARCHIVED V4 FILE
+ *
+ * NOT compiled or imported by V5. Preserved as reference for Task 6
+ * ModelProvider abstraction. Original path in V4:
+ * packages/server/src/services/ai-router.service.ts (278 lines).
+ *
+ * V4 context: 4-provider chain (doubao-pro / doubao-lite / deepseek / claude)
+ *             with OpenAI SDK + baseURL swap, per-provider CircuitBreaker,
+ *             p-limit concurrency, Langfuse tracking, role-based fallback
+ *             via ROLE_PROVIDER_MAP.
+ * V5 target:  ModelFactory with 4 providers (deepseek / claude / glm / qwen).
+ *             Role-based routing (runtime / generation / scoring / coding_agent)
+ *             + fallback chain + retry (5xx/network only, 500/1500/4500ms)
+ *             + rate limit per provider.
+ *
+ * Doubao retirement — V5.0 drops doubao-pro and doubao-lite entirely:
+ *   - GLM (Zhipu) replaces doubao-lite as Tier 3 scoring/structured output
+ *   - Qwen (DashScope qwen3-coder-plus) stays as MB coding agent
+ *   - DeepSeek takes Tier 1 (runtime, low latency)
+ *   - Claude takes Tier 2 (generation, CO-STAR prompts)
+ *
+ * Key patches to potentially absorb into V5 ModelFactory:
+ * - sanitizeErrorMessage: strip API keys / tokens from error logs before logging
+ * - CircuitBreaker per provider (V5 may use bottleneck/p-limit instead)
+ * - p-limit concurrency wrapping chat() calls (V5 equivalent: bottleneck)
+ * - Token overflow pre-check via PROVIDER_CONTEXT_LIMITS (V5 should retain)
+ * - Langfuse generation() tracking with sessionId/provider/latencyMs
+ * - Fallback-on-failure across provider chain (V5 gets explicit fallback map)
+ *
+ * Patches to DISCARD (V5 does not need):
+ * - doubao-pro / doubao-lite provider blocks (Tier 1/1b) — retired
+ * - ROLE_PROVIDER_MAP with V4 roles (interviewer/assistant/scoring/probing)
+ *   — V5 uses ModelRole (runtime/generation/scoring/coding_agent)
+ *
+ * @see Task 6 / backend-agent-kickoff.md direction B (2026-04-17)
+ */
+
 import OpenAI from 'openai';
 import { CircuitBreaker } from '../lib/circuit-breaker.js';
 import { env } from '../config/env.js';
