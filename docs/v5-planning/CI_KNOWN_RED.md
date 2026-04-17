@@ -5,13 +5,13 @@
 | Job | 失败原因 | Task owner | 状态 |
 |---|---|---|---|
 | prompt-regression | `packages/server/promptfooconfig.yaml` 未创建 | Task 7 | known-red |
-| e2e | `packages/server/src/index.ts` 不存在（V5 server bootstrap 未落地）— Playwright webServer 启动 `tsx src/index.ts` 立即 `ERR_MODULE_NOT_FOUND`。SandboxProvider (Task 5) 不造成此失败，server 入口本身缺失。 | Server bootstrap task（未分配） | known-red |
+| e2e | **原因已变**。Task 5.5 (PR #23) 创建了 `packages/server/src/index.ts`,`ERR_MODULE_NOT_FOUND` 消失,本地 `cd packages/server && npm run dev` clean 启动,`GET /health` 返回 200。**当前 CI 失败原因**:`Error: No tests found` — `e2e/` 目录下尚无 `.spec.ts` 文件,Playwright 找不到测试即退出,根本没走到 webServer 启动路径。第一个 e2e test(Task 17 Golden Path)落地时才能在 CI 真实验证 bootstrap。 | Task 17 | known-red |
 
-### e2e 失败 — 根因确认（Task 5 调查）
+### e2e 失败 — 历史与当前状态
 
-**Task 5 期间验证**:`cd packages/server && ls src/*.ts` → 不存在 entry 文件。Task 5 完成了 sandbox service + health route + e2b-health worker,但没有 express bootstrap（`app.use(healthRouter)` / `app.listen(PORT)`）。
+**已解决(Task 5.5 / PR #23)**:原 `ERR_MODULE_NOT_FOUND: src/index.ts` 已修复。`packages/server/src/index.ts` 建立,Express + Socket.IO + `/health` 路由 + graceful shutdown 到位。本地 `cd packages/server && npm run dev` clean 启动,`GET /health` 返回 200(db/redis ok,sandbox 按 Task 5 三级降级返回 e2b/docker/static 状态)。
 
-**建议**:由 Steve 分配一个独立的 "server-bootstrap" task（0.5 天）把 `src/index.ts` 立起来,同时注册 `healthRouter` + 启动 `e2bHealthService.start()`。这样 e2e 自动转绿。Task 5 不扩大 scope 去写 bootstrap。
+**仍未绿**:`e2e/` 下无 `.spec.ts` 文件。Playwright 在找到测试前即退出,CI 根本没触发 `webServer` 启动路径,因此无法在 CI 证明 bootstrap(仅本地已证明)。第一个 e2e 测试落地(Task 17 Golden Path fixture)后该 row 才能移除。当前 row 保留为 known-red,但原因已和 server 入口无关。
 
 ## 约定
 
