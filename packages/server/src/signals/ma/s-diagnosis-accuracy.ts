@@ -41,7 +41,7 @@ const ROOT_CAUSE_WEIGHT = 0.5;
 const DIFF_POINT_WEIGHT = 0.3;
 const CHOICE_WEIGHT = 0.2;
 
-const TOKEN_SPLIT = /[\s,.。、；;:\-—/\\(){}\[\]"'`]+/;
+const TOKEN_SPLIT = /[\s,.。、；;:\-—/\\(){}[\]"'`]+/;
 const MIN_TOKEN_LENGTH = 2;
 
 function tokenize(text: string): string[] {

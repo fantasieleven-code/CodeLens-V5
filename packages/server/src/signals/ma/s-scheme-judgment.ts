@@ -79,7 +79,7 @@ async function compute(input: SignalInput): Promise<SignalResult> {
 
   const chosenScheme = exam?.schemes?.find((s) => s.id === schemeId);
   let referenceScore = 0;
-  let referenceHits: string[] = [];
+  const referenceHits: string[] = [];
   if (chosenScheme) {
     const tokens = schemeTokens(chosenScheme);
     const reasoningLower = (reasoning ?? '').toLowerCase();
