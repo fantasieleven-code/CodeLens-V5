@@ -9,6 +9,10 @@
  *
  * Design principle (submit-is-final): no `goBack`, no `goToModule`, no
  * `skipModule`. The only forward transition is `advance()`.
+ *
+ * Pause/resume: `isPaused` is a candidate-triggered UI flag. Backend is told
+ * via socket (Task 9+ wiring) but `session.expiresAt` is NOT adjusted — pause
+ * is a courtesy nudge, not time-bank accounting.
  */
 
 import { create } from 'zustand';
@@ -28,9 +32,12 @@ export interface ModuleStore {
   moduleOrder: V5ModuleKey[];
   currentModule: CurrentModule;
   isComplete: boolean;
+  isPaused: boolean;
 
   advance: () => void;
   setSuite: (suiteId: SuiteId, moduleOrder: V5ModuleKey[]) => void;
+  pause: () => void;
+  resume: () => void;
   reset: () => void;
 
   getCurrentModuleIndex: () => number;
@@ -42,6 +49,7 @@ export const useModuleStore = create<ModuleStore>((set, get) => ({
   moduleOrder: [],
   currentModule: null,
   isComplete: false,
+  isPaused: false,
 
   advance: () => {
     const { currentModule, moduleOrder } = get();
@@ -71,7 +79,20 @@ export const useModuleStore = create<ModuleStore>((set, get) => ({
       moduleOrder: [...moduleOrder],
       currentModule: 'intro',
       isComplete: false,
+      isPaused: false,
     });
+  },
+
+  pause: () => {
+    const { currentModule, isComplete } = get();
+    if (isComplete || currentModule === null || currentModule === 'intro' || currentModule === 'complete') {
+      return;
+    }
+    set({ isPaused: true });
+  },
+
+  resume: () => {
+    set({ isPaused: false });
   },
 
   reset: () => {
@@ -80,6 +101,7 @@ export const useModuleStore = create<ModuleStore>((set, get) => ({
       moduleOrder: [],
       currentModule: null,
       isComplete: false,
+      isPaused: false,
     });
   },
 

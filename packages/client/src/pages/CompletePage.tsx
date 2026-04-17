@@ -11,6 +11,7 @@
  */
 
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { V5ModuleKey, V5Submissions, V5MBSubmission } from '@codelens-v5/shared';
 import { useSessionStore } from '../stores/session.store.js';
 import { useModuleStore } from '../stores/module.store.js';
@@ -43,6 +44,7 @@ export const CompletePage: React.FC = () => {
   const timer = useSessionStore((s) => s.timer);
   const submissions = useSessionStore((s) => s.submissions);
   const moduleOrder = useModuleStore((s) => s.moduleOrder);
+  const navigate = useNavigate();
 
   const stats = useMemo(() => {
     const elapsedMs = timer?.elapsedMs ?? 0;
@@ -144,6 +146,16 @@ export const CompletePage: React.FC = () => {
 
         {/* ── Footer ── */}
         <div style={styles.footer}>
+          {sessionId && (
+            <button
+              type="button"
+              data-testid="complete-view-report-btn"
+              onClick={() => navigate(`/report/${sessionId}`)}
+              style={styles.reportBtn}
+            >
+              查看报告
+            </button>
+          )}
           <span style={styles.sessionId}>Session {shortId}</span>
           <p style={styles.footerText}>
             所有数据已安全存储，仅向招聘团队展示。
@@ -357,6 +369,18 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 6,
     marginTop: 8,
     textAlign: 'center' as const,
+  },
+  reportBtn: {
+    padding: `${spacing.sm} ${spacing.xl}`,
+    backgroundColor: colors.blue,
+    border: 'none',
+    borderRadius: radii.md,
+    color: colors.base,
+    fontSize: fontSizes.sm,
+    fontWeight: fontWeights.semibold,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    marginBottom: spacing.md,
   },
   sessionId: {
     fontSize: fontSizes.sm,
