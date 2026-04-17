@@ -1,0 +1,891 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ReportRenderer snapshot stability > matches snapshot for B dangerFlag summary layer 1`] = `
+<div
+  data-testid="report-renderer-summary"
+  style="display: flex; flex-direction: column; gap: 24px; color: rgb(205, 214, 244);"
+>
+  <section
+    data-section-id="hero"
+    data-section-layer="summary"
+  >
+    <div
+      data-testid="hero-section"
+      style="background-color: rgb(49, 50, 68); border-radius: 12px; padding: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.3);"
+    >
+      <div
+        style="display: flex; align-items: flex-start; gap: 24px; flex-wrap: wrap;"
+      >
+        <div
+          data-testid="hero-grade-badge"
+          style="background-color: rgb(249, 226, 175); color: rgb(17, 17, 27); border-radius: 12px; padding: 12px 24px; font-size: 56px; font-weight: 700; line-height: 1; min-width: 120px; text-align: center;"
+        >
+          B
+        </div>
+        <div
+          style="flex: 1 1 0%; min-width: 280px;"
+        >
+          <div
+            style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;"
+          >
+            <h2
+              style="margin: 0px; font-size: 24px; color: rgb(205, 214, 244); font-weight: 600;"
+            >
+              示例候选人 · B dangerFlag
+            </h2>
+            <span
+              data-testid="hero-confidence-badge"
+              style="display: inline-block; background-color: rgb(166, 227, 161); color: rgb(17, 17, 27); padding: 4px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; line-height: 1;"
+            >
+              高置信
+            </span>
+          </div>
+          <div
+            style="font-size: 14px; color: rgb(186, 194, 222); margin-bottom: 12px;"
+          >
+            <span>
+              全面评估
+            </span>
+            <span
+              style="margin: 0px 8px; color: rgb(127, 132, 156);"
+            >
+              ·
+            </span>
+            <span
+              data-testid="hero-composite"
+            >
+              综合 
+              56.0
+            </span>
+            <span
+              style="margin: 0px 8px; color: rgb(127, 132, 156);"
+            >
+              ·
+            </span>
+            <span
+              data-testid="hero-distance-upper"
+            >
+              距 
+              B+
+               差 
+              9.1
+            </span>
+          </div>
+          <p
+            data-testid="hero-reasoning"
+            style="margin: 0px; font-size: 14px; color: rgb(205, 214, 244); line-height: 1.6;"
+          >
+            composite 55.95 稳定落入 B 区间,距上下阈值都 &gt;= 9 分;但触发 V4 danger flag,建议复核技术判断深度。
+          </p>
+          <div
+            data-testid="hero-danger-flag"
+            style="margin-top: 16px; padding: 12px; background-color: rgba(243, 139, 168, 0.133); border-left: 3px solid rgb(243, 139, 168); border-radius: 4px;"
+          >
+            <div
+              style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;"
+            >
+              <span
+                style="display: inline-block; background-color: rgb(243, 139, 168); color: rgb(17, 17, 27); padding: 4px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; line-height: 1;"
+              >
+                风险提示
+              </span>
+              <span
+                style="font-size: 12px; color: rgb(147, 153, 178);"
+              >
+                支撑信号 
+                4
+                 条
+              </span>
+            </div>
+            <p
+              style="margin: 0px; font-size: 14px; color: rgb(205, 214, 244); line-height: 1.6;"
+            >
+              技术判断 48 与代码质量 66 存在 18 分断层(V4 风险阈值 &gt;= 15),候选人表面整洁但决策能力不足,需人工深入验证。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section
+    data-section-id="capability-profiles"
+    data-section-layer="summary"
+  >
+    <section
+      data-testid="capability-profiles-section"
+    >
+      <h3
+        style="margin: 0px 0px 12px; font-size: 16px; font-weight: 600; color: rgb(205, 214, 244);"
+      >
+        能力画像
+      </h3>
+      <div
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;"
+      >
+        <div
+          data-testid="capability-profile-independent_delivery"
+          style="background-color: rgb(49, 50, 68); border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.3);"
+        >
+          <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"
+          >
+            <span
+              style="font-size: 14px; font-weight: 600; color: rgb(205, 214, 244);"
+            >
+              独立交付能力
+            </span>
+            <span
+              data-testid="capability-profile-label-independent_delivery"
+              style="display: inline-block; background-color: rgb(249, 226, 175); color: rgb(17, 17, 27); padding: 4px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600;"
+            >
+              有潜力
+            </span>
+          </div>
+          <div
+            data-testid="capability-profile-score-independent_delivery"
+            style="font-size: 24px; font-weight: 700; color: rgb(249, 226, 175); line-height: 1; margin-bottom: 4px;"
+          >
+            56.0
+          </div>
+          <p
+            style="margin: 0px 0px 8px; font-size: 12px; color: rgb(186, 194, 222); line-height: 1.5;"
+          >
+            候选人需要较多方向指导,但执行环节可靠
+          </p>
+          <div
+            style="border-top: 1px solid rgb(69, 71, 90); padding-top: 8px; font-size: 11px; color: rgb(147, 153, 178);"
+          >
+            <div
+              style="margin-bottom: 4px;"
+            >
+              主导维度
+            </div>
+            <div
+              style="display: flex; flex-wrap: wrap; gap: 4px;"
+            >
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                技术判断力
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  19.2
+                </span>
+              </span>
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                代码质量
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  23.1
+                </span>
+              </span>
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                AI 工程力
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  13.8
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div
+          data-testid="capability-profile-ai_collaboration"
+          style="background-color: rgb(49, 50, 68); border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.3);"
+        >
+          <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"
+          >
+            <span
+              style="font-size: 14px; font-weight: 600; color: rgb(205, 214, 244);"
+            >
+              AI 协作成熟度
+            </span>
+            <span
+              data-testid="capability-profile-label-ai_collaboration"
+              style="display: inline-block; background-color: rgb(249, 226, 175); color: rgb(17, 17, 27); padding: 4px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600;"
+            >
+              有潜力
+            </span>
+          </div>
+          <div
+            data-testid="capability-profile-score-ai_collaboration"
+            style="font-size: 24px; font-weight: 700; color: rgb(249, 226, 175); line-height: 1; margin-bottom: 4px;"
+          >
+            58.3
+          </div>
+          <p
+            style="margin: 0px 0px 8px; font-size: 12px; color: rgb(186, 194, 222); line-height: 1.5;"
+          >
+            候选人使用 AI 有一定模式但缺少审查深度,需要培训
+          </p>
+          <div
+            style="border-top: 1px solid rgb(69, 71, 90); padding-top: 8px; font-size: 11px; color: rgb(147, 153, 178);"
+          >
+            <div
+              style="margin-bottom: 4px;"
+            >
+              主导维度
+            </div>
+            <div
+              style="display: flex; flex-wrap: wrap; gap: 4px;"
+            >
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                AI 工程力
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  38.5
+                </span>
+              </span>
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                代码质量
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  19.8
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div
+          data-testid="capability-profile-system_thinking"
+          style="background-color: rgb(49, 50, 68); border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.3);"
+        >
+          <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"
+          >
+            <span
+              style="font-size: 14px; font-weight: 600; color: rgb(205, 214, 244);"
+            >
+              系统思维
+            </span>
+            <span
+              data-testid="capability-profile-label-system_thinking"
+              style="display: inline-block; background-color: rgb(249, 226, 175); color: rgb(17, 17, 27); padding: 4px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600;"
+            >
+              有潜力
+            </span>
+          </div>
+          <div
+            data-testid="capability-profile-score-system_thinking"
+            style="font-size: 24px; font-weight: 700; color: rgb(249, 226, 175); line-height: 1; margin-bottom: 4px;"
+          >
+            50.4
+          </div>
+          <p
+            style="margin: 0px 0px 8px; font-size: 12px; color: rgb(186, 194, 222); line-height: 1.5;"
+          >
+            候选人当前更侧重实现,系统思维有基础但未成熟
+          </p>
+          <div
+            style="border-top: 1px solid rgb(69, 71, 90); padding-top: 8px; font-size: 11px; color: rgb(147, 153, 178);"
+          >
+            <div
+              style="margin-bottom: 4px;"
+            >
+              主导维度
+            </div>
+            <div
+              style="display: flex; flex-wrap: wrap; gap: 4px;"
+            >
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                系统设计
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  25.0
+                </span>
+              </span>
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                技术判断力
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  14.4
+                </span>
+              </span>
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                AI 工程力
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  11.0
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div
+          data-testid="capability-profile-learning_agility"
+          style="background-color: rgb(49, 50, 68); border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.3);"
+        >
+          <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"
+          >
+            <span
+              style="font-size: 14px; font-weight: 600; color: rgb(205, 214, 244);"
+            >
+              学习敏捷
+            </span>
+            <span
+              data-testid="capability-profile-label-learning_agility"
+              style="display: inline-block; background-color: rgb(249, 226, 175); color: rgb(17, 17, 27); padding: 4px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600;"
+            >
+              有潜力
+            </span>
+          </div>
+          <div
+            data-testid="capability-profile-score-learning_agility"
+            style="font-size: 24px; font-weight: 700; color: rgb(249, 226, 175); line-height: 1; margin-bottom: 4px;"
+          >
+            55.1
+          </div>
+          <p
+            style="margin: 0px 0px 8px; font-size: 12px; color: rgb(186, 194, 222); line-height: 1.5;"
+          >
+            候选人有一定自省能力,但受挑战时调整较慢
+          </p>
+          <div
+            style="border-top: 1px solid rgb(69, 71, 90); padding-top: 8px; font-size: 11px; color: rgb(147, 153, 178);"
+          >
+            <div
+              style="margin-bottom: 4px;"
+            >
+              主导维度
+            </div>
+            <div
+              style="display: flex; flex-wrap: wrap; gap: 4px;"
+            >
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                元认知
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  27.5
+                </span>
+              </span>
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                沟通
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  18.0
+                </span>
+              </span>
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                技术判断力
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  9.6
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </section>
+  <section
+    data-section-id="recommendation"
+    data-section-layer="summary"
+  >
+    <div
+      data-testid="recommendation-section"
+      style="background-color: rgb(49, 50, 68); border-radius: 12px; padding: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.3); border-left: 4px solid rgb(249, 226, 175);"
+    >
+      <div
+        style="font-size: 11px; color: rgb(147, 153, 178); font-weight: 500; margin-bottom: 4px;"
+      >
+        推荐动作
+      </div>
+      <div
+        data-testid="recommendation-text"
+        style="font-size: 20px; font-weight: 600; color: rgb(205, 214, 244);"
+      >
+        谨慎推荐(见风险标注) · 需人工复核(见风险提示)
+      </div>
+      <div
+        style="margin-top: 8px; padding: 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 12px; color: rgb(186, 194, 222);"
+      >
+        阻挡升级的因素:
+        composite &lt; 65
+      </div>
+    </div>
+  </section>
+  <section
+    data-section-id="cursor-behavior-label"
+    data-section-layer="summary"
+  >
+    <div
+      data-testid="cursor-behavior-label-section"
+      style="background-color: rgb(49, 50, 68); border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.3);"
+    >
+      <div
+        style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;"
+      >
+        <span
+          style="background-color: rgb(249, 226, 175); color: rgb(17, 17, 27); padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600;"
+        >
+          快速粘贴型
+        </span>
+        <span
+          style="font-size: 12px; color: rgb(147, 153, 178);"
+        >
+          Cursor 模式行为画像 · 
+          3
+           条信号支撑
+        </span>
+      </div>
+      <p
+        style="margin: 0px; font-size: 14px; color: rgb(205, 214, 244); line-height: 1.6;"
+      >
+        AI Completion 接受率 83% 偏高,决策延迟中位 1.1s 偏短,chat/direct 比 1:5.2;多处接受后未做 diff review,与 TJ 低分吻合。
+      </p>
+    </div>
+  </section>
+</div>
+`;
+
+exports[`ReportRenderer snapshot stability > matches snapshot for S+ summary layer 1`] = `
+<div
+  data-testid="report-renderer-summary"
+  style="display: flex; flex-direction: column; gap: 24px; color: rgb(205, 214, 244);"
+>
+  <section
+    data-section-id="hero"
+    data-section-layer="summary"
+  >
+    <div
+      data-testid="hero-section"
+      style="background-color: rgb(49, 50, 68); border-radius: 12px; padding: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.3);"
+    >
+      <div
+        style="display: flex; align-items: flex-start; gap: 24px; flex-wrap: wrap;"
+      >
+        <div
+          data-testid="hero-grade-badge"
+          style="background-color: rgb(166, 227, 161); color: rgb(17, 17, 27); border-radius: 12px; padding: 12px 24px; font-size: 56px; font-weight: 700; line-height: 1; min-width: 120px; text-align: center;"
+        >
+          S+
+        </div>
+        <div
+          style="flex: 1 1 0%; min-width: 280px;"
+        >
+          <div
+            style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;"
+          >
+            <h2
+              style="margin: 0px; font-size: 24px; color: rgb(205, 214, 244); font-weight: 600;"
+            >
+              示例候选人 · S+ 架构师
+            </h2>
+            <span
+              data-testid="hero-confidence-badge"
+              style="display: inline-block; background-color: rgb(166, 227, 161); color: rgb(17, 17, 27); padding: 4px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; line-height: 1;"
+            >
+              高置信
+            </span>
+          </div>
+          <div
+            style="font-size: 14px; color: rgb(186, 194, 222); margin-bottom: 12px;"
+          >
+            <span>
+              架构师评估
+            </span>
+            <span
+              style="margin: 0px 8px; color: rgb(127, 132, 156);"
+            >
+              ·
+            </span>
+            <span
+              data-testid="hero-composite"
+            >
+              综合 
+              96.0
+            </span>
+          </div>
+          <p
+            data-testid="hero-reasoning"
+            style="margin: 0px; font-size: 14px; color: rgb(205, 214, 244); line-height: 1.6;"
+          >
+            composite 96.0 稳定落在 S+ 区间,距下一级 S 有 6.0 分余量,所有维度 floor 均以 &gt;= 5 分余量通过。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section
+    data-section-id="capability-profiles"
+    data-section-layer="summary"
+  >
+    <section
+      data-testid="capability-profiles-section"
+    >
+      <h3
+        style="margin: 0px 0px 12px; font-size: 16px; font-weight: 600; color: rgb(205, 214, 244);"
+      >
+        能力画像
+      </h3>
+      <div
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;"
+      >
+        <div
+          data-testid="capability-profile-independent_delivery"
+          style="background-color: rgb(49, 50, 68); border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.3);"
+        >
+          <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"
+          >
+            <span
+              style="font-size: 14px; font-weight: 600; color: rgb(205, 214, 244);"
+            >
+              独立交付能力
+            </span>
+            <span
+              data-testid="capability-profile-label-independent_delivery"
+              style="display: inline-block; background-color: rgb(166, 227, 161); color: rgb(17, 17, 27); padding: 4px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600;"
+            >
+              自主
+            </span>
+          </div>
+          <div
+            data-testid="capability-profile-score-independent_delivery"
+            style="font-size: 24px; font-weight: 700; color: rgb(166, 227, 161); line-height: 1; margin-bottom: 4px;"
+          >
+            90.8
+          </div>
+          <p
+            style="margin: 0px 0px 8px; font-size: 12px; color: rgb(186, 194, 222); line-height: 1.5;"
+          >
+            候选人能独立拿到需求、拆解、实现、验证,不需要被 handhold
+          </p>
+          <div
+            style="border-top: 1px solid rgb(69, 71, 90); padding-top: 8px; font-size: 11px; color: rgb(147, 153, 178);"
+          >
+            <div
+              style="margin-bottom: 4px;"
+            >
+              主导维度
+            </div>
+            <div
+              style="display: flex; flex-wrap: wrap; gap: 4px;"
+            >
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                技术判断力
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  38.0
+                </span>
+              </span>
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                代码质量
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  31.5
+                </span>
+              </span>
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                AI 工程力
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  21.3
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div
+          data-testid="capability-profile-ai_collaboration"
+          style="background-color: rgb(49, 50, 68); border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.3);"
+        >
+          <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"
+          >
+            <span
+              style="font-size: 14px; font-weight: 600; color: rgb(205, 214, 244);"
+            >
+              AI 协作成熟度
+            </span>
+            <span
+              data-testid="capability-profile-label-ai_collaboration"
+              style="display: inline-block; background-color: rgb(166, 227, 161); color: rgb(17, 17, 27); padding: 4px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600;"
+            >
+              自主
+            </span>
+          </div>
+          <div
+            data-testid="capability-profile-score-ai_collaboration"
+            style="font-size: 24px; font-weight: 700; color: rgb(166, 227, 161); line-height: 1; margin-bottom: 4px;"
+          >
+            86.5
+          </div>
+          <p
+            style="margin: 0px 0px 8px; font-size: 12px; color: rgb(186, 194, 222); line-height: 1.5;"
+          >
+            候选人展现成熟的 AI 协作模式:审查 AI 输出,合理接受率,测试驱动,能识别 AI 胡说八道
+          </p>
+          <div
+            style="border-top: 1px solid rgb(69, 71, 90); padding-top: 8px; font-size: 11px; color: rgb(147, 153, 178);"
+          >
+            <div
+              style="margin-bottom: 4px;"
+            >
+              主导维度
+            </div>
+            <div
+              style="display: flex; flex-wrap: wrap; gap: 4px;"
+            >
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                AI 工程力
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  59.5
+                </span>
+              </span>
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                代码质量
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  27.0
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div
+          data-testid="capability-profile-system_thinking"
+          style="background-color: rgb(49, 50, 68); border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.3);"
+        >
+          <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"
+          >
+            <span
+              style="font-size: 14px; font-weight: 600; color: rgb(205, 214, 244);"
+            >
+              系统思维
+            </span>
+            <span
+              data-testid="capability-profile-label-system_thinking"
+              style="display: inline-block; background-color: rgb(166, 227, 161); color: rgb(17, 17, 27); padding: 4px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600;"
+            >
+              自主
+            </span>
+          </div>
+          <div
+            data-testid="capability-profile-score-system_thinking"
+            style="font-size: 24px; font-weight: 700; color: rgb(166, 227, 161); line-height: 1; margin-bottom: 4px;"
+          >
+            93.0
+          </div>
+          <p
+            style="margin: 0px 0px 8px; font-size: 12px; color: rgb(186, 194, 222); line-height: 1.5;"
+          >
+            候选人能从业务场景推导技术架构,识别权衡,迁移场景仍能应用原则
+          </p>
+          <div
+            style="border-top: 1px solid rgb(69, 71, 90); padding-top: 8px; font-size: 11px; color: rgb(147, 153, 178);"
+          >
+            <div
+              style="margin-bottom: 4px;"
+            >
+              主导维度
+            </div>
+            <div
+              style="display: flex; flex-wrap: wrap; gap: 4px;"
+            >
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                系统设计
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  47.5
+                </span>
+              </span>
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                技术判断力
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  28.5
+                </span>
+              </span>
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                AI 工程力
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  17.0
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div
+          data-testid="capability-profile-learning_agility"
+          style="background-color: rgb(49, 50, 68); border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.3);"
+        >
+          <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"
+          >
+            <span
+              style="font-size: 14px; font-weight: 600; color: rgb(205, 214, 244);"
+            >
+              学习敏捷
+            </span>
+            <span
+              data-testid="capability-profile-label-learning_agility"
+              style="display: inline-block; background-color: rgb(166, 227, 161); color: rgb(17, 17, 27); padding: 4px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600;"
+            >
+              自主
+            </span>
+          </div>
+          <div
+            data-testid="capability-profile-score-learning_agility"
+            style="font-size: 24px; font-weight: 700; color: rgb(166, 227, 161); line-height: 1; margin-bottom: 4px;"
+          >
+            90.0
+          </div>
+          <p
+            style="margin: 0px 0px 8px; font-size: 12px; color: rgb(186, 194, 222); line-height: 1.5;"
+          >
+            候选人能面对质疑合理更新立场,有强元认知,学习曲线陡
+          </p>
+          <div
+            style="border-top: 1px solid rgb(69, 71, 90); padding-top: 8px; font-size: 11px; color: rgb(147, 153, 178);"
+          >
+            <div
+              style="margin-bottom: 4px;"
+            >
+              主导维度
+            </div>
+            <div
+              style="display: flex; flex-wrap: wrap; gap: 4px;"
+            >
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                元认知
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  44.0
+                </span>
+              </span>
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                沟通
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  27.0
+                </span>
+              </span>
+              <span
+                style="padding: 2px 8px; background-color: rgb(69, 71, 90); border-radius: 4px; font-size: 11px; color: rgb(166, 173, 200);"
+              >
+                技术判断力
+                <span
+                  style="color: rgb(127, 132, 156); margin-left: 4px;"
+                >
+                  +
+                  19.0
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </section>
+  <section
+    data-section-id="recommendation"
+    data-section-layer="summary"
+  >
+    <div
+      data-testid="recommendation-section"
+      style="background-color: rgb(49, 50, 68); border-radius: 12px; padding: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.3); border-left: 4px solid rgb(166, 227, 161);"
+    >
+      <div
+        style="font-size: 11px; color: rgb(147, 153, 178); font-weight: 500; margin-bottom: 4px;"
+      >
+        推荐动作
+      </div>
+      <div
+        data-testid="recommendation-text"
+        style="font-size: 20px; font-weight: 600; color: rgb(205, 214, 244);"
+      >
+        强烈推荐录用
+      </div>
+    </div>
+  </section>
+</div>
+`;
