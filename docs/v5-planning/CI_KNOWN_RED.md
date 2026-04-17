@@ -4,7 +4,7 @@
 
 | Job | 失败原因 | Task owner | 状态 |
 |---|---|---|---|
-| prompt-regression | `packages/server/promptfooconfig.yaml` 未创建 | Task 7 | known-red |
+| prompt-regression | `packages/server/promptfooconfig.yaml` 未创建;promptfoo evaluation 需要真实 prompt 内容(Task 7 只 seed placeholder,Task 9 开始产出真实 prompt 时建 config) | Task 9 | known-red |
 | e2e | **原因已变**。Task 5.5 (PR #23) 创建了 `packages/server/src/index.ts`,`ERR_MODULE_NOT_FOUND` 消失,本地 `cd packages/server && npm run dev` clean 启动,`GET /health` 返回 200。**当前 CI 失败原因**:`Error: No tests found` — `e2e/` 目录下尚无 `.spec.ts` 文件,Playwright 找不到测试即退出,根本没走到 webServer 启动路径。第一个 e2e test(Task 17 Golden Path)落地时才能在 CI 真实验证 bootstrap。 | Task 17 | known-red |
 
 ### e2e 失败 — 历史与当前状态

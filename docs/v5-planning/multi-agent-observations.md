@@ -49,9 +49,9 @@
 - **上分**:指出具体的矛盾点 + 列出可能意图 + 问澄清
 - **下分**:假装没看到矛盾直接实现,或凭感觉选一种意图
 
-**聚类状态**(2026-04-17 更新):signal hint `sClarificationQuality` 累积 6 条观察
-(3 条 agent 正例 #003 #007 #008 + 3 条 Claude 反例 #011 #012 #013),**已达
-5 条聚类阈值 → 原则 1 进入 V5.2 信号候选池**。
+**聚类状态**(2026-04-17 更新):signal hint `sClarificationQuality` 累积 8 条观察
+(4 条 agent 正例 #003 #007 #008 #016 + 4 条 Claude 反例 #011 #012 #013 #017),
+**已达 5 条聚类阈值 → 原则 1 进入 V5.2 信号候选池**。
 
 ### 原则 2:"对照文档 diff" 是可训练的工程习惯,远超"凭记忆判断"
 
@@ -327,6 +327,73 @@ c 按 clarifications 落定稿 round4 / d 推迟)让 Steve 选。Steve 选 c,
 **Meta**:催生了规则细化(`不改 shared` 硬约束 → 有文档依据可破)。
 这是协议级改进而非单次处理。
 
+### Observation #016 — 2026-04-17 ~14:00 — Backend (Claude-as-implementer) Task 7 catch count 偏差
+
+**Agent**:Claude(Task 7 Backend implementer 角色)
+**Phase**:Task 7 启动 kickoff,pre-implementation 阶段
+**Context**:Steve 的 Task 7 启动 brief 声称"V5 prompt keys 清单(18 个)",
+但实际 `backend-agent-tasks.md` L894-L910 列出 17 个(9 generator.step0-8 +
+5 mc.probe_engine.* + 3 md.llm_whitelist.*)。
+**Event**:Claude 在开工前 view `backend-agent-tasks.md` 对 brief 的 "18" 做
+count check,发现与权威源差 1。**严格按规则 5 防御性条款 + 规则 4 自检第 5 问**
+(数量是不是凭记忆编的),停下未写一行代码,列 3 种可能(A 笔误 / B 文档漏记
+一个 key / C 另有口头扩展)让 Steve 选。Steve 选 A(笔误,按 17 seed)。
+**Commit**:feat/backend-task7,Task 7 PR #31 开工前
+**Signal hint**:`sClarificationQuality` — 正例(动手前 count check 发现
+brief 数字与权威源差 1,停下报告不自作主张)
+**Meta**:Claude 反例(#017,Violation #4)+ implementer 正面观察(本条)
+成对,signal hint 相同。与 #007/#011、#008/#012、#013/#014 同构,
+但本次 agent 和 Claude 同一实例(Claude 在 Task 7 兼任 Backend implementer),
+证明规则 5 防御性条款对同一实例也生效——只要有 "view 权威源再动手" 的
+硬约束,paraphrase 错误就能在 cost 最低的节点被拦住。
+
+### Observation #017 — 2026-04-17 ~13:45 — Claude 协调者 Task 7 brief 数字偏差(反例)
+
+**Agent**:Claude(协调者)— **反例**
+**Phase**:Task 7 启动指令起草 + Steve 确认周期
+**Context**:Steve 起草 Task 7 启动 brief 时写"V5 prompt keys 清单(18 个)",
+Claude 在接收 brief → 规划 task 分解期间**未对 "18" 做 count verify**,
+把同一数字复制进内部 TodoWrite("T7-1: Define 18 V5 prompt keys"、
+"T7-3: Populate seed.ts with 18 v1 placeholders"),准备按 18 seed。
+**Event**:到 pre-implementation 阶段才凭规则 5/4 catch 出来——若 Claude 在
+收 brief 第一轮就按规则 4 第 5 问("数量是不是凭记忆的")主动 verify,
+能在更早节点拦截,也能免掉 TodoWrite 错项。Steve 选 A(笔误)并明确要求
+本次记为 Claude Error #4 / Violation #4。
+**Commit**:Task 7 PR #31 开工前(Backend implementer 正面记录:
+Observation #016)
+**Signal hint**:`sClarificationQuality` — **反例**(接收含数字的 brief 时
+未按规则 4 自检立刻 verify 数字,拖到 implementer 阶段才 catch)
+**Meta**:Claude 错误 Violation #4 — 违反规则 4(30 秒自检第 5 问)。
+注意本条和 #011/#012/#013 不同:这次错误不是 Claude 自己 paraphrase 文档,
+而是**未对 Steve 提供的数字做二次验证**。规则 4 覆盖的是"我引用或传递的
+数字是否凭记忆",应当扩展解读为"他人提供的数字传递前也要 verify"。
+这条观察促成规则 4 的语义澄清(下次 v1.1 修订时补入)。
+
+### Observation #018 — 2026-04-17 ~14:15 — Backend (Task 7) catch CI_KNOWN_RED.md ↔ tasks.md 契约不一致
+
+**Agent**:Claude(Task 7 Backend implementer 角色)
+**Phase**:Task 7 PR #31 pre-self-merge CI 审查
+**Context**:PR #31 CI 显示 `prompt-regression` FAIL + `e2e` FAIL。
+查 CI_KNOWN_RED.md 发现 `prompt-regression` row 把 Task owner 标为 **Task 7**,
+但 `backend-agent-tasks.md` L888-928 Task 7 spec 完全不含 promptfoo /
+CI / evaluation 字眼(只涉及 DB 层 registry + 17 key seed)。
+**Event**:Backend **拒绝自行扩 scope**(不自己创建 `promptfooconfig.yaml`,
+也不默认"CI 既然标了 Task 7 owner 我就补上"),按规则 5 防御性条款停下,
+列 3 选项(A 以 CI-baseline 原样 self-merge / B 在本 PR 加 stub 配置 /
+C retarget CI_KNOWN_RED.md ownership 到 Task 9)让 Steve 裁决。
+Steve 选 C:真正需要 promptfoo 的时点是 **Task 9**(Step 0 Prompt 调优,
+第一个真实 prompt 产出 + 调优 10 轮需要 evaluation 工具),Task 7 只做
+DB 激活,此时 evaluation 没有有意义的对象。
+**Commit**:PR #31 amend 后的 force-push commit(TBD)
+**Signal hint**:`sContractAlignment` — 两份协议文档(CI_KNOWN_RED.md
+Task ownership ↔ backend-agent-tasks.md Task scope)之间的契约不一致,
+动手前 diff 发现并停下
+**Meta**:这不是 agent/Claude 对 Steve 文档的 paraphrase 错误(#011-#013、
+#017 那类),而是**两份规范文档之间的内部矛盾**。这类契约不一致在大型
+多文档项目里是典型陷阱——"看到一份说我该做就做"会扩 scope,"看到另一份
+说我不该做就不做"会错过责任,正解是停下 diff 两份 + 请示。规则 5 覆盖
+"指令 vs 文档不符",本案证明它也能拦住"文档 A vs 文档 B 不符"。
+
 ---
 
 ## Signal Hint 聚类
@@ -338,10 +405,10 @@ c 按 clarifications 落定稿 round4 / d 推迟)让 Steve 选。Steve 选 c,
 
 | Signal Hint | 观察数 | Cluster 状态 |
 |---|---|---|
-| sClarificationQuality | 6(#003 #007 #008 正 + #011 #012 #013 反) | **已达阈值 ≥5,进入 V5.2 信号候选池** |
+| sClarificationQuality | 8(#003 #007 #008 #016 正 + #011 #012 #013 #017 反) | **已达阈值 ≥5,进入 V5.2 信号候选池** |
 | sScopeDiscipline | 1(#009) | 单例,继续收集 |
 | sStopLossPerception | 1(#005) | 单例,继续收集 |
-| sContractAlignment | 2(#004 #015) | 继续收集,距 5 条阈值还需 3 条 |
+| sContractAlignment | 3(#004 #015 #018) | 继续收集,距 5 条阈值还需 2 条 |
 | sContractRespect | 1(#010) | 单例,继续收集 |
 | sMultiLayerConsistency | 2(#007 #014) | 继续收集,距 5 条阈值还需 3 条 |
 | sLocationCheck | 1(#002) | 单例,继续收集 |
@@ -629,17 +696,35 @@ Observation #N(signal hint: sClarificationQuality 反例)。
   Emma Challenge 是 R1 的 sub-flow
 - Catch by:Frontend 4.7
 - Claude 反例编号:Observation #013(Claude Error #3)
-- 对应 Agent 正面观察:待 Task 5 PR #28 merge 后新增为 Observation #014
-  (Frontend Task 5 R3/R4 kickoff stop)
+- 对应 Agent 正面观察:Observation #014(Frontend Task 5 R3/R4 kickoff stop)
 - 违反规则:规则 1 + 规则 2
 
-**当日违反率**:3 次 / 约 40 次给 agent 的指令 ≈ 7.5%
+**Violation #4** — Task 7 brief "18 keys" 数字未 verify
+- 错误:Steve brief 写"V5 prompt keys 清单(18 个)",权威源
+  `backend-agent-tasks.md` L894-L910 列出 17 个。Claude 收 brief 时未按
+  规则 4 第 5 问做 count verify,把同一数字复制进 TodoWrite,拖到
+  pre-implementation 阶段才 catch
+- Catch by:Claude 自己(Task 7 Backend implementer 角色,按规则 5
+  防御性条款 + 规则 4 自检)— 是本日唯一一次 Claude 自 catch
+- Claude 反例编号:Observation #017(Claude Error #4)
+- 对应 Agent 正面观察:Observation #016(Backend Task 7 implementer catch)
+- 违反规则:规则 4(30 秒自检第 5 问,应扩展覆盖"他人提供的数字")
+
+**当日违反率**:4 次 / 约 40 次给 agent 的指令 ≈ 10%
 
 **目标违反率**(V5.0 发布前):< 2%
+
+**规则 4 语义澄清**(由 Violation #4 触发,待 v1.1 修订时补入):
+规则 4 第 5 问("我给 agent 的约束里,有没有我凭记忆编的?")应扩展为
+"我引用或**传递**的任何数字/文件路径/行号,是否已对权威源 verify?"——
+覆盖 Claude paraphrase 的情况,也覆盖 Claude 转发他人数字的情况。
 
 ---
 
 **文件结束**
 
-> 最后更新:2026-04-17 v0.3(Frontend Task 5 PR #28 观察 #014 #015 同步)
-> 下次更新预期:Claude 下次违反规则时(记录 Violation #4)或下次 agent PR observations 同步
+> 最后更新:2026-04-17 v0.5(Task 7 Backend PR #31 观察 #016 #017 #018 +
+> Claude Violation #4 + CI_KNOWN_RED.md ownership retarget (Task 7 → 9);
+> sClarificationQuality 8 条 / sContractAlignment 3 条;规则 4 语义澄清草案)
+> 下次更新预期:Claude 下次违反规则时(Violation #5)或下次 agent PR
+> observations 同步
