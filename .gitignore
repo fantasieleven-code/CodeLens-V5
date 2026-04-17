@@ -6,3 +6,8 @@ dist/
 coverage/
 playwright-report/
 test-results/
+
+# Prevent accidental paste of chat archives / binary files into repo root
+/回答Claud的问题*
+/*.chat.txt
+/*.paste.*
