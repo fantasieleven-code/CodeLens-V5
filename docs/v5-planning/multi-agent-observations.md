@@ -49,8 +49,8 @@
 - **上分**:指出具体的矛盾点 + 列出可能意图 + 问澄清
 - **下分**:假装没看到矛盾直接实现,或凭感觉选一种意图
 
-**聚类状态**(2026-04-17 更新):signal hint `sClarificationQuality` 累积 8 条观察
-(4 条 agent 正例 #003 #007 #008 #016 + 4 条 Claude 反例 #011 #012 #013 #017),
+**聚类状态**(2026-04-17 更新):signal hint `sClarificationQuality` 累积 10 条观察
+(5 条 agent 正例 #003 #007 #008 #016 #020 + 5 条 Claude 反例 #011 #012 #013 #017 #021),
 **已达 5 条聚类阈值 → 原则 1 进入 V5.2 信号候选池**。
 
 ### 原则 2:"对照文档 diff" 是可训练的工程习惯,远超"凭记忆判断"
@@ -394,6 +394,50 @@ Task ownership ↔ backend-agent-tasks.md Task scope)之间的契约不一致,
 说我不该做就不做"会错过责任,正解是停下 diff 两份 + 请示。规则 5 覆盖
 "指令 vs 文档不符",本案证明它也能拦住"文档 A vs 文档 B 不符"。
 
+### Observation #019 — 2026-04-17 ~17:00 — Frontend 4.7 Task 6 发现 brief 机械替换已完成
+
+**Agent**:Frontend 4.7
+**Phase**:Task 6 启动(feat/frontend-task6)
+**Context**:`frontend-agent-tasks.md` L526-562 把 Task 6 描述为机械替换(`v4:modulec:*`→`v5:modulec:*` ~15 处、`V4ModuleCAnswerPayload`→`V5ModuleCAnswer`、`useV4ModuleStore`→`useModuleStore`)
+**Event**:Frontend 开工前 view 工作树,发现文档描述的机械替换**零处存在** — 全部已在 Task 1 batch 2(`a76563c` / `57f242e`)落地。真实残余工作是基础设施新建(`voice.store` / `useVoiceRTC`)+ 一处 `ModuleCPage.tsx` import-path 清理,文档没提。Frontend 停下,在 PR description 详细列出"已完成 vs 待建"的 diff。
+**Commit**:PR #32,base commit `c18db52`
+**Signal hint**:`sMultiLayerConsistency` — 文档描述的状态 vs 工作树实际状态两层不一致
+**Meta**:与 #002(Backend SUITES 位置)、#014(Frontend Task 5 R3 定义)同构,都是"文档 vs 仓库现实"层的 catch。提示大型项目的 Task brief 有 staleness 风险 — 自动 diff "任务描述 vs 仓库现状" 可能成为 V5.2 的 meta 信号。
+
+### Observation #020 — 2026-04-17 ~17:15 — Frontend 4.7 Task 6 kickoff 3-option stop
+
+**Agent**:Frontend 4.7
+**Phase**:Task 6 启动,写代码前
+**Context**:#019 暴露文档错配同时,又发现 3 处歧义 — 缺 `voice.store` / `useVoiceRTC` 钩子、`/api/voice/v4/start` 端点含义(CodeLens V4 vs Volcano RTC API 版本)、tsconfig `ModuleCPage.tsx` 排除
+**Event**:Frontend 停下,把文档错配 + 3 处歧义合并为 3 scoped options(A 空操作 / B 完整激活 / C 仅 stub)给 Steve。Steve 选 B 并澄清 "V5 延续 V4 Bearer auth"。这次停下的价值在于:把多个独立歧义合并为**一个清晰的决策点**,避免分批来回打断。
+**Commit**:PR #32 kickoff stop
+**Signal hint**:`sClarificationQuality` — 正例(多重歧义合并为一轮 3-option 决策,决策者只需裁决一次)
+**Meta**:与 Claude Error #5 / Violation #5(Observation #021)成对,signal hint 相同,正反两面数据。证明 agent 正例可以同时暴露 Claude 反例 — 当 Frontend 列出 option B "完整激活" 时,已经在事实上补齐了 Claude 漏列的选项。
+
+### Observation #021 — 2026-04-17 ~17:15 — Claude 协调者 Task 6 brief 初始 stub 方向错 + 未嵌入 V4 源码(反例)
+
+**Agent**:Claude(协调者)— **反例**
+**Phase**:Task 6 启动指令起草
+**Context**:Steve 托 Claude 起草 Frontend Task 6 启动 brief。Claude 凭记忆假设 V4 `voice.store` / `useVoiceRTC` 要"新建",未 view `legacy/v4` 分支或本地 V4 clone 确认源码是否已经存在
+**Event**:Claude 初始 brief **双重漏**:
+1. 方向是 stub 起步(相当于 option C 路径),**没有给出 option B(V4 verbatim 复用)作为可选路径**,因为 Claude 不知道 V4 分支里有完整 VERTC + 订阅 / 发布管线实现。
+2. 即便在后续讨论里 V4 复用作为可能性出现,Claude 的指令里也**没有嵌入具体 V4 文件路径(voice.store.ts / useVoiceRTC.ts)或源码节选**,强制 Steve 手动翻 V4 branch 把文件内容直接 drop 给 Frontend。
+
+Frontend 开工前 view 工作树 + 从 V4 clone 交叉验证后,在 #020 的 3-option 列表中把 B 列为"完整激活"。Steve 最终裁决 B 并手动提供 V4 `voice.store` + `useVoiceRTC` 源码给 Frontend verbatim 复用。这是本日首次 Steve 主动注入策略(不是回应 agent 提问),确认了 coordination protocol 需要对称的 Steve-to-agent 通道。
+**Commit**:PR #32 开工前(Frontend 正面记录:Observation #020)
+**Signal hint**:`sClarificationQuality` — **反例**(未 view V4 分支验证 + 未提供 V4 reuse 路径 + 未在指令里嵌入 V4 源码路径)
+**Meta**:Claude 错误 Violation #5(stub 方向,违反规则 1 + 规则 3)+ Violation #6(指令 B 步未嵌入 V4 源码路径,违反规则 2 + 规则 3)。两个 violation 同一 phase,但机制不同:#5 是"根本没考虑 V4 reuse",#6 是"即使考虑了也没提供源码路径"。与 #011/#012/#013 同构但更严重 — 这次不止 paraphrase 错,还遗漏了可复用的既有实现整类。
+
+### Observation #022 — 2026-04-17 ~17:30 — Frontend 4.7 Task 6 session.store auth 契约 stop
+
+**Agent**:Frontend 4.7
+**Phase**:Task 6 scope refinement,在 #020 的 3-option 被 Steve 裁决为 B 后
+**Context**:Frontend 读 `useVoiceRTC.ts` V4 源码时发现它依赖 `session.store.token` 字段,但当前 V5 `session.store` 骨架(Task 1 batch 3)只有 `currentSessionId`,**没有 `token` 字段**
+**Event**:Frontend **不默默加字段也不默默失败**,停下问 Steve "V5 是否延续 V4 Bearer auth 机制,还是引入新认证?" Steve 确认 Bearer 延续。Frontend 加 `token: string | null + setToken()`,并在 PR description 明确标注 "actual `setToken` wiring 留给 MC backend join / Admin login 实施",避免在 Task 6 scope 里悄悄扩了 auth 路径。
+**Commit**:PR #32 scope refinement
+**Signal hint**:`sContractAlignment` — 认证契约在消费端缺失时主动请示,而非 silently 扩字段
+**Meta**:与 #004(SUITES capability-profiles)、#015(round4 落点)、#018(CI_KNOWN_RED↔tasks 不一致)同属 sContractAlignment,聚类进度 3→4(距 5 条阈值还剩 1)。这条和 #020 都是 Frontend 在同一 Task kickoff 的两轮 stop(先问 scope 方向,再问 auth 契约),说明单次 kickoff 多歧义合并不是总能做到 — 依赖是否在起步时就暴露,这里 auth 契约是在读 V4 源码后才暴露。
+
 ---
 
 ## Signal Hint 聚类
@@ -405,12 +449,12 @@ Task ownership ↔ backend-agent-tasks.md Task scope)之间的契约不一致,
 
 | Signal Hint | 观察数 | Cluster 状态 |
 |---|---|---|
-| sClarificationQuality | 8(#003 #007 #008 #016 正 + #011 #012 #013 #017 反) | **已达阈值 ≥5,进入 V5.2 信号候选池** |
+| sClarificationQuality | 10(#003 #007 #008 #016 #020 正 + #011 #012 #013 #017 #021 反) | **已达阈值 ≥5,进入 V5.2 信号候选池** |
 | sScopeDiscipline | 1(#009) | 单例,继续收集 |
 | sStopLossPerception | 1(#005) | 单例,继续收集 |
-| sContractAlignment | 3(#004 #015 #018) | 继续收集,距 5 条阈值还需 2 条 |
+| sContractAlignment | 4(#004 #015 #018 #022) | 继续收集,距 5 条阈值还需 1 条 |
 | sContractRespect | 1(#010) | 单例,继续收集 |
-| sMultiLayerConsistency | 2(#007 #014) | 继续收集,距 5 条阈值还需 3 条 |
+| sMultiLayerConsistency | 3(#007 #014 #019) | 继续收集,距 5 条阈值还需 2 条 |
 | sLocationCheck | 1(#002) | 单例,继续收集 |
 | sMissingContextHandling | 1(#003) | 单例,继续收集 |
 | sVerifyBeforeDestroy | 1(#001) | 单例,继续收集 |
@@ -710,7 +754,30 @@ Observation #N(signal hint: sClarificationQuality 反例)。
 - 对应 Agent 正面观察:Observation #016(Backend Task 7 implementer catch)
 - 违反规则:规则 4(30 秒自检第 5 问,应扩展覆盖"他人提供的数字")
 
-**当日违反率**:4 次 / 约 40 次给 agent 的指令 ≈ 10%
+**Violation #5** — Task 6 brief stub 方向,未给 V4 复用选项
+- 错误:Task 6 Frontend 启动 brief 初始方向是"stub 起步",没有把 option B
+  (V4 verbatim 复用)作为可选路径列出,因为 Claude 未 view `legacy/v4`
+  分支或本地 V4 clone 确认 `voice.store` / `useVoiceRTC` 源码是否已存在。
+  漏列可复用实现整类 — 比 paraphrase 错误更严重的一级错误
+- Catch by:Frontend 4.7(开工前 view 工作树 + 交叉验证后在 3-option
+  列表主动把 B 列为"完整激活")+ Steve(裁决 B 并手动 drop V4 源码)
+- Claude 反例编号:Observation #021(Claude Error #5)
+- 对应 Agent 正面观察:Observation #020(Frontend Task 6 kickoff 3-option stop)
+- 违反规则:规则 1(未 view V4 分支)+ 规则 3(涉及文件内容的指令未 view)
+
+**Violation #6** — Task 6 brief option B 步骤未嵌入 V4 源码路径
+- 错误:即便在讨论里 V4 复用作为可能性浮现,Claude 的指令也**没有嵌入
+  具体 V4 文件路径(`voice.store.ts` / `useVoiceRTC.ts`)或源码节选**,
+  强制 Steve 手动翻 V4 branch 把 54 行 voice.store + 175 行 useVoiceRTC
+  源码直接 drop 给 Frontend。指令停留在"完整激活"字面,没有提供可执行路径
+- Catch by:Steve(采纳 option B 后发现必须自己去翻 V4)
+- Claude 反例编号:Observation #021(同 Violation #5 同一 phase,
+  两个不同机制的漏)
+- 对应 Agent 正面观察:Observation #020
+- 违反规则:规则 2(给 agent 的指令应当引用具体路径/行号,不 paraphrase)
+  + 规则 3(涉及文件内容的指令必须先 view 或让 agent 先 view)
+
+**当日违反率**:6 次 / 约 42 次给 agent 的指令 ≈ 14%
 
 **目标违反率**(V5.0 发布前):< 2%
 
@@ -723,8 +790,7 @@ Observation #N(signal hint: sClarificationQuality 反例)。
 
 **文件结束**
 
-> 最后更新:2026-04-17 v0.5(Task 7 Backend PR #31 观察 #016 #017 #018 +
-> Claude Violation #4 + CI_KNOWN_RED.md ownership retarget (Task 7 → 9);
-> sClarificationQuality 8 条 / sContractAlignment 3 条;规则 4 语义澄清草案)
-> 下次更新预期:Claude 下次违反规则时(Violation #5)或下次 agent PR
-> observations 同步
+> 最后更新:2026-04-17 v0.6(Task 6 Frontend PR #32 观察 #019 #020 #021 #022 +
+> Claude Violations #5 #6;sClarificationQuality 10 条 / sContractAlignment 4 条 /
+> sMultiLayerConsistency 3 条;sContractAlignment 距 5 条聚类阈值仅差 1)
+> 下次更新预期:Claude 下次违反规则时或下次 agent PR observations 同步
