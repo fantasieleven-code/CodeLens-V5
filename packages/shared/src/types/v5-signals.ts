@@ -24,9 +24,39 @@ export interface SignalInput {
 }
 
 /**
+ * 单条证据——Round 3 重构 1(Evidence Trace)。
+ * compute 命中的每条规则生成一条 evidence;一个 SignalResult 最多保留 5 条。
+ */
+export interface SignalEvidence {
+  /** 证据来源路径,如 'submissions.moduleA.round1.reasoning' / 'submissions.mb.editorBehavior.aiCompletionEvents[3]'。 */
+  source: string;
+  /** 原文片段或事件摘要,长度 > 200 字符时截断并加省略号。 */
+  excerpt: string;
+  /** 该证据对 value 的贡献分量,可正可负。 */
+  contribution: number;
+  /** 命中的规则名,如 'has_quantitative_marker' / 'stance_maintained'。 */
+  triggeredRule?: string;
+}
+
+/**
+ * 单个信号的计算结果——Round 3 重构 1(Evidence Trace)。
+ *
+ * value 为 null 表示信号不适用(e.g. MD 信号在 quick_screen 不参与),此时 evidence 允许为空。
+ * 非 null 的 value 必须伴随 >= 1 条 evidence,上限 5 条。
+ */
+export interface SignalResult {
+  value: number | null;
+  evidence: SignalEvidence[];
+  /** epoch ms,computeAll 写入。 */
+  computedAt: number;
+  /** 算法版本,如 'sArgumentResilience@v1'。 */
+  algorithmVersion: string;
+}
+
+/**
  * 单个信号的定义。每个信号一个文件，在 `packages/server/src/signals/{module}/s-xxx.ts` 放独立模块。
  *
- * compute 返回 null 表示信号不适用（e.g. MD 信号在 quick_screen 不参与）。
+ * compute 的 SignalResult.value === null 表示信号不适用（e.g. MD 信号在 quick_screen 不参与）。
  * fallback 为 LLM 白名单信号的纯规则降级；纯规则信号可以省略。
  */
 export interface SignalDefinition {
@@ -36,18 +66,21 @@ export interface SignalDefinition {
   moduleSource: V5ModuleType;
   /** 是否是 LLM 白名单信号（仅 MD 有 3 个）。非白名单信号永远纯规则计算。 */
   isLLMWhitelist: boolean;
-  compute: (input: SignalInput) => Promise<number | null>;
+  compute: (input: SignalInput) => Promise<SignalResult>;
   /** 仅 LLM 白名单信号需要：超时/失败时的纯规则降级。 */
-  fallback?: (input: SignalInput) => number | null;
+  fallback?: (input: SignalInput) => SignalResult;
 }
 
-export type SignalResults = Record<string, number | null>;
+export type SignalResults = Record<string, SignalResult>;
 
 export interface SignalRegistry {
   register(def: SignalDefinition): void;
-  /** 计算所有已注册信号；未参与模块对应信号直接返回 null。 */
+  /** 计算所有已注册信号；未参与模块对应信号直接返回 value === null。 */
   computeAll(input: SignalInput): Promise<SignalResults>;
   getDimensionSignals(dim: V5Dimension): SignalDefinition[];
   getSignalCount(): number;
   listSignals(): SignalDefinition[];
 }
+
+/** 证据上限——Round 3 重构 1。 */
+export const SIGNAL_EVIDENCE_LIMIT = 5;

@@ -33,15 +33,14 @@ registry、exam generator、SandboxProvider、ModelProvider 等。
 - LLM 调用统一经 ModelProvider(Task 7),不直接 fetch API
 
 ## Typecheck 基线管理
-- PR #1 merge 后 main 的 server typecheck 错误基线 = **14**
-  - 10 × TS2307(missing V4 services,Task 2-14 迁移后消除)
-  - 4 × TS7006(V4 A-tier implicit any:session.ts:100,128 / shared-report.ts:83 / e2b-health.service.ts:59)
-- 注:PR #1 CI 曾显示 16,多出的 2 个是 CI 未跑 `prisma generate` 时 `.map()` 回调参数的 implicit-any;Task 2 已在 CI workflow 补齐 `npx prisma generate`,之后 CI 与本地一致显示 14
-- 每个 PR 描述必须写 "Typecheck errors: N (delta: -X / +Y)"
-- 规则:
-  - PR 可以不清零,但**不能增加总数**
-  - 如果必须增加(比如新引 V4 service 引用),PR 描述说明并得到 Steve 批准
-  - 目标:Task 10 时 < 5,Task 14 时 = 0
+- **Server typecheck baseline = 0（Task 4 后）**，见 `docs/v5-planning/TYPECHECK_EXCLUDES.md`。
+- excluded 文件的 re-enable owner：Task 5（health + e2b-health）/ Task 6（job-models）/ Task 11（routes/session）/ Task 13（event-bus `@ts-expect-error`）/ Task 15（routes/shared-report）。
+- 每个 PR 描述必须写 "Typecheck errors: N (delta: -X / +Y)"，baseline 不得增加。
+- 新增 V4 残留引用时：追加到 `TYPECHECK_EXCLUDES.md` 表格 + `packages/server/tsconfig.json` exclude 数组，PR 描述说明原因 + 引用 issue #10 + 得到 Steve 批准。
+
+## CI Known-Red（V5 过渡期）
+
+有 1 个 CI job（prompt-regression）因 Task 7 deliverable 未到位而持续红。详见 `docs/v5-planning/CI_KNOWN_RED.md`。Merge 时可以忽略该 job 的 FAILURE。V5.0 发布 gate 要求 `CI_KNOWN_RED.md` 清空。
 
 ## 行为约束
 - **Standby = 字面待命**:零 git 操作,零文件写入
