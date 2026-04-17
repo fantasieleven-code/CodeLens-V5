@@ -65,7 +65,7 @@ export const CompletePage: React.FC = () => {
   const shortId = sessionId ? sessionId.slice(0, 8) : '--------';
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} data-testid="complete-root">
       <div style={styles.content}>
         {/* ── Hero ── */}
         <div style={styles.heroSection}>
@@ -105,14 +105,17 @@ export const CompletePage: React.FC = () => {
             const label = meta.desc ? `${meta.label} — ${meta.desc}` : meta.label;
             const detail = id === 'mb' && done ? stats.mbDetail : null;
             return (
-              <div key={id} style={styles.moduleRow}>
+              <div key={id} style={styles.moduleRow} data-testid={`complete-module-${id}`}>
                 <div style={styles.moduleInfo}>
                   <span style={styles.moduleLabel}>
                     {label}
                     {detail && <span style={styles.moduleDetail}> ({detail})</span>}
                   </span>
                 </div>
-                <span style={done ? styles.badgeDone : styles.badgeSkipped}>
+                <span
+                  style={done ? styles.badgeDone : styles.badgeSkipped}
+                  data-testid={`complete-module-${id}-badge`}
+                >
                   {done ? '已完成' : '未参加'}
                 </span>
               </div>

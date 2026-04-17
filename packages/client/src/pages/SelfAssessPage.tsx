@@ -8,15 +8,28 @@
  * signals → score → profile.
  */
 
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
+import type { V5SelfAssessSubmission } from '@codelens-v5/shared';
 import { getSocket } from '../lib/socket.js';
 import { useModuleStore } from '../stores/module.store.js';
+import { useSessionStore } from '../stores/session.store.js';
 import { useBehaviorTracker } from '../hooks/useBehaviorTracker.js';
+import { DecisionSummary } from '../components/DecisionSummary.js';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../lib/tokens.js';
 
 export const SelfAssessPage: React.FC = () => {
   const advance = useModuleStore((s) => s.advance);
   const suiteId = useModuleStore((s) => s.suiteId);
+  const setSubmission = useSessionStore((s) => s.setModuleSubmissionLocal);
+  // Subscribe to submissions so re-renders reflect upstream module writes —
+  // store getters don't trigger React updates on their own.
+  const submissions = useSessionStore((s) => s.submissions);
+  const decisionSummary = useMemo(
+    // Read via getState so we don't have to wire a selector for every
+    // nested field — submissions in deps triggers recompute on any change.
+    () => useSessionStore.getState().getDecisionSummary(),
+    [submissions],
+  );
   const behavior = useBehaviorTracker('selfAssess');
   const mountTimeRef = useRef(Date.now());
 
@@ -63,6 +76,17 @@ export const SelfAssessPage: React.FC = () => {
       totalChars: reasoning.length,
     });
 
+    // Persist the canonical V5 submission shape locally so CompletePage
+    // renders selfAssess as done and DecisionSummary on downstream pages
+    // has a stable snapshot to read from. Socket emit is additive — once
+    // shared/ws.ts adopts `v5:selfassess:submit`, switch to
+    // setModuleSubmission (which will mirror the emit).
+    const submission: V5SelfAssessSubmission = {
+      confidence,
+      reasoning: reasoning.trim(),
+    };
+    setSubmission('selfAssess', submission);
+
     const socket = getSocket();
     socket.emit(
       'self-assess:submit',
@@ -83,7 +107,7 @@ export const SelfAssessPage: React.FC = () => {
   };
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} data-testid="selfassess-root">
       <h1 style={styles.heading}>Self-Assessment · 自我评估</h1>
       <p style={styles.subheading}>
         {suiteId === 'quick_screen'
@@ -91,6 +115,8 @@ export const SelfAssessPage: React.FC = () => {
           : '在进入语音追问之前，先评估一下你整场考试的表现。'}
         诚实比"看起来好"更有价值 —— 我们会对比你的自评和真实得分，评估你的元认知能力。
       </p>
+
+      <DecisionSummary summary={decisionSummary} />
 
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>你觉得自己表现如何？</h2>
