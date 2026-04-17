@@ -9,13 +9,13 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { V5ModuleCAnswer } from '@codelens-v5/shared';
-import { getSocket } from '../../lib/socket.js';
-import { useSessionStore } from '../../stores/session.store.js';
-import { useModuleStore } from '../../stores/module.store.js';
-import { useVoiceStore, type VoiceState as StoreVoiceState } from '../../stores/voice.store.js';
-import { useVoiceRTC } from '../../hooks/useVoiceRTC.js';
-import { useBehaviorTracker } from '../../hooks/useBehaviorTracker.js';
-import { colors, spacing, fontSizes, fontWeights, radii } from '../../lib/tokens.js';
+import { getSocket } from '../lib/socket.js';
+import { useSessionStore } from '../stores/session.store.js';
+import { useModuleStore } from '../stores/module.store.js';
+import { useVoiceStore, type VoiceState as StoreVoiceState } from '../stores/voice.store.js';
+import { useVoiceRTC } from '../hooks/useVoiceRTC.js';
+import { useBehaviorTracker } from '../hooks/useBehaviorTracker.js';
+import { colors, spacing, fontSizes, fontWeights, radii } from '../lib/tokens.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
