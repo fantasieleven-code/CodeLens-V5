@@ -399,10 +399,10 @@ describe('registerAllSignals — Task 13a P0 registration', () => {
     return { get count() { return count; }, ids, registry };
   }
 
-  it('registers 1 MC + 5 P0 + 10 MA + 23 MB + 4 MD + 1 SE = 44 signals (Task 11 + 13a + 13b + 13c + 13d)', () => {
+  it('registers 4 MC + 5 P0 + 10 MA + 23 MB + 4 MD + 1 SE = 47 signals (Task 13e closes the catalog)', () => {
     const r = makeRegistry();
     registerAllSignals(r.registry);
-    expect(r.count).toBe(44);
+    expect(r.count).toBe(47);
     for (const id of [
       'sBeliefUpdateMagnitude',
       'sBaselineReading',

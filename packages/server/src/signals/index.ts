@@ -16,6 +16,9 @@
 import type { SignalRegistry } from '@codelens-v5/shared';
 import { logger } from '../lib/logger.js';
 import { sBeliefUpdateMagnitude } from './mc/s-belief-update-magnitude.js';
+import { sBoundaryAwareness } from './mc/s-boundary-awareness.js';
+import { sCommunicationClarity } from './mc/s-communication-clarity.js';
+import { sReflectionDepth } from './mc/s-reflection-depth.js';
 import { sBaselineReading } from './p0/s-baseline-reading.js';
 import { sAiCalibration } from './p0/s-ai-calibration.js';
 import { sDecisionStyle } from './p0/s-decision-style.js';
@@ -69,19 +72,19 @@ export const EXPECTED_SIGNAL_COUNT = 47;
  * Register all V5 signals on the given registry.
  *
  * Task 11 wired sBeliefUpdateMagnitude (MC). Task 13a adds the 5 P0 signals.
- * Task 13b adds the 10 MA signals (9 original + sPrincipleAbstraction per
- * Round 2 Part 3 调整 2). Task 13c adds the 23 MB signals across 7
- * subdirectories (stage1 / stage2-exec / cursor / stage2-quality / stage3 /
- * horizontal / stage4). Task 13d adds the 4 MD signals (3 LLM whitelist:
- * sDesignDecomposition / sTradeoffArticulation / sAiOrchestrationQuality
- * plus 1 pure rule: sConstraintIdentification) and 1 SE signal
- * (sMetaCognition). `EXPECTED_SIGNAL_COUNT` is the contract later tasks
- * plus CI must satisfy once all 47 signals land:
- *   assert(signalRegistry.getSignalCount() === EXPECTED_SIGNAL_COUNT).
+ * Task 13b adds the 10 MA signals. Task 13c adds the 23 MB signals. Task 13d
+ * adds the 4 MD signals (3 LLM whitelist + 1 pure rule) and 1 SE signal.
+ * Task 13e closes the system with the 3 remaining MC signals
+ * (sBoundaryAwareness / sCommunicationClarity / sReflectionDepth) bringing
+ * the total to `EXPECTED_SIGNAL_COUNT = 47`. `signals/__tests__/
+ * registry-assertions.test.ts` enforces the full catalog contract in CI.
  */
 export function registerAllSignals(registry: SignalRegistry): void {
-  // MC (Task 11)
+  // MC (Task 11 + Task 13e)
   registry.register(sBeliefUpdateMagnitude);
+  registry.register(sBoundaryAwareness);
+  registry.register(sCommunicationClarity);
+  registry.register(sReflectionDepth);
   // P0 (Task 13a)
   registry.register(sBaselineReading);
   registry.register(sAiCalibration);
@@ -136,10 +139,7 @@ export function registerAllSignals(registry: SignalRegistry): void {
   registry.register(sAiOrchestrationQuality);
   // SE (Task 13d)
   registry.register(sMetaCognition);
-  // TODO(Task 13e): import remaining 3 MC SignalDefinition files under
-  // ./mc/ (sBoundaryAwareness + sCommunicationClarity + sReflectionDepth)
-  // and call `registry.register(def)`.
   logger.debug(
-    'registerAllSignals: registered 44/47 (1 MC + 5 P0 + 10 MA + 23 MB + 4 MD + 1 SE); Task 13e adds the rest',
+    'registerAllSignals: registered 47/47 (4 MC + 5 P0 + 10 MA + 23 MB + 4 MD + 1 SE) — V5.0 signal system closed',
   );
 }

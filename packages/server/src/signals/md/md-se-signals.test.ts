@@ -566,10 +566,10 @@ describe('registerAllSignals — Task 13d MD + SE registration', () => {
     };
   }
 
-  it('registers 1 MC + 5 P0 + 10 MA + 23 MB + 4 MD + 1 SE = 44 signals', () => {
+  it('registers 4 MC + 5 P0 + 10 MA + 23 MB + 4 MD + 1 SE = 47 signals (Task 13e closed)', () => {
     const r = makeRegistry();
     registerAllSignals(r.registry);
-    expect(r.count).toBe(44);
+    expect(r.count).toBe(47);
     for (const id of [
       'sConstraintIdentification',
       'sDesignDecomposition',
