@@ -48,6 +48,11 @@ const envSchema = z.object({
   CLAUDE_BASE_URL: z.string().default('https://api.anthropic.com/v1/'),
   CLAUDE_MODEL: z.string().default('claude-sonnet-4-20250514'),
 
+  // AI - GLM (Zhipu, OpenAI-compatible) — V5.0 scoring / structured output
+  GLM_API_KEY: z.string().optional(),
+  GLM_BASE_URL: z.string().default('https://open.bigmodel.cn/api/paas/v4/'),
+  GLM_DEFAULT_MODEL: z.string().default('glm-4-plus'),
+
   // AI Concurrency
   AI_CONCURRENCY_LIMIT: z.coerce.number().default(8),
 
