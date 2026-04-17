@@ -150,6 +150,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=packages/server/prisma/schema.prisma
       - name: Build shared
         run: npm run build -w packages/shared
       - name: Build server
