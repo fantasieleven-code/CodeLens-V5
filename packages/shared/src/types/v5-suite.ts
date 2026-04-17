@@ -59,6 +59,7 @@ export const SUITES: Readonly<Record<SuiteId, SuiteDefinition>> = {
     },
     reportSections: [
       'hero',
+      'capability-profiles',
       'radar',
       'recommendation',
       'ma-detail',
@@ -101,6 +102,7 @@ export const SUITES: Readonly<Record<SuiteId, SuiteDefinition>> = {
     },
     reportSections: [
       'hero',
+      'capability-profiles',
       'radar',
       'recommendation',
       'ma-detail',
@@ -142,6 +144,7 @@ export const SUITES: Readonly<Record<SuiteId, SuiteDefinition>> = {
     },
     reportSections: [
       'hero',
+      'capability-profiles',
       'radar',
       'recommendation',
       'ma-detail',
@@ -184,6 +187,7 @@ export const SUITES: Readonly<Record<SuiteId, SuiteDefinition>> = {
     },
     reportSections: [
       'hero',
+      'capability-profiles',
       'radar',
       'recommendation',
       'ma-detail',
@@ -225,6 +229,7 @@ export const SUITES: Readonly<Record<SuiteId, SuiteDefinition>> = {
     },
     reportSections: [
       'hero',
+      'capability-profiles',
       'radar',
       'recommendation',
       'ma-detail',
