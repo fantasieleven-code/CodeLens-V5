@@ -3,13 +3,17 @@
  *
  * Routes:
  *   /exam/:sessionId    → candidate flow (ExamRouter switches on currentModule)
+ *   /report/:sessionId  → finished report (Task 3: demo fixtures only)
  *   /admin/*            → recruiter tools (stub until admin work)
  *   /share/report/:token → public report share link (stub)
+ *   /__preview/report   → Section Registry preview (Task 2 dev tool)
+ *   /__preview/sections → Section gallery (Task 2 dev tool)
  *   /                   → landing page (stub)
  *
- * Candidate pages that don't exist yet (Phase0 / ModuleA / ModuleB / ModuleD
- * land in later Task 1 / Task 4 / Task 5 / Task 6 batches) render inline
- * placeholders so the switch is exhaustive and typecheck stays clean.
+ * Module pages (Phase0 / ModuleA / ModuleB / ModuleD) render the skeletons
+ * introduced in Task 3. Real functionality lands in later task batches.
+ * ModuleC stays as an inline placeholder until voice.store + useVoiceRTC
+ * are wired (tracked separately from Task 3).
  */
 
 import React, { useEffect } from 'react';
@@ -17,8 +21,13 @@ import { BrowserRouter, Routes, Route, useParams } from 'react-router-dom';
 import { useModuleStore } from './stores/module.store.js';
 import { useSessionStore } from './stores/session.store.js';
 import { EvaluationIntroPage } from './pages/EvaluationIntroPage.js';
+import { Phase0Page } from './pages/Phase0Page.js';
+import { ModuleAPage } from './pages/ModuleAPage.js';
+import { ModuleBPage } from './pages/ModuleBPage.js';
+import { ModuleDPage } from './pages/ModuleDPage.js';
 import { SelfAssessPage } from './pages/SelfAssessPage.js';
 import { CompletePage } from './pages/CompletePage.js';
+import { ReportViewPage } from './pages/ReportViewPage.js';
 import { ReportPreviewPage } from './report/preview/ReportPreviewPage.js';
 import { SectionGalleryPage } from './report/preview/SectionGalleryPage.js';
 import { colors, spacing, fontSizes, fontWeights } from './lib/tokens.js';
@@ -28,6 +37,7 @@ export function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/exam/:sessionId" element={<ExamRouter />} />
+        <Route path="/report/:sessionId" element={<ReportViewPage />} />
         <Route path="/admin/*" element={<AdminRoutes />} />
         <Route path="/share/report/:token" element={<SharedReportPage />} />
         <Route path="/__preview/report" element={<ReportPreviewPage />} />
@@ -53,13 +63,13 @@ function ExamRouter() {
     case 'intro':
       return <EvaluationIntroPage />;
     case 'phase0':
-      return <ModulePlaceholder name="Phase 0 · 基线诊断" />;
+      return <Phase0Page />;
     case 'moduleA':
-      return <ModulePlaceholder name="Module A · AI 审判" />;
+      return <ModuleAPage />;
     case 'mb':
-      return <ModulePlaceholder name="Module B · Cursor 协作" />;
+      return <ModuleBPage />;
     case 'moduleD':
-      return <ModulePlaceholder name="Module D · 系统设计" />;
+      return <ModuleDPage />;
     case 'selfAssess':
       return <SelfAssessPage />;
     case 'moduleC':

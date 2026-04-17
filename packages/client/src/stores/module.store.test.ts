@@ -125,5 +125,49 @@ describe('useModuleStore', () => {
     expect(s.moduleOrder).toEqual([]);
     expect(s.currentModule).toBeNull();
     expect(s.isComplete).toBe(false);
+    expect(s.isPaused).toBe(false);
+  });
+
+  describe('pause / resume', () => {
+    it('pause sets isPaused while mid-module', () => {
+      useModuleStore.getState().setSuite('full_stack', [...FULL_STACK_ORDER]);
+      useModuleStore.getState().advance(); // → phase0
+      useModuleStore.getState().pause();
+      expect(useModuleStore.getState().isPaused).toBe(true);
+    });
+
+    it('pause is a no-op when in intro / complete / null', () => {
+      // null
+      useModuleStore.getState().pause();
+      expect(useModuleStore.getState().isPaused).toBe(false);
+
+      // intro
+      useModuleStore.getState().setSuite('full_stack', [...FULL_STACK_ORDER]);
+      useModuleStore.getState().pause();
+      expect(useModuleStore.getState().isPaused).toBe(false);
+
+      // complete
+      useModuleStore.getState().setSuite('quick_screen', ['phase0']);
+      useModuleStore.getState().advance(); // phase0
+      useModuleStore.getState().advance(); // complete
+      useModuleStore.getState().pause();
+      expect(useModuleStore.getState().isPaused).toBe(false);
+    });
+
+    it('resume clears isPaused', () => {
+      useModuleStore.getState().setSuite('full_stack', [...FULL_STACK_ORDER]);
+      useModuleStore.getState().advance();
+      useModuleStore.getState().pause();
+      useModuleStore.getState().resume();
+      expect(useModuleStore.getState().isPaused).toBe(false);
+    });
+
+    it('setSuite clears any prior paused flag', () => {
+      useModuleStore.getState().setSuite('full_stack', [...FULL_STACK_ORDER]);
+      useModuleStore.getState().advance();
+      useModuleStore.getState().pause();
+      useModuleStore.getState().setSuite('quick_screen', ['phase0']);
+      expect(useModuleStore.getState().isPaused).toBe(false);
+    });
   });
 });
