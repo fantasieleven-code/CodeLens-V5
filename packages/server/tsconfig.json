@@ -13,8 +13,6 @@
     // V4 leftovers — re-enable per docs/v5-planning/TYPECHECK_EXCLUDES.md
     "src/routes/session.ts", // TODO(task-11): re-enable after MC backend rewrite
     "src/routes/shared-report.ts", // TODO(task-15): re-enable after Admin API / Prisma V5 field migration
-    "src/routes/health.ts", // TODO(task-5): re-enable after SandboxProvider lands
-    "src/services/e2b-health.service.ts", // TODO(task-5): re-enable after SandboxProvider lands
     "src/config/job-models/index.ts" // TODO(task-6): re-enable after exam-generator.service lands
   ]
 }

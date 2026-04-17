@@ -6,15 +6,15 @@
 |---|---|---|---|
 | `src/routes/session.ts` | `SessionService.create` 已删，route 未改 V5 流 | Task 11 | #10 |
 | `src/routes/shared-report.ts` | Prisma V4 字段（`template` / `candidate` / `checkpointResults`）已删 | Task 15 | #10 |
-| `src/routes/health.ts` | 依赖未实现的 `sandbox.service` | Task 5 | #10 |
-| `src/services/e2b-health.service.ts` | V4 长命 sandbox 实现，V5 改短命需重写 | Task 5 | #10 |
 | `src/config/job-models/index.ts` | 依赖未实现的 `exam-generator.service` | Task 6 | #10 |
 
 另见 `src/services/event-bus.service.ts` 中 3 个 `@ts-expect-error`：`behaviorSignal` Prisma 模型（×2）+ `workers/signal-analysis.worker.js` 动态 import。Task 13 信号注册落地时一并移除。
 
+`src/services/archive/**` 常驻 exclude（V4 历史归档，从不编译）。
+
 ## Task re-enable 清单
 
-- **Task 5（SandboxProvider）**：re-enable `routes/health.ts` + `services/e2b-health.service.ts`
+- ~~**Task 5（SandboxProvider）**：re-enable `routes/health.ts` + `services/e2b-health.service.ts`~~ ✅ PR Task 5
 - **Task 6（exam-generator）**：re-enable `config/job-models/index.ts`
 - **Task 11（MC 后端）**：re-enable `routes/session.ts`
 - **Task 13（signal registry 信号落地）**：移除 `event-bus.service.ts` 的 3 个 `@ts-expect-error`

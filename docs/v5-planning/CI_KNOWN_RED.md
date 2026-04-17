@@ -5,16 +5,13 @@
 | Job | 失败原因 | Task owner | 状态 |
 |---|---|---|---|
 | prompt-regression | `packages/server/promptfooconfig.yaml` 未创建 | Task 7 | known-red |
-| e2e | Playwright webServer 启动超时 — `npm run dev` (tsx) 报 `ERR_MODULE_NOT_FOUND: src/index.ts`。种子/迁移已通过,失败发生在 `npx playwright test` 起 dev server 阶段。疑似 tsx ESM resolution 配置问题或 server 入口依赖未装。 | Task 5 / CI infra | known-red |
+| e2e | `packages/server/src/index.ts` 不存在（V5 server bootstrap 未落地）— Playwright webServer 启动 `tsx src/index.ts` 立即 `ERR_MODULE_NOT_FOUND`。SandboxProvider (Task 5) 不造成此失败，server 入口本身缺失。 | Server bootstrap task（未分配） | known-red |
 
-### e2e 失败 — 推测原因与调查方向
+### e2e 失败 — 根因确认（Task 5 调查）
 
-**可能原因**:
-1. server 需要 Task 5（SandboxProvider）才能完整启动
-2. tsx 配置或 tsconfig `moduleResolution` 问题
-3. server `src/index.ts` 有被 Task 2/3/4 改动后未 rebuild 的引用
+**Task 5 期间验证**:`cd packages/server && ls src/*.ts` → 不存在 entry 文件。Task 5 完成了 sandbox service + health route + e2b-health worker,但没有 express bootstrap（`app.use(healthRouter)` / `app.listen(PORT)`）。
 
-**调查建议**（Task 5 启动前）:先 `cd packages/server && npm run dev` 复现,看是 server 本体启动问题还是 sandbox 依赖问题。如果是纯 ESM 配置,优先作为 CI infra PR 单独修（不阻塞 Task 5）。
+**建议**:由 Steve 分配一个独立的 "server-bootstrap" task（0.5 天）把 `src/index.ts` 立起来,同时注册 `healthRouter` + 启动 `e2bHealthService.start()`。这样 e2e 自动转绿。Task 5 不扩大 scope 去写 bootstrap。
 
 ## 约定
 

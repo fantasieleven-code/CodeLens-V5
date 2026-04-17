@@ -19,5 +19,13 @@ module.exports = {
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/consistent-type-imports': 'error',
   },
-  ignorePatterns: ['dist/', 'node_modules/', '*.js', '*.cjs', '*.mjs'],
+  ignorePatterns: [
+    'dist/',
+    'node_modules/',
+    '*.js',
+    '*.cjs',
+    '*.mjs',
+    // V4 archives — preserved as reference, never compiled or linted
+    'packages/server/src/services/archive/**',
+  ],
 };
