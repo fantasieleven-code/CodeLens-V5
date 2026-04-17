@@ -38,6 +38,10 @@ registry、exam generator、SandboxProvider、ModelProvider 等。
 - 每个 PR 描述必须写 "Typecheck errors: N (delta: -X / +Y)"，baseline 不得增加。
 - 新增 V4 残留引用时：追加到 `TYPECHECK_EXCLUDES.md` 表格 + `packages/server/tsconfig.json` exclude 数组，PR 描述说明原因 + 引用 issue #10 + 得到 Steve 批准。
 
+## CI Known-Red（V5 过渡期）
+
+有 1 个 CI job（prompt-regression）因 Task 7 deliverable 未到位而持续红。详见 `docs/v5-planning/CI_KNOWN_RED.md`。Merge 时可以忽略该 job 的 FAILURE。V5.0 发布 gate 要求 `CI_KNOWN_RED.md` 清空。
+
 ## 行为约束
 - **Standby = 字面待命**:零 git 操作,零文件写入
   - 读 ~/Projects/CodeLens-v5 里的文件 OK
