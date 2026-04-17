@@ -1,10 +1,11 @@
 /**
  * V5 Prompt Key taxonomy.
  *
- * 17 keys total:
+ * 18 keys total:
  *   - 9 generator.step0..step8 (exam-generator, Task 10)
  *   - 5 mc.probe_engine.* (MC probe engine, Task 11)
  *   - 3 md.llm_whitelist.* (MD LLM-graded signals, Task 14)
+ *   - 1 mb.chat_generate (MB Cursor chat, Task 12)
  *
  * Authoritative source: docs/v5-planning/backend-agent-tasks.md §Task 7 L894-L910.
  */
@@ -27,6 +28,7 @@ export const V5_PROMPT_KEYS = [
   'md.llm_whitelist.decomposition',
   'md.llm_whitelist.tradeoff',
   'md.llm_whitelist.ai_orch',
+  'mb.chat_generate',
 ] as const;
 
 export type V5PromptKey = typeof V5_PROMPT_KEYS[number];

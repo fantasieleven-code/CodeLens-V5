@@ -93,18 +93,46 @@ export interface V5MBLegacyRound {
   appliedBlocks: Array<{ blockIndex: number }>;
 }
 
+/**
+ * V5MBEditorBehavior — Cursor-mode behavior aggregate.
+ *
+ * Round 2 Part 3 调整 4 (v5-design-clarifications.md L550-588) added:
+ *   - aiCompletionEvents[]: shown / rejected / shownAt / respondedAt /
+ *     documentVisibleMs — supports sDecisionLatencyQuality (MB 17→18 signal).
+ *   - chatEvents[]: diffShownAt / diffRespondedAt / documentVisibleMs — same.
+ *   - documentVisibilityEvents (top-level) — frontend emits on
+ *     visibilitychange so backend can compute visible-time slices.
+ *
+ * All new fields optional to keep Task 11 legacy snapshots parseable.
+ */
 export interface V5MBEditorBehavior {
   aiCompletionEvents: Array<{
     timestamp: number;
     accepted: boolean;
     lineNumber: number;
     completionLength: number;
+    /** 调整 4: completion was shown to candidate (reject-by-keep-typing path still sets this true). */
+    shown?: boolean;
+    /** 调整 4: explicit reject (Esc pressed or continued typing past completion). */
+    rejected?: boolean;
+    /** 调整 4: when the completion popup became visible. */
+    shownAt?: number;
+    /** 调整 4: when the candidate accepted or rejected (or moved on). */
+    respondedAt?: number;
+    /** 调整 4: ms between shownAt and respondedAt during which document was visible. */
+    documentVisibleMs?: number;
   }>;
   chatEvents: Array<{
     timestamp: number;
     prompt: string;
     responseLength: number;
     duration: number;
+    /** 调整 4: when the chat diff was rendered to candidate. */
+    diffShownAt?: number;
+    /** 调整 4: when candidate accepted or rejected the diff. */
+    diffRespondedAt?: number;
+    /** 调整 4: ms between diffShownAt and diffRespondedAt during which document was visible. */
+    documentVisibleMs?: number;
   }>;
   diffEvents: Array<{
     timestamp: number;
@@ -128,6 +156,15 @@ export interface V5MBEditorBehavior {
     timestamp: number;
     passRate: number;
     duration: number;
+  }>;
+  /**
+   * 调整 4: Raw document visibility transitions — frontend emits every
+   * visibilitychange event (tab hide / reveal). Backend joins this against
+   * completion/chat event windows to fill documentVisibleMs.
+   */
+  documentVisibilityEvents?: Array<{
+    timestamp: number;
+    hidden: boolean;
   }>;
 }
 
