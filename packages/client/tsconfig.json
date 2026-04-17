@@ -17,7 +17,6 @@
     "src/hooks/useSocket.ts",
     "src/hooks/useErrorHandler.ts",
     "src/hooks/admin/**",
-    "src/lib/anti-cheat.ts",
-    "src/pages/ModuleCPage.tsx"
+    "src/lib/anti-cheat.ts"
   ]
 }

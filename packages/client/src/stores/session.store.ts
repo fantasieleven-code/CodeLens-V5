@@ -36,8 +36,17 @@ export interface SessionStore {
   moduleOrder: V5ModuleKey[];
   submissions: Partial<V5Submissions>;
   timer: TimerState | null;
+  /**
+   * Bearer token issued at session-join / admin-login.
+   * V5.0 continues V4's Bearer auth mechanism (Steve-confirmed at Task 6).
+   * Consumers (useVoiceRTC, admin API calls) read via `useSessionStore.getState().token`.
+   * Wiring the actual setToken call site lives in later tasks (MC backend join,
+   * Admin login flow).
+   */
+  token: string | null;
 
   loadSession: (sessionId: string) => Promise<void>;
+  setToken: (token: string | null) => void;
 
   setModuleSubmissionLocal: <K extends keyof V5Submissions>(
     moduleKey: K,
@@ -66,10 +75,13 @@ const INITIAL_STATE = {
   moduleOrder: [] as V5ModuleKey[],
   submissions: {} as Partial<V5Submissions>,
   timer: null as TimerState | null,
+  token: null as string | null,
 };
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
   ...INITIAL_STATE,
+
+  setToken: (token) => set({ token }),
 
   loadSession: async (_sessionId) => {
     // TODO(Task 1 batch 4+): wire to `/api/v5/session/:id` REST endpoint
