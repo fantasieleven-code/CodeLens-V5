@@ -15,20 +15,33 @@
 import type { SignalRegistry } from '@codelens-v5/shared';
 import { logger } from '../lib/logger.js';
 import { sBeliefUpdateMagnitude } from './mc/s-belief-update-magnitude.js';
+import { sBaselineReading } from './p0/s-baseline-reading.js';
+import { sAiCalibration } from './p0/s-ai-calibration.js';
+import { sDecisionStyle } from './p0/s-decision-style.js';
+import { sTechProfile } from './p0/s-tech-profile.js';
+import { sAiClaimDetection } from './p0/s-ai-claim-detection.js';
 
 export const EXPECTED_SIGNAL_COUNT = 47;
 
 /**
  * Register all V5 signals on the given registry.
  *
- * Task 11 wires sBeliefUpdateMagnitude (Round 3 Part 3 调整 3). Task 13 adds
- * the remaining 46 SignalDefinition imports. `EXPECTED_SIGNAL_COUNT` is the
- * contract Task 13 + CI must satisfy once all signals land:
+ * Task 11 wired sBeliefUpdateMagnitude (MC). Task 13a adds the 5 P0 signals
+ * (sBaselineReading / sAiCalibration / sDecisionStyle / sTechProfile /
+ * sAiClaimDetection). `EXPECTED_SIGNAL_COUNT` is the contract later tasks
+ * plus CI must satisfy once all 47 signals land:
  *   assert(signalRegistry.getSignalCount() === EXPECTED_SIGNAL_COUNT).
  */
 export function registerAllSignals(registry: SignalRegistry): void {
   registry.register(sBeliefUpdateMagnitude);
-  // TODO(Task 13): import remaining 46 SignalDefinition files under
-  // ./{p0,ma,mb,md,se,mc}/ and call `registry.register(def)` for each.
-  logger.debug('registerAllSignals: registered 1/47 (sBeliefUpdateMagnitude); Task 13 will add the rest');
+  registry.register(sBaselineReading);
+  registry.register(sAiCalibration);
+  registry.register(sDecisionStyle);
+  registry.register(sTechProfile);
+  registry.register(sAiClaimDetection);
+  // TODO(Task 13b-13e): import remaining 41 SignalDefinition files under
+  // ./{ma,mb,md,se,mc}/ and call `registry.register(def)` for each.
+  logger.debug(
+    'registerAllSignals: registered 6/47 (1 MC + 5 P0); Tasks 13b-13e add the rest',
+  );
 }
