@@ -80,6 +80,20 @@ describe('SUITES config invariants', () => {
     expect(SUITES.deep_dive.modules).toContain('mb');
     expect(SUITES.deep_dive.modules).toContain('moduleD');
   });
+
+  // Clarifications Part 3 adjustment 5: cursor-behavior-label only in suites with MB
+  // and enough Cursor signal coverage. architect has no MB; quick_screen has MB but
+  // insufficient signal coverage for a meaningful label.
+  it('cursor-behavior-label appears in full_stack / ai_engineer / deep_dive', () => {
+    expect(SUITES.full_stack.reportSections).toContain('cursor-behavior-label');
+    expect(SUITES.ai_engineer.reportSections).toContain('cursor-behavior-label');
+    expect(SUITES.deep_dive.reportSections).toContain('cursor-behavior-label');
+  });
+
+  it('cursor-behavior-label absent from architect and quick_screen', () => {
+    expect(SUITES.architect.reportSections).not.toContain('cursor-behavior-label');
+    expect(SUITES.quick_screen.reportSections).not.toContain('cursor-behavior-label');
+  });
 });
 
 describe('SUITES accessors', () => {
