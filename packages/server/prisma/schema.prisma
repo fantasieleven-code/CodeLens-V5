@@ -1,6 +1,6 @@
-// CodeLens V5 schema — zero V3/V4 residue. All exam data flows through
-// ExamInstance.businessScenario + ExamModule.moduleSpecific. V1/V2 checkpoint
-// tables remain for historical/non-exam paths (sessions, scoring, events).
+// CodeLens V5 schema — clean V5-only.
+// Exam data: ExamInstance.businessScenario + ExamModule.moduleSpecific.
+// Session.metadata stores V5Submissions; Session.scoringResult stores final scoring.
 
 generator client {
   provider = "prisma-client-js"
@@ -11,22 +11,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── Multi-tenancy (V2.0 — schema ready, auth wiring deferred) ───
-// V1.0: Admin login uses env ADMIN_EMAIL/ADMIN_PASSWORD (single-tenant).
-// V2.0: Wire OrgMember.passwordHash + bcrypt for multi-tenant org login.
+// ─── Multi-tenancy ───
 
 model Organization {
   id              String      @id @default(uuid())
   name            String
   plan            String      @default("trial") // trial, pro, enterprise
-  interviewCount  Int         @default(0) // usage tracking for quota
+  interviewCount  Int         @default(0)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
   members       OrgMember[]
   sessions      Session[]
   candidates    Candidate[]
-  templates     Template[]
   examInstances ExamInstance[]
   webhooks      WebhookConfig[]
 }
@@ -51,31 +48,23 @@ model OrgMember {
 // ─── Core ───
 
 model Session {
-  id                String             @id @default(uuid())
-  candidateId       String
-  templateId        String
-  orgId             String?
-  status            String             @default("CREATED") // CREATED, SANDBOX_READY, IN_PROGRESS, PAUSED, COMPLETED, EXPIRED, ERROR
-  sandboxId         String?
-  currentCheckpoint Int                @default(0)
-  experimentGroup   String?            // A/B test group identifier
-  startedAt         DateTime?
-  completedAt       DateTime?
-  expiresAt         DateTime
-  metadata          Json               @default("{}") // V5Submissions — candidate产出
-  scoringResult     Json?              // V5 scoring 产物 { signals, dimensions, composite, grade, dangerFlag }
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  id            String    @id @default(uuid())
+  candidateId   String
+  orgId         String?
+  schemaVersion Int       @default(5)
+  status        String    @default("CREATED") // CREATED, SANDBOX_READY, IN_PROGRESS, PAUSED, COMPLETED, EXPIRED, ERROR
+  sandboxId     String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  expiresAt     DateTime
+  metadata      Json      @default("{}") // V5Submissions
+  scoringResult Json?     // { signals, dimensions, composite, grade, dangerFlag }
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  candidate         Candidate          @relation(fields: [candidateId], references: [id])
-  template          Template           @relation(fields: [templateId], references: [id])
-  organization      Organization?      @relation(fields: [orgId], references: [id])
-  checkpointResults CheckpointResult[]
-  scoringResults    ScoringResult[]
-  eventsLog         EventLog[]
-  behaviorSignals   BehaviorSignal[]
-  integrityReports  IntegrityReport[]
-  feedback          SessionFeedback?
+  candidate    Candidate     @relation(fields: [candidateId], references: [id])
+  organization Organization? @relation(fields: [orgId], references: [id])
+  eventsLog    EventLog[]
 
   @@index([candidateId])
   @@index([status])
@@ -99,57 +88,12 @@ model Candidate {
   @@index([orgId])
 }
 
-model CheckpointResult {
-  id              String    @id @default(uuid())
-  sessionId       String
-  checkpointIndex Int
-  startedAt       DateTime  @default(now())
-  completedAt     DateTime?
-  status          String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, SKIPPED
-  data            Json      @default("{}")
-  createdAt       DateTime  @default(now())
-
-  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@unique([sessionId, checkpointIndex])
-  @@index([sessionId])
-}
-
-// ─── Scoring ───
-
-model ScoringResult {
-  id             String   @id @default(uuid())
-  sessionId      String
-  dimension      String   // V1, V2, V3, V4, V5
-  score          Float
-  maxScore       Float    @default(100)
-  evidence       Json     @default("[]") // string[]
-  aiRationale    String   @default("")
-  promptVersion  String?
-  data           Json     @default("{}") // calibrationRuns, metadata
-  createdAt      DateTime @default(now())
-
-  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId])
-}
-
-model ScoringWeightProfile {
-  id         String   @id @default(uuid())
-  name       String   @unique
-  isDefault  Boolean  @default(false)
-  weights    Json     // { V1: 0.30, V2: 0.25, ... }
-  thresholds Json     // { L1: 25, L2: 50, ... }
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
 // ─── Events ───
 
 model EventLog {
   id        String   @id @default(uuid())
   sessionId String
-  category  String   // FILE, TERMINAL, AI, CHECKPOINT, SESSION, SIGNAL, SYSTEM
+  category  String   // FILE, TERMINAL, AI, SESSION, SIGNAL, SYSTEM
   type      String
   payload   Json     @default("{}")
   timestamp DateTime @default(now())
@@ -163,143 +107,7 @@ model EventLog {
   @@index([sessionId, category, timestamp])
 }
 
-model BehaviorSignal {
-  id         String   @id @default(uuid())
-  sessionId  String
-  signalType String
-  value      Float
-  context    Json     @default("{}")
-  timestamp  DateTime @default(now())
-
-  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId])
-  @@index([signalType])
-}
-
-// ─── Templates ───
-
-model Template {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String   @default("")
-  language    String   @default("python")
-  orgId       String?
-  isSystem    Boolean  @default(false) // system templates visible to all orgs
-  metadata    Json     @default("{}")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  organization      Organization?        @relation(fields: [orgId], references: [id])
-  files              TemplateFile[]
-  plantedBugs        PlantedBug[]
-  plantedHallucinations PlantedHallucination[]
-  checkpointConfigs  CheckpointConfig[]
-  followupTemplates  FollowupTemplate[]
-  sessions           Session[]
-
-  @@index([orgId])
-}
-
-model TemplateFile {
-  id         String   @id @default(uuid())
-  templateId String
-  path       String
-  content    String
-  isHidden   Boolean  @default(false) // e.g., test_hidden.py
-  createdAt  DateTime @default(now())
-
-  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
-
-  @@unique([templateId, path])
-}
-
-model PlantedBug {
-  id          String @id @default(uuid())
-  templateId  String
-  name        String
-  description String
-  file        String
-  lineStart   Int
-  lineEnd     Int
-  severity    String @default("medium") // low, medium, high
-  hints       Json   @default("[]") // string[]
-  solution    String @default("")
-
-  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
-
-  @@index([templateId])
-}
-
-model PlantedHallucination {
-  id          String @id @default(uuid())
-  templateId  String
-  description String
-  trigger     String // What AI might suggest
-  reality     String // What actually exists
-  dimension   String @default("V2") // Scoring dimension
-
-  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
-
-  @@index([templateId])
-}
-
-model CheckpointConfig {
-  id              String @id @default(uuid())
-  templateId      String
-  checkpointIndex Int
-  title           String
-  description     String
-  durationMinutes Int    @default(15)
-  instructions    Json   @default("{}") // AI interviewer instructions
-  criteria        Json   @default("[]") // Evaluation criteria
-
-  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
-
-  @@unique([templateId, checkpointIndex])
-}
-
-model FollowupTemplate {
-  id              String @id @default(uuid())
-  templateId      String
-  checkpointIndex Int
-  category        String // e.g., "deepening", "alternative", "edge_case"
-  question        String
-  expectedTopics  Json   @default("[]") // string[]
-
-  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
-
-  @@index([templateId, checkpointIndex])
-}
-
-// ─── Integrity ───
-
-model IntegrityReport {
-  id        String   @id @default(uuid())
-  sessionId String
-  flags     Json     @default("[]") // string[]
-  score     Float    @default(100)
-  details   Json     @default("{}")
-  createdAt DateTime @default(now())
-
-  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId])
-}
-
-model SignalAnalysisResult {
-  id        String   @id @default(uuid())
-  sessionId String
-  type      String   @default("general") // M3-1: anomaly type identifier
-  analysis  Json     @default("{}")
-  summary   String   @default("")
-  createdAt DateTime @default(now())
-
-  @@unique([sessionId, type], name: "sessionId_type")
-  @@index([sessionId])
-}
-
-// ─── Leads (Landing Page Demo Requests) ───
+// ─── Leads ───
 
 model Lead {
   id        String   @id @default(uuid())
@@ -307,7 +115,7 @@ model Lead {
   company   String
   email     String
   phone     String   @default("")
-  source    String   @default("landing_page") // landing_page, referral, etc.
+  source    String   @default("landing_page")
   status    String   @default("new") // new, contacted, converted
   notes     String   @default("")
   createdAt DateTime @default(now())
@@ -316,27 +124,13 @@ model Lead {
   @@index([createdAt])
 }
 
-// ─── Scoring Calibration ───
-
-model GoldenAnswer {
-  id            String   @id @default(uuid())
-  dimension     String   // V1, V2, V3, V4, V5
-  context       String   // The scoring context input
-  expectedScore Float
-  tolerance     Float    @default(10) // Acceptable deviation +/-
-  metadata      Json     @default("{}")
-  createdAt     DateTime @default(now())
-
-  @@index([dimension])
-}
-
-// ─── Prompt Version Management (AR-10) ───
+// ─── Prompt Version Management ───
 
 model PromptVersion {
   id        String   @id @default(uuid())
-  name      String   // e.g. "interviewer_system", "scoring_v1", "assistant_system"
+  name      String
   version   Int      @default(1)
-  content   String   // The prompt content
+  content   String
   isActive  Boolean  @default(false)
   metadata  Json     @default("{}")
   createdAt DateTime @default(now())
@@ -351,9 +145,9 @@ model PromptVersion {
 model WebhookConfig {
   id        String   @id @default(uuid())
   orgId     String
-  url       String   // HTTPS callback URL
-  secret    String   // HMAC signing secret
-  events    String[] @default(["interview.completed"]) // event types to send
+  url       String
+  secret    String
+  events    String[] @default(["interview.completed"])
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -363,21 +157,7 @@ model WebhookConfig {
   @@index([orgId])
 }
 
-// ─── Candidate Feedback ───
-
-model SessionFeedback {
-  id         String   @id @default(uuid())
-  sessionId  String   @unique
-  rating     Int      // 1-5 stars
-  difficulty String   @default("") // too_easy, just_right, too_hard
-  fairness   String   @default("") // very_fair, fair, neutral, unfair, very_unfair
-  comment    String   @default("")
-  createdAt  DateTime @default(now())
-
-  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-}
-
-// ── V5: Exam (BusinessScenario + per-module payload) ──
+// ─── V5 Exam ───
 
 model ExamInstance {
   id               String  @id @default(uuid())
@@ -390,7 +170,6 @@ model ExamInstance {
   level            String
   orgId            String?
 
-  // Analytics — V5.0 不主动维护,V5.1+ 启用
   usedCount           Int       @default(0)
   avgCompletionMins   Float?
   avgCompositeScore   Float?
@@ -405,13 +184,13 @@ model ExamInstance {
 }
 
 model ExamModule {
-  id             String       @id @default(uuid())
+  id             String   @id @default(uuid())
   examInstanceId String
-  moduleType     String       // 'P0' | 'MA' | 'MB' | 'MD' | 'SE' | 'MC'
+  moduleType     String   // 'P0' | 'MA' | 'MB' | 'MD' | 'SE' | 'MC'
   scenarioRef    String?
   moduleSpecific Json
-  version        Int          @default(1)
-  createdAt      DateTime     @default(now())
+  version        Int      @default(1)
+  createdAt      DateTime @default(now())
 
   examInstance ExamInstance @relation(fields: [examInstanceId], references: [id], onDelete: Cascade)
 

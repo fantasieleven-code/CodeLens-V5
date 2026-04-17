@@ -3,7 +3,6 @@ dist/
 .env
 *.log
 .DS_Store
-packages/server/prisma/migrations/
 coverage/
 playwright-report/
 test-results/
