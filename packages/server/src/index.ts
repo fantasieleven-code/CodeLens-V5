@@ -30,6 +30,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { eventBus } from './services/event-bus.service.js';
 import { sandboxFactory } from './services/sandbox/index.js';
 import { healthRouter } from './routes/health.js';
+import { registerSocketHandlers } from './socket/index.js';
 
 const app = express();
 
@@ -60,12 +61,7 @@ const io = new SocketIOServer(httpServer, {
   transports: ['websocket', 'polling'],
 });
 
-io.on('connection', (socket) => {
-  logger.info('[socket] connected', { socketId: socket.id });
-  socket.on('disconnect', (reason) => {
-    logger.info('[socket] disconnected', { socketId: socket.id, reason });
-  });
-});
+registerSocketHandlers(io);
 
 eventBus.start();
 
