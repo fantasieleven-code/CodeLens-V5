@@ -28,6 +28,7 @@
 - [观察日志](#观察日志) — 按时间顺序的具体事件
 - [Signal Hint 聚类](#signal-hint-聚类) — 按 signal hint 对观察分组
 - [协议说明](#协议说明) — Agent 如何记录、Steve 如何同步
+- [Claude(协调者)工作规范](#claude协调者工作规范) — Claude 自身行为约束 + 违反记录
 
 ---
 
@@ -47,6 +48,10 @@
 的挑战轮次。测量方式:给候选人刻意包含矛盾或模糊点的 requirements,看:
 - **上分**:指出具体的矛盾点 + 列出可能意图 + 问澄清
 - **下分**:假装没看到矛盾直接实现,或凭感觉选一种意图
+
+**聚类状态**(2026-04-17 更新):signal hint `sClarificationQuality` 累积 6 条观察
+(3 条 agent 正例 #003 #007 #008 + 3 条 Claude 反例 #011 #012 #013),**已达
+5 条聚类阈值 → 原则 1 进入 V5.2 信号候选池**。
 
 ### 原则 2:"对照文档 diff" 是可训练的工程习惯,远超"凭记忆判断"
 
@@ -244,6 +249,54 @@ GradeDecision 时正常改(自己的 domain),Frontend 需要 consume 但**从不
 **Signal hint**:`sContractRespect` — 识别共享契约,即使能改也不改
 **Meta**:这是 multi-agent 协作的"安全阀",V5.2 场景下最关键的能力之一
 
+### Observation #011 — 2026-04-17 ~09:00 — Claude 协调者 Task 4 brief 偏离文档 5 点(反例)
+
+**Agent**:Claude(协调者)— **反例**
+**Phase**:Task 4 启动指令起草
+**Context**:Steve 托 Claude 起草 Frontend Task 4 启动 brief。Claude 凭记忆
+paraphrase Round 3 Part 3 调整 1,未 view 原文
+**Event**:Claude 写的 brief 与文档在 5 点上冲突(题数 / 答题形式 / 60s 计时器
+/ Phase0 scope / Mock shape)。其中"答题形式"和"60s 计时器"两点若按 brief 执行
+会让 sAiClaimDetection 信号**完全算不出分**。Frontend 4.7 开工前 view 文档 diff
+brief 时 catch,停下列 3 条路径(A 按文档 / B 按 brief 破 shared / C 混合)
+让 Steve 选。Steve 选 A,Claude 承认错误。
+**Commit**:Task 4 PR 开工前(Frontend 正面记录:Observation #007)
+**Signal hint**:`sClarificationQuality` — **反例**(凭记忆 paraphrase 替代 view 文档)
+**Meta**:Claude 错误 Violation #1 — 违反规则 1 + 规则 2。驱动本文件 "Claude
+(协调者)工作规范" 章节的写入。Claude 反例 + Agent 正面观察(#007)成对,
+signal hint 相同,反正两面的数据
+
+### Observation #012 — 2026-04-17 ~11:00 — Claude 协调者 Task 6 约束 D 文件描述错误(反例)
+
+**Agent**:Claude(协调者)— **反例**
+**Phase**:Task 6 启动指令起草
+**Context**:Steve 托 Claude 起草 Backend Task 6 启动指令。Claude 凭记忆描述
+`config/job-models/index.ts` 为 "V4 role-provider mapping",未 view 文件
+**Event**:实际该文件是**岗位 YAML loader**,和 AI 路由完全无关;
+TYPECHECK_EXCLUDES 列它的原因也不是 Task 6 改造,而是 import 未实现的
+`exam-generator.service`(Task 10 owner)。Backend 4.7 开工前 view 文件 catch,
+停下列 3 种可能(Steve 记错文件 / scope creep / 约束废弃)让 Steve 选。
+Steve 选废弃(约束 D 报废,Task 6 不处理该文件,owner 转 Task 10)。
+**Commit**:Task 6 PR #27 开工前(Backend 正面记录:Observation #008)
+**Signal hint**:`sClarificationQuality` — **反例**(凭记忆 paraphrase 替代 view 文件)
+**Meta**:Claude 错误 Violation #2 — 违反规则 3。Claude 反例 + Agent 正面观察
+(#008)成对,signal hint 相同,反正两面的数据
+
+### Observation #013 — 2026-04-17 ~16:00 — Claude 协调者 Task 5 R3 描述错误(反例)
+
+**Agent**:Claude(协调者)— **反例**
+**Phase**:Task 5 R3 启动指令起草
+**Context**:Steve 托 Claude 起草 Frontend Task 5 R3 相关 brief。Claude 凭记忆
+写 "R3 是 Emma Challenge",未 view 文档
+**Event**:实际 R3 是 **Compare Diagnosis**,Emma Challenge 是 R1 的 sub-flow。
+Frontend 4.7 view 文档 diff brief 时 catch(对应 Task 5 R3 Frontend stop,
+待 Task 5 PR #28 merge 后新增为 Observation #014)。
+**Commit**:Task 5 R3 PR 开工前(Frontend 正面记录:待 Task 5 PR #28 merge 后
+新增为 Observation #014)
+**Signal hint**:`sClarificationQuality` — **反例**(凭记忆 paraphrase 替代 view 文档)
+**Meta**:Claude 错误 Violation #3 — 违反规则 1 + 规则 2。Claude 反例 + Agent
+正面观察(待 #014)成对,signal hint 相同,反正两面的数据
+
 ---
 
 ## Signal Hint 聚类
@@ -255,7 +308,7 @@ GradeDecision 时正常改(自己的 domain),Frontend 需要 consume 但**从不
 
 | Signal Hint | 观察数 | Cluster 状态 |
 |---|---|---|
-| sClarificationQuality | 3(#003 #007 #008) | 未达阈值,继续收集 |
+| sClarificationQuality | 6(#003 #007 #008 正 + #011 #012 #013 反) | **已达阈值 ≥5,进入 V5.2 信号候选池** |
 | sScopeDiscipline | 1(#009) | 单例,继续收集 |
 | sStopLossPerception | 1(#005) | 单例,继续收集 |
 | sContractAlignment | 1(#004) | 单例,继续收集 |
@@ -341,7 +394,222 @@ observations(没有就是没有)。
 
 ---
 
+## Claude(协调者)工作规范
+
+> **用途**:约束 Claude 在协调两个 agent 开发 CodeLens V5 时的行为,
+> 降低 Claude 犯错导致 agent 返工的概率。
+>
+> **背景**:实战中观察到 Claude 作为协调者的错误密度不低于 agent
+> (2026-04-17 单日 Claude 被 agent catch 3 次错误),主因是"凭记忆
+> paraphrase 文档"而非"view 文档再给指令"。本规范把"先 view 再说"
+> 从自觉变成硬约束。
+>
+> **触发者**:Steve。当 Claude 在回复中引用任何文档、文件路径、
+> commit hash、行号、或 Round N 规范时,Steve 有权问 "你 view 过了吗",
+> Claude 必须老实回答。
+>
+> **记录**:Claude 犯错被 agent catch 的事件,作为反例 observation
+> 记录到观察日志(signal hint = sClarificationQuality 的反面案例),
+> 和 agent 的正面 observation 成对,为 V5.2 信号设计提供正反两面数据。
+
+---
+
+### 6 条硬规则
+
+#### 规则 1:引用 V5 文档时必须先 view
+
+**触发**:Claude 的回复包含以下任一:
+- 引用 `v5-design-clarifications.md`(Round 2)的 Part N 调整 M
+- 引用 `v5-design-clarifications-round3.md` 的 Part N / 重构 N
+- 引用 `backend-agent-tasks.md` / `frontend-agent-tasks.md` 的 Task N
+- 引用 `backend-agent-kickoff.md` / `frontend-agent-kickoff.md` 的协议条款
+- 说"按文档某段落做"
+
+**动作**:生成那条回复**之前**,用 view 工具(或 project_knowledge_search)
+读对应文档的**实际内容**。不能凭记忆。
+
+**禁止**:
+- 用 "我记得 Round 3 Part 3 说..." 这种句式不 view 就写
+- 在没 view 过文档的情况下给 agent "按文档执行"的指令
+- 总结 / paraphrase 文档内容作为权威引用
+
+**违反代价**:agent 按错误的 paraphrase 执行,产出返工;被 agent
+catch 后浪费 1-3 小时对齐时间。
+
+---
+
+#### 规则 2:给 agent 的 Task 启动指令必须引用文档行号,不 paraphrase
+
+**错误做法**:
+```
+R3:Challenge(Emma 面试官挑战候选人的 R1 选择,候选人改不改)
+```
+
+**正确做法**:
+```
+R3:按 frontend-agent-tasks.md L483-509 实现。以文档为准,不要按
+我这条消息的描述。
+```
+
+**理由**:Claude paraphrase 文档时,paraphrase 本身就是 bug 源头。
+agent 直接 view 文档行号,文档和执行之间零信息衰减。
+
+**禁止**:在指令里用自己的话重述文档中已明确规定的内容。
+
+**允许**:
+- 给文档没写的额外约束(比如 "不改 shared" / "不 self-merge")
+- 引用文档 + 给出明确选项让 agent 选(A/B/C)
+- 对文档中**已识别**的模糊点做显式裁决(并让 agent 记录到 observations)
+
+---
+
+#### 规则 3:涉及具体文件内容的指令,必须先 view 或让 agent 先 view
+
+**触发**:Claude 的指令包含 "修改/读取/参考某个具体文件"。
+
+**动作**:两种方式之一:
+- Claude 自己用 view 工具 / project_knowledge_search 读那个文件,
+  基于实际内容给指令
+- 让 agent 先 view 文件,然后 Claude 根据 agent 的 view 结果再给
+  具体指令
+
+**禁止**:凭 "我记得那个文件大概是做什么的" 给指令。
+
+**今日违反案例**:Task 6 约束 D 把 `config/job-models/index.ts`
+描述为 "V4 role-provider mapping",实际是岗位 YAML loader,被
+Backend 4.7 catch。
+
+---
+
+#### 规则 4:每次回复前 30 秒自检 5 问
+
+Claude 在 submit 回复前,对以下 5 项自问:
+
+1. 我引用的 PR/commit,hash 对吗?(必要时让 Steve 或 agent verify)
+2. 我引用的 Task 编号,和 tasks.md 对得上吗?
+3. 我说的"某文件在某路径",我 view 过或记忆准确吗?
+4. 我说的"Round N 文档规定",我 view 过吗?
+5. 我给 agent 的约束里,有没有我凭记忆编的?
+
+**如果任一 "没 view / 不确定"**:
+- 要么**立即 view** 对应文档/文件
+- 要么在回复里**明确标注** "基于记忆推断,建议你 verify"
+- **不能默默用 "听起来对" 的内容**
+
+---
+
+#### 规则 5:在 Task 启动指令里默认加"防御性条款"
+
+**每条 Task 启动指令必须包含**:
+
+```
+如果发现我指令里的任何文件路径 / 行号 / 数量 / 描述和实际不符,
+停下报告,不要自己推演修正。
+```
+
+**理由**:agent 主动 catch 的能力已被实战证明(2026-04-17 三次 catch
+都是因为 agent view 文档 + diff 指令)。但显式写进指令比依赖 agent
+的主动性更可靠。
+
+---
+
+#### 规则 6:Claude 犯错被 catch 时,主动请求记入 observations.md
+
+**触发条件**:
+- Agent 回复里出现 "Steve brief 和文档冲突" / "你记错了" / "前提不符"
+  类似措辞
+- Claude 在下一轮回复里确认 "我错了 / 我记混了 / 我 paraphrase 错了"
+
+**动作**:Claude 在承认错误的回复末尾,**主动提醒 Steve**:
+```
+建议把这次 Claude 错误记入 observations.md 观察日志,作为
+Observation #N(signal hint: sClarificationQuality 反例)。
+```
+
+**理由**:Claude 的错误和 agent 的"停下问"是同一个信号的两面。两面
+成对记录,V5.2 信号设计时能看到"agent stops 19 次 vs Claude errors
+12 次"——鉴别能力的量化证据。
+
+---
+
+### Steve 的反制权力
+
+即使有这 6 条规则,Claude 仍可能偶尔违反。**Steve 是最后一道防线**:
+
+**当 Steve 看到 Claude 回复引用具体文件/行号/内容时,可以任何时候问**:
+- "这段你 view 过了吗?"
+- "这个行号是记忆里的还是刚查的?"
+- "这个文件内容你 view 过还是 paraphrase?"
+
+**Claude 必须老实回答**:"view 过" 或 "凭记忆"。凭记忆的情况:
+- 立即承认
+- 立即 view 修正
+- 建议记入 observations 反例
+
+---
+
+### 规则适用范围
+
+**本规范约束**:Claude 作为 CodeLens V5 协调者的所有回复。
+
+**不约束**:
+- Claude 讨论非 V5 项目(MockPro / HireFlow)的回复
+- Claude 做创意/设计类发散思考(明确标注 "基于记忆推演" 的部分)
+- Claude 响应 Steve 问候或闲聊
+
+**边界原则**:**"规范性内容必 view,发散性思考可 paraphrase"**。
+
+---
+
+### 本规范的生命周期
+
+- **v1.0**(2026-04-17 初始化):6 条硬规则 + Steve 反制权力
+- **v1.x**:Claude 每次犯错被 catch 时更新(统计违反率,调整规则)
+- **V5.0 发布时**:基于实战数据评估规则有效性,决定 V5.1 保留 / 修订
+- **V5.2 开发期**:多 agent 场景会引入新失误模式,可能新增 2-3 条规则
+
+**违反记录**:追加在本文件末尾的 "Claude 违反记录" 段落。
+
+---
+
+### Claude 违反记录
+
+#### 2026-04-17(初始化日)
+
+在本规范写出之前,Claude 已经违反过(补记):
+
+**Violation #1** — Task 4 brief 偏离文档 5 点
+- 错误:凭记忆写 Frontend Task 4 启动 brief,与 Round 3 Part 3 调整 1
+  有 5 点冲突(题数 / 答题形式 / 60s 计时器 / Phase0 scope / Mock shape)
+- Catch by:Frontend 4.7
+- Claude 反例编号:Observation #011(Claude Error #1)
+- 对应 Agent 正面观察:Observation #007(Frontend Task 4 stop)
+- 违反规则:规则 1 + 规则 2
+
+**Violation #2** — Task 6 约束 D 文件描述错误
+- 错误:描述 `config/job-models/index.ts` 为 "V4 role-provider mapping",
+  实际是岗位 YAML loader
+- Catch by:Backend 4.7
+- Claude 反例编号:Observation #012(Claude Error #2)
+- 对应 Agent 正面观察:Observation #008(Backend Task 6 stop)
+- 违反规则:规则 3
+
+**Violation #3** — Task 5 R3 描述错误
+- 错误:brief 说 "R3 是 Emma Challenge",实际 R3 是 Compare Diagnosis,
+  Emma Challenge 是 R1 的 sub-flow
+- Catch by:Frontend 4.7
+- Claude 反例编号:Observation #013(Claude Error #3)
+- 对应 Agent 正面观察:待 Task 5 PR #28 merge 后新增为 Observation #014
+  (Frontend Task 5 R3/R4 kickoff stop)
+- 违反规则:规则 1 + 规则 2
+
+**当日违反率**:3 次 / 约 40 次给 agent 的指令 ≈ 7.5%
+
+**目标违反率**(V5.0 发布前):< 2%
+
+---
+
 **文件结束**
 
-> 最后更新:2026-04-17 v0.1
-> 下次更新预期:Backend Task 6 PR 或 Frontend Task 4 PR merge 时
+> 最后更新:2026-04-17 v0.2(Claude 协调者规范 + 3 条反例 observations + 聚类阈值达标)
+> 下次更新预期:Claude 下次违反规则时(记录 Violation #4)或下次 agent PR observations 同步
