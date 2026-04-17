@@ -1,15 +1,17 @@
 /**
- * SignalRegistry — Task 4 框架(含 Round 3 重构 1 预埋:返回 SignalResult)。
+ * SignalRegistry — framework for 47 V5 signals.
  *
- * 本 Task 不实现任何具体信号,Task 13 负责把 47 个信号落地为 SignalDefinition 注册进来。
+ * Task 4 introduced the framework + Round 3 Part 1 重构 1 return shape
+ * (SignalResult with evidence[] / algorithmVersion). Task 8 extends it with:
+ *   - 1-retry (500ms backoff) on LLM whitelist failures — errors only,
+ *     timeouts go straight to fallback (provider-hung signal, retry unlikely
+ *     to help in the immediate window)
+ *   - Langfuse trace per LLM signal compute attempt (registry-level trace;
+ *     Task 13 can add `generation()` traces inside individual signal compute
+ *     bodies when they call the provider directly)
+ *   - `registerAllSignals()` scaffold (Task 13 fills the 47 imports)
  *
- * 职责:
- * - register(def) 存 SignalDefinition
- * - computeAll(input) 调度所有已注册信号,异常/超时/未参与模块统一降级
- * - LLM 白名单信号超时 = SANDBOX/LLM timeout 30s,触发 fallback(纯规则降级)
- * - 普通信号异常时日志 warn,走 fallback 或 null 结果
- *
- * 所有结果按 Round 3 重构 1 契约返回 SignalResult(含 evidence[] + algorithmVersion)。
+ * Task 13 plugs in 47 real SignalDefinitions via `registerAllSignals()`.
  */
 
 import type {
@@ -21,12 +23,24 @@ import type {
   V5Dimension,
 } from '@codelens-v5/shared';
 import { logger } from '../lib/logger.js';
+import { getLangfuse } from '../lib/langfuse.js';
 
 const LLM_WHITELIST_TIMEOUT_MS = 30_000;
+const LLM_RETRY_DELAY_MS = 500;
+const LLM_MAX_RETRIES = 1;
 
 const REGISTRY_FAILURE_VERSION = 'registry@failure';
 const REGISTRY_TIMEOUT_VERSION = 'registry@timeout';
 const REGISTRY_SKIPPED_VERSION = 'registry@skipped';
+
+type LLMOutcome = 'success' | 'timeout' | 'error';
+
+interface LLMAttemptOutcome {
+  kind: LLMOutcome;
+  result?: SignalResult;
+  error?: unknown;
+  durationMs: number;
+}
 
 function makeSkippedResult(): SignalResult {
   return {
@@ -46,8 +60,30 @@ function makeFailureResult(algorithmVersion = REGISTRY_FAILURE_VERSION): SignalR
   };
 }
 
+function measureInputSize(input: SignalInput): number {
+  try {
+    return JSON.stringify({
+      submissions: input.submissions,
+      examData: input.examData,
+      behaviorData: input.behaviorData,
+    }).length;
+  } catch {
+    return -1;
+  }
+}
+
+export interface SignalRegistryOptions {
+  /** Override for tests (fake timers); defaults to setTimeout. */
+  sleep?: (ms: number) => Promise<void>;
+}
+
 export class SignalRegistryImpl implements SignalRegistry {
   private readonly signals = new Map<string, SignalDefinition>();
+  private readonly sleep: (ms: number) => Promise<void>;
+
+  constructor(options: SignalRegistryOptions = {}) {
+    this.sleep = options.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+  }
 
   register(def: SignalDefinition): void {
     if (this.signals.has(def.id)) {
@@ -120,54 +156,126 @@ export class SignalRegistryImpl implements SignalRegistry {
   }
 
   private async runLLMSignal(def: SignalDefinition, input: SignalInput): Promise<SignalResult> {
+    const inputSize = measureInputSize(input);
+
+    for (let attempt = 0; attempt <= LLM_MAX_RETRIES; attempt++) {
+      const outcome = await this.runLLMAttempt(def, input);
+      await this.traceLLMAttempt(def, input, outcome, attempt, inputSize);
+
+      if (outcome.kind === 'success') {
+        return outcome.result!;
+      }
+
+      if (outcome.kind === 'timeout') {
+        // Timeout: no retry (provider hung); go straight to fallback.
+        return this.llmFallback(def, input, REGISTRY_TIMEOUT_VERSION);
+      }
+
+      // Error: retry once, then fall back.
+      if (attempt < LLM_MAX_RETRIES) {
+        await this.sleep(LLM_RETRY_DELAY_MS);
+      }
+    }
+
+    return this.llmFallback(def, input, REGISTRY_FAILURE_VERSION);
+  }
+
+  private async runLLMAttempt(
+    def: SignalDefinition,
+    input: SignalInput,
+  ): Promise<LLMAttemptOutcome> {
     const timeoutSentinel = Symbol('timeout');
     let timeoutHandle: NodeJS.Timeout | undefined;
     const timeoutPromise = new Promise<typeof timeoutSentinel>((resolve) => {
       timeoutHandle = setTimeout(() => resolve(timeoutSentinel), LLM_WHITELIST_TIMEOUT_MS);
     });
+    const start = Date.now();
 
     try {
       const race = await Promise.race([def.compute(input), timeoutPromise]);
+      const durationMs = Date.now() - start;
       if (race === timeoutSentinel) {
-        logger.warn('signal LLM timeout — falling back', { signalId: def.id });
-        if (def.fallback) {
-          try {
-            return def.fallback(input);
-          } catch (fallbackErr) {
-            logger.warn('signal fallback failed after timeout', {
-              signalId: def.id,
-              error: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr),
-            });
-          }
-        }
-        return makeFailureResult(REGISTRY_TIMEOUT_VERSION);
+        logger.warn('signal LLM timeout', { signalId: def.id, durationMs });
+        return { kind: 'timeout', durationMs };
       }
-      return race;
+      return { kind: 'success', result: race, durationMs };
     } catch (err) {
+      const durationMs = Date.now() - start;
       logger.warn('signal LLM compute failed', {
         signalId: def.id,
         error: err instanceof Error ? err.message : String(err),
+        durationMs,
       });
-      if (def.fallback) {
-        try {
-          return def.fallback(input);
-        } catch (fallbackErr) {
-          logger.warn('signal fallback failed after error', {
-            signalId: def.id,
-            error: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr),
-          });
-        }
-      }
-      return makeFailureResult();
+      return { kind: 'error', error: err, durationMs };
     } finally {
       if (timeoutHandle) clearTimeout(timeoutHandle);
     }
   }
+
+  private async traceLLMAttempt(
+    def: SignalDefinition,
+    input: SignalInput,
+    outcome: LLMAttemptOutcome,
+    attempt: number,
+    inputSize: number,
+  ): Promise<void> {
+    try {
+      const langfuse = await getLangfuse();
+      langfuse.trace({
+        name: `signal.${def.id}`,
+        sessionId: input.sessionId,
+        input: {
+          signalId: def.id,
+          moduleSource: def.moduleSource,
+          dimension: def.dimension,
+          inputSize,
+        },
+        output: {
+          value: outcome.result?.value ?? null,
+          algorithmVersion: outcome.result?.algorithmVersion,
+          outcome: outcome.kind,
+          retries: attempt,
+        },
+        metadata: {
+          durationMs: outcome.durationMs,
+          isLLMWhitelist: true,
+          errorMessage:
+            outcome.kind === 'error' && outcome.error instanceof Error
+              ? outcome.error.message
+              : undefined,
+        },
+      });
+    } catch (err) {
+      // Tracing must never break computation.
+      logger.debug('langfuse trace failed', {
+        signalId: def.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  private llmFallback(
+    def: SignalDefinition,
+    input: SignalInput,
+    failureVersion: string,
+  ): SignalResult {
+    if (def.fallback) {
+      try {
+        return def.fallback(input);
+      } catch (fallbackErr) {
+        logger.warn('signal fallback failed', {
+          signalId: def.id,
+          error: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr),
+        });
+      }
+    }
+    return makeFailureResult(failureVersion);
+  }
 }
 
 /**
- * SignalDefinition.moduleSource 存的是 V5ModuleType(大写),participatingModules 是
- * V5ModuleKey(camelCase)。这里把大写映射回 camelCase 以便参与判定。
+ * V5ModuleType (uppercase) → V5ModuleKey (camelCase). participatingModules
+ * uses camelCase; SignalDefinition.moduleSource uses uppercase. Bridge here.
  */
 function moduleKeyFromType(t: string): string {
   switch (t) {
