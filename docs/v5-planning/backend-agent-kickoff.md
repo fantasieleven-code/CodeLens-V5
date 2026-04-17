@@ -116,9 +116,14 @@ docs/v5-planning/v5-design-clarifications.md 是 V5 设计的权威补丁层,
 **每个 Task 启动前的读文档顺序**:
 1. backend-agent-kickoff.md（本文件）
 2. backend-agent-tasks.md（找当前 Task）
-3. v5-design-clarifications.md（找当前 Task 对应的 Part,如果涉及）
+3. v5-design-clarifications.md（Round 2,找当前 Task 对应的 Part,如果涉及）
+4. v5-design-clarifications-round3.md（Round 3,找当前 Task 对应的重构,如果涉及）
+
+Round 3（v5-design-clarifications-round3.md）是第二层补丁,定义 4 个结构性重构（Evidence Trace / Grade Confidence / Quality Gates / Capability Profiles）。冲突规则:Round 3 > Round 2 > tasks。每个 Task 启动前必读 Round 3 对应 Part。
 
 **哪些 Task 涉及 clarifications**:
+
+Round 2（v5-design-clarifications.md）:
 - Task 9（Step 0 Prompt 调优）→ Part 3 调整 1,调整 2
 - Task 10（Step 1-8 Generator）→ Part 3 调整 2（Step 2.5 迁移场景）
 - Task 11（MC 后端）→ Part 3 调整 3（sBeliefUpdateMagnitude）
@@ -127,8 +132,17 @@ docs/v5-planning/v5-design-clarifications.md 是 V5 设计的权威补丁层,
 - Task 15（Admin API）→ Part 3 调整 5（cursor-behavior-label）
 - Task 17（Golden Path fixture）→ Part 5 fixture baseline
 
-**不涉及 clarifications 的 Task**:Task 3-8（基建）,Task 14（MD 后端,暂无改动）,
-Task 16（Cursor fixture generator）,Task 18-21（测试 + 收尾）。
+Round 3（v5-design-clarifications-round3.md）:
+- Task 2（前端）→ Round 3 重构 1 + 重构 2 + 重构 4 的前端部分
+- Task 4 → Round 3 重构 2 + 重构 4 的 scoring 实现
+- Task 10 → Round 3 重构 3 的 Gate 1
+- Task 13 → Round 3 重构 1 的 evidence trace
+- Task 15 → Round 3 重构 3 的 Gate 2 review 接口
+- Task 17 → Round 3 重构 3 的 FIXTURE_EXPECTATIONS
+- Task 19 → Round 3 重构 3 的 Steve 手动 Gate 2
+
+**不涉及 clarifications 的 Task**:Task 3、5-8（基建）,Task 14（MD 后端,暂无改动）,
+Task 16（Cursor fixture generator）,Task 18、20-21（测试 + 收尾）。
 
 **信号总数从 43 更新为 47**（4 个新信号）。
 
