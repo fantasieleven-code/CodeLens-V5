@@ -31,11 +31,12 @@ function resetMocks() {
 }
 
 describe('V5_PROMPT_KEYS', () => {
-  it('contains exactly 17 keys (9 generator + 5 mc.probe + 3 md.llm_whitelist)', () => {
-    expect(V5_PROMPT_KEYS).toHaveLength(17);
+  it('contains exactly 18 keys (9 generator + 5 mc.probe + 3 md.llm_whitelist + 1 mb)', () => {
+    expect(V5_PROMPT_KEYS).toHaveLength(18);
     expect(V5_PROMPT_KEYS.filter((k) => k.startsWith('generator.'))).toHaveLength(9);
     expect(V5_PROMPT_KEYS.filter((k) => k.startsWith('mc.probe_engine.'))).toHaveLength(5);
     expect(V5_PROMPT_KEYS.filter((k) => k.startsWith('md.llm_whitelist.'))).toHaveLength(3);
+    expect(V5_PROMPT_KEYS.filter((k) => k.startsWith('mb.'))).toHaveLength(1);
   });
 
   it('has no duplicates', () => {
