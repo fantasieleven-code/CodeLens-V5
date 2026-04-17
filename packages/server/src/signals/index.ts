@@ -31,6 +31,30 @@ import { sHiddenBugFound } from './ma/s-hidden-bug-found.js';
 import { sReviewPrioritization } from './ma/s-review-prioritization.js';
 import { sDiagnosisAccuracy } from './ma/s-diagnosis-accuracy.js';
 import { sPrincipleAbstraction } from './ma/s-principle-abstraction.js';
+// MB (Task 13c) — 23 signals
+import { sTaskDecomposition } from './mb/stage1/s-task-decomposition.js';
+import { sInterfaceDesign } from './mb/stage1/s-interface-design.js';
+import { sFailureAnticipation } from './mb/stage1/s-failure-anticipation.js';
+import { sPromptQuality } from './mb/stage2-exec/s-prompt-quality.js';
+import { sIterationEfficiency } from './mb/stage2-exec/s-iteration-efficiency.js';
+import { sPrecisionFix } from './mb/stage2-exec/s-precision-fix.js';
+import { sAiCompletionAcceptRate } from './mb/cursor/s-ai-completion-accept-rate.js';
+import { sChatVsDirectRatio } from './mb/cursor/s-chat-vs-direct-ratio.js';
+import { sFileNavigationEfficiency } from './mb/cursor/s-file-navigation-efficiency.js';
+import { sTestFirstBehavior } from './mb/cursor/s-test-first-behavior.js';
+import { sEditPatternQuality } from './mb/cursor/s-edit-pattern-quality.js';
+import { sDecisionLatencyQuality } from './mb/cursor/s-decision-latency-quality.js';
+import { sModifyQuality } from './mb/stage2-quality/s-modify-quality.js';
+import { sBlockSelectivity } from './mb/stage2-quality/s-block-selectivity.js';
+import { sChallengeComplete } from './mb/stage2-quality/s-challenge-complete.js';
+import { sVerifyDiscipline } from './mb/stage2-quality/s-verify-discipline.js';
+import { sAiOutputReview } from './mb/stage2-quality/s-ai-output-review.js';
+import { sRulesQuality } from './mb/stage3/s-rules-quality.js';
+import { sRulesCoverage } from './mb/stage3/s-rules-coverage.js';
+import { sRulesSpecificity } from './mb/stage3/s-rules-specificity.js';
+import { sAgentGuidance } from './mb/stage3/s-agent-guidance.js';
+import { sWritingQuality } from './mb/horizontal/s-writing-quality.js';
+import { sRuleEnforcement } from './mb/stage4/s-rule-enforcement.js';
 
 export const EXPECTED_SIGNAL_COUNT = 47;
 
@@ -39,7 +63,9 @@ export const EXPECTED_SIGNAL_COUNT = 47;
  *
  * Task 11 wired sBeliefUpdateMagnitude (MC). Task 13a adds the 5 P0 signals.
  * Task 13b adds the 10 MA signals (9 original + sPrincipleAbstraction per
- * Round 2 Part 3 调整 2). `EXPECTED_SIGNAL_COUNT` is the contract later tasks
+ * Round 2 Part 3 调整 2). Task 13c adds the 23 MB signals across 7
+ * subdirectories (stage1 / stage2-exec / cursor / stage2-quality / stage3 /
+ * horizontal / stage4). `EXPECTED_SIGNAL_COUNT` is the contract later tasks
  * plus CI must satisfy once all 47 signals land:
  *   assert(signalRegistry.getSignalCount() === EXPECTED_SIGNAL_COUNT).
  */
@@ -63,9 +89,39 @@ export function registerAllSignals(registry: SignalRegistry): void {
   registry.register(sReviewPrioritization);
   registry.register(sDiagnosisAccuracy);
   registry.register(sPrincipleAbstraction);
-  // TODO(Task 13c-13e): import remaining 31 SignalDefinition files under
-  // ./{mb,md,se}/ and call `registry.register(def)` for each.
+  // MB Stage 1 planning (Task 13c)
+  registry.register(sTaskDecomposition);
+  registry.register(sInterfaceDesign);
+  registry.register(sFailureAnticipation);
+  // MB Stage 2 execution (Task 13c)
+  registry.register(sPromptQuality);
+  registry.register(sIterationEfficiency);
+  registry.register(sPrecisionFix);
+  // MB Cursor behavior (Task 13c)
+  registry.register(sAiCompletionAcceptRate);
+  registry.register(sChatVsDirectRatio);
+  registry.register(sFileNavigationEfficiency);
+  registry.register(sTestFirstBehavior);
+  registry.register(sEditPatternQuality);
+  registry.register(sDecisionLatencyQuality);
+  // MB Stage 2 quality (Task 13c)
+  registry.register(sModifyQuality);
+  registry.register(sBlockSelectivity);
+  registry.register(sChallengeComplete);
+  registry.register(sVerifyDiscipline);
+  registry.register(sAiOutputReview);
+  // MB Stage 3 standards + AI governance (Task 13c)
+  registry.register(sRulesQuality);
+  registry.register(sRulesCoverage);
+  registry.register(sRulesSpecificity);
+  registry.register(sAgentGuidance);
+  // MB horizontal writing (Task 13c)
+  registry.register(sWritingQuality);
+  // MB Stage 4 audit (Task 13c)
+  registry.register(sRuleEnforcement);
+  // TODO(Task 13d-13e): import remaining 8 SignalDefinition files under
+  // ./{md,se,mc}/ (3 MC + 4 MD + 1 SE) and call `registry.register(def)`.
   logger.debug(
-    'registerAllSignals: registered 16/47 (1 MC + 5 P0 + 10 MA); Tasks 13c-13e add the rest',
+    'registerAllSignals: registered 39/47 (1 MC + 5 P0 + 10 MA + 23 MB); Tasks 13d-13e add the rest',
   );
 }
