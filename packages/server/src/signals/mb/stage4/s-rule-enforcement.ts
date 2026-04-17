@@ -31,7 +31,6 @@
 import {
   V5Dimension,
   type SignalDefinition,
-  type SignalEvidence,
   type SignalInput,
   type SignalResult,
 } from '@codelens-v5/shared';
@@ -58,12 +57,12 @@ function parseRules(rulesContent: string): ParsedRule[] {
   let idx = 0;
   for (const line of lines) {
     const hasImperative = markerHits(line, IMPERATIVE_MARKERS).length > 0;
-    const hasNumber = /^(\d+[\.\)、]|[-*])\s*/.test(line);
+    const hasNumber = /^(\d+[.)、]|[-*])\s*/.test(line);
     if (!hasImperative && !hasNumber) continue;
-    const text = line.replace(/^(\d+[\.\)、]|[-*])\s*/, '').trim();
+    const text = line.replace(/^(\d+[.)、]|[-*])\s*/, '').trim();
     if (text.length < 4) continue;
     const kws: string[] = [];
-    for (const [_, markers] of Object.entries(RULES_CATEGORY_MARKERS)) {
+    for (const markers of Object.values(RULES_CATEGORY_MARKERS)) {
       for (const m of markers) {
         if (text.toLowerCase().includes(m.toLowerCase()) || text.includes(m)) kws.push(m);
       }

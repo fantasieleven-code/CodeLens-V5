@@ -41,7 +41,7 @@ function splitSteps(text: string): string[] {
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
   if (lines.length === 0) return [];
-  const orderedPrefix = lines.filter((l) => /^(\d+[\.\)、]|[一二三四五六七八九十]+[、\.]|[-*])/.test(l));
+  const orderedPrefix = lines.filter((l) => /^(\d+[.)、]|[一二三四五六七八九十]+[、.]|[-*])/.test(l));
   if (orderedPrefix.length >= 2) return orderedPrefix;
   const sentences = text
     .split(/[。.;；\n]/)
@@ -51,7 +51,7 @@ function splitSteps(text: string): string[] {
 }
 
 function hasOrderedPrefixes(lines: string[]): boolean {
-  return lines.some((l) => /^(\d+[\.\)、]|[一二三四五六七八九十]+[、\.])/.test(l));
+  return lines.some((l) => /^(\d+[.)、]|[一二三四五六七八九十]+[、.])/.test(l));
 }
 
 function hasBulletPrefixes(lines: string[]): boolean {

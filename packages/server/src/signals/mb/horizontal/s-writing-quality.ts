@@ -63,7 +63,7 @@ async function compute(input: SignalInput): Promise<SignalResult> {
 
   const lengthScore = clamp01(corpus.length / LENGTH_TARGET);
 
-  const hasBullets = /^\s*[-*\d]\s|^\s*\d+[\.\)]/m.test(corpus);
+  const hasBullets = /^\s*[-*\d]\s|^\s*\d+[.)]/m.test(corpus);
   const hasLineBreaks = corpus.split(/\r?\n/).filter((l) => l.trim().length > 0).length >= 3;
   const structureScore = (hasBullets ? 0.5 : 0) + (hasLineBreaks ? 0.5 : 0);
 

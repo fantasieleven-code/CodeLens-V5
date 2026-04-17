@@ -19,7 +19,6 @@
 import {
   V5Dimension,
   type SignalDefinition,
-  type SignalEvidence,
   type SignalInput,
   type SignalResult,
 } from '@codelens-v5/shared';
