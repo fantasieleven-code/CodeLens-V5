@@ -94,6 +94,25 @@ describe('SUITES config invariants', () => {
     expect(SUITES.architect.reportSections).not.toContain('cursor-behavior-label');
     expect(SUITES.quick_screen.reportSections).not.toContain('cursor-behavior-label');
   });
+
+  // Round 3 Part 4 (Capability Profiles refactor): every suite's reportSections
+  // must include 'capability-profiles', rendered right after 'hero' and before 'radar'.
+  it.each(SUITE_IDS)('suite "%s" reportSections includes capability-profiles', (id) => {
+    expect(SUITES[id].reportSections).toContain('capability-profiles');
+  });
+
+  it.each(SUITE_IDS)(
+    'suite "%s" renders capability-profiles after hero and before radar',
+    (id) => {
+      const sections = SUITES[id].reportSections;
+      const heroIdx = sections.indexOf('hero');
+      const capIdx = sections.indexOf('capability-profiles');
+      const radarIdx = sections.indexOf('radar');
+      expect(heroIdx).toBeGreaterThanOrEqual(0);
+      expect(capIdx).toBeGreaterThan(heroIdx);
+      expect(radarIdx).toBeGreaterThan(capIdx);
+    },
+  );
 });
 
 describe('SUITES accessors', () => {
