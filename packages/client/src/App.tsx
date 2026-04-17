@@ -31,6 +31,7 @@ import { ReportViewPage } from './pages/ReportViewPage.js';
 import { ReportPreviewPage } from './report/preview/ReportPreviewPage.js';
 import { SectionGalleryPage } from './report/preview/SectionGalleryPage.js';
 import { Phase0PreviewPage } from './pages/phase0/Phase0PreviewPage.js';
+import { ModuleAPreviewPage } from './pages/moduleA/ModuleAPreviewPage.js';
 import { colors, spacing, fontSizes, fontWeights } from './lib/tokens.js';
 
 export function App() {
@@ -44,6 +45,7 @@ export function App() {
         <Route path="/__preview/report" element={<ReportPreviewPage />} />
         <Route path="/__preview/sections" element={<SectionGalleryPage />} />
         <Route path="/__preview/phase0" element={<Phase0PreviewPage />} />
+        <Route path="/__preview/moduleA" element={<ModuleAPreviewPage />} />
         <Route path="/" element={<LandingPage />} />
         <Route path="*" element={<ErrorPage message="页面不存在" />} />
       </Routes>
