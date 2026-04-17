@@ -24,10 +24,17 @@
  */
 import type { SignalEvidence, SignalInput, SignalResult } from '@codelens-v5/shared';
 import { logger } from '../../lib/logger.js';
-import { modelFactory } from '../../services/model/index.js';
-import { promptRegistry } from '../../services/prompt-registry.service.js';
 import type { V5PromptKey } from '../../services/prompt-keys.js';
 import { finalize } from './types.js';
+
+// NOTE: `modelFactory` and `promptRegistry` are imported dynamically inside
+// `gradeWithLLM` below. Static imports would transitively load `config/env.ts`
+// at module-scope — which `process.exit(1)`s when `DATABASE_URL` / `JWT_SECRET`
+// are unset. That would crash any test file that imports `signals/index.ts`
+// (e.g. p0/ma/mc-probe-engine registry-count assertions), since they don't
+// mock those modules. Deferring the imports to call-time keeps pure-signal
+// tests free from env plumbing while `vi.mock` in the md-se suite still
+// applies to the dynamic `import()`.
 
 const SYSTEM_PROMPT =
   'You grade senior software engineer design submissions on a 0-1 scale. ' +
@@ -116,6 +123,10 @@ export function parseLLMRubric(content: string): LLMGradeParsed {
  * on success; throws otherwise (the SignalRegistry wraps retry + fallback).
  */
 export async function gradeWithLLM(req: LLMGradeRequest): Promise<SignalResult> {
+  const [{ promptRegistry }, { modelFactory }] = await Promise.all([
+    import('../../services/prompt-registry.service.js'),
+    import('../../services/model/index.js'),
+  ]);
   const template = await promptRegistry.get(req.promptKey);
   const user = substituteVars(template, req.variables);
 
