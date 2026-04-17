@@ -55,6 +55,13 @@ import { sRulesSpecificity } from './mb/stage3/s-rules-specificity.js';
 import { sAgentGuidance } from './mb/stage3/s-agent-guidance.js';
 import { sWritingQuality } from './mb/horizontal/s-writing-quality.js';
 import { sRuleEnforcement } from './mb/stage4/s-rule-enforcement.js';
+// MD (Task 13d) — 4 signals (3 LLM whitelist + 1 pure rule)
+import { sConstraintIdentification } from './md/s-constraint-identification.js';
+import { sDesignDecomposition } from './md/s-design-decomposition.js';
+import { sTradeoffArticulation } from './md/s-tradeoff-articulation.js';
+import { sAiOrchestrationQuality } from './md/s-ai-orchestration-quality.js';
+// SE (Task 13d) — 1 signal
+import { sMetaCognition } from './se/s-meta-cognition.js';
 
 export const EXPECTED_SIGNAL_COUNT = 47;
 
@@ -65,7 +72,10 @@ export const EXPECTED_SIGNAL_COUNT = 47;
  * Task 13b adds the 10 MA signals (9 original + sPrincipleAbstraction per
  * Round 2 Part 3 调整 2). Task 13c adds the 23 MB signals across 7
  * subdirectories (stage1 / stage2-exec / cursor / stage2-quality / stage3 /
- * horizontal / stage4). `EXPECTED_SIGNAL_COUNT` is the contract later tasks
+ * horizontal / stage4). Task 13d adds the 4 MD signals (3 LLM whitelist:
+ * sDesignDecomposition / sTradeoffArticulation / sAiOrchestrationQuality
+ * plus 1 pure rule: sConstraintIdentification) and 1 SE signal
+ * (sMetaCognition). `EXPECTED_SIGNAL_COUNT` is the contract later tasks
  * plus CI must satisfy once all 47 signals land:
  *   assert(signalRegistry.getSignalCount() === EXPECTED_SIGNAL_COUNT).
  */
@@ -119,9 +129,17 @@ export function registerAllSignals(registry: SignalRegistry): void {
   registry.register(sWritingQuality);
   // MB Stage 4 audit (Task 13c)
   registry.register(sRuleEnforcement);
-  // TODO(Task 13d-13e): import remaining 8 SignalDefinition files under
-  // ./{md,se,mc}/ (3 MC + 4 MD + 1 SE) and call `registry.register(def)`.
+  // MD (Task 13d)
+  registry.register(sConstraintIdentification);
+  registry.register(sDesignDecomposition);
+  registry.register(sTradeoffArticulation);
+  registry.register(sAiOrchestrationQuality);
+  // SE (Task 13d)
+  registry.register(sMetaCognition);
+  // TODO(Task 13e): import remaining 3 MC SignalDefinition files under
+  // ./mc/ (sBoundaryAwareness + sCommunicationClarity + sReflectionDepth)
+  // and call `registry.register(def)`.
   logger.debug(
-    'registerAllSignals: registered 39/47 (1 MC + 5 P0 + 10 MA + 23 MB); Tasks 13d-13e add the rest',
+    'registerAllSignals: registered 44/47 (1 MC + 5 P0 + 10 MA + 23 MB + 4 MD + 1 SE); Task 13e adds the rest',
   );
 }
