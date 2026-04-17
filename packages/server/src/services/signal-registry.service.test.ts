@@ -377,9 +377,10 @@ describe('registerAllSignals scaffold', () => {
   it('is callable without throwing on a fresh registry (Task 13 fills the body)', () => {
     const reg = new SignalRegistryImpl();
     expect(() => registerAllSignals(reg)).not.toThrow();
-    // Task 11 Step 4G registered sBeliefUpdateMagnitude (1/47); Task 13 will
-    // grow this to EXPECTED_SIGNAL_COUNT (47).
-    expect(reg.getSignalCount()).toBe(1);
+    // Task 11 Step 4G registered sBeliefUpdateMagnitude (1/47); Task 13a added
+    // 5 P0 signals (6/47); Task 13b adds 10 MA signals (16/47); Tasks 13c-13e
+    // will grow this to EXPECTED_SIGNAL_COUNT (47).
+    expect(reg.getSignalCount()).toBe(16);
   });
 
   it('registers sBeliefUpdateMagnitude on the metacognition dimension (Task 11)', () => {
