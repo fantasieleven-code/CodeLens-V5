@@ -35,6 +35,7 @@ export const CURSOR_BEHAVIOR_EVENTS = [
   'ai_completion_shown',
   'ai_completion_accepted',
   'ai_completion_rejected',
+  'ai_completion_responded',
   'chat_prompt_sent',
   'chat_response_received',
   'diff_accepted',
@@ -45,6 +46,8 @@ export const CURSOR_BEHAVIOR_EVENTS = [
   'cursor_move',
   'key_press',
   'test_run',
+  'document_visibility',
+  'visibility_change',
 ] as const;
 
 export type CursorBehaviorEvent = (typeof CURSOR_BEHAVIOR_EVENTS)[number];
