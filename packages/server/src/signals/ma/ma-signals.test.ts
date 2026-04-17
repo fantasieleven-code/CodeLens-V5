@@ -626,10 +626,10 @@ describe('registerAllSignals — Task 13b MA registration', () => {
     };
   }
 
-  it('registers 1 MC + 5 P0 + 10 MA = 16 signals', () => {
+  it('registers 1 MC + 5 P0 + 10 MA + 23 MB = 39 signals', () => {
     const r = makeRegistry();
     registerAllSignals(r.registry);
-    expect(r.count).toBe(16);
+    expect(r.count).toBe(39);
   });
 
   it('no duplicate ids across all registered signals', () => {
