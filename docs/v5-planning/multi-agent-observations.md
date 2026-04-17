@@ -297,6 +297,36 @@ Frontend 4.7 view 文档 diff brief 时 catch(对应 Task 5 R3 Frontend stop,
 **Meta**:Claude 错误 Violation #3 — 违反规则 1 + 规则 2。Claude 反例 + Agent
 正面观察(待 #014)成对,signal hint 相同,反正两面的数据
 
+### Observation #014 — 2026-04-17 ~15:30 — Frontend 4.7 Task 5 R3/R4 kickoff stop
+
+**Agent**:Frontend 4.7
+**Phase**:Task 5 启动(feat/frontend-task5 初始阶段)
+**Context**:Steve 给 Task 5 brief 里说 "R3 = Emma Challenge",但 Frontend
+view tasks.md + clarifications Part 3 调整 2 后发现 R3 实际是 Compare
+Diagnosis,Emma Challenge 是 R1 sub-flow。
+**Event**:Frontend 列 3 选项(A 按文档 / B 按 brief 破 shared / C 混合)
+让 Steve 选,并同时 flag 冲突 2(R4 落点)。Steve 选 A(canonical) + c
+(按 Round 3 L358-372 落顶层 round4 字段)。Claude 协调者承认 Task 5
+R3 描述错误是 Claude Error #3。
+**Commit**:PR #28,commit ca06706
+**Signal hint**:`sMultiLayerConsistency`
+**Meta**:Claude 反例 + Agent 正面观察(#013)成对,signal hint 相同,
+正反两面的数据。
+
+### Observation #015 — 2026-04-17 ~15:45 — Frontend 4.7 shared-bridge decision stop
+
+**Agent**:Frontend 4.7
+**Phase**:Task 5 kickoff 同一轮(延续 #014)
+**Context**:Frontend 面对"round4 数据落点"冲突:Round 3 Part 3 调整 2
+L358-372 规定顶层 round4,但 Steve brief "不改 shared" 硬约束。
+**Event**:Frontend 列 4 选项(a 错位桥接 / b shared 加顶层 inputBehavior /
+c 按 clarifications 落定稿 round4 / d 推迟)让 Steve 选。Steve 选 c,
+并细化规则为 "clarifications-defined 字段可以落地,PR 必须引用精确行号"。
+**Commit**:PR #28,commit ca06706
+**Signal hint**:`sContractAlignment`
+**Meta**:催生了规则细化(`不改 shared` 硬约束 → 有文档依据可破)。
+这是协议级改进而非单次处理。
+
 ---
 
 ## Signal Hint 聚类
@@ -311,9 +341,9 @@ Frontend 4.7 view 文档 diff brief 时 catch(对应 Task 5 R3 Frontend stop,
 | sClarificationQuality | 6(#003 #007 #008 正 + #011 #012 #013 反) | **已达阈值 ≥5,进入 V5.2 信号候选池** |
 | sScopeDiscipline | 1(#009) | 单例,继续收集 |
 | sStopLossPerception | 1(#005) | 单例,继续收集 |
-| sContractAlignment | 1(#004) | 单例,继续收集 |
+| sContractAlignment | 2(#004 #015) | 继续收集,距 5 条阈值还需 3 条 |
 | sContractRespect | 1(#010) | 单例,继续收集 |
-| sMultiLayerConsistency | 1(#007) | 单例,继续收集 |
+| sMultiLayerConsistency | 2(#007 #014) | 继续收集,距 5 条阈值还需 3 条 |
 | sLocationCheck | 1(#002) | 单例,继续收集 |
 | sMissingContextHandling | 1(#003) | 单例,继续收集 |
 | sVerifyBeforeDestroy | 1(#001) | 单例,继续收集 |
@@ -611,5 +641,5 @@ Observation #N(signal hint: sClarificationQuality 反例)。
 
 **文件结束**
 
-> 最后更新:2026-04-17 v0.2(Claude 协调者规范 + 3 条反例 observations + 聚类阈值达标)
+> 最后更新:2026-04-17 v0.3(Frontend Task 5 PR #28 观察 #014 #015 同步)
 > 下次更新预期:Claude 下次违反规则时(记录 Violation #4)或下次 agent PR observations 同步
