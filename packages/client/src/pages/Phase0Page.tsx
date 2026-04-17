@@ -18,11 +18,9 @@
  *     → submit
  *
  * Submission:
- *   Conforms to V5Phase0Submission. The AI-claim response is bridged
- *   through `inputBehavior.aiClaimVerification` because the
- *   `aiClaimVerification` top-level field is not in `@codelens-v5/shared`
- *   yet — Round 3 Part 3 adjustment 1 L191-207 says Backend Task 11 will
- *   promote it. See TODO(task-11) on the bridge below.
+ *   Conforms to V5Phase0Submission. The AI-claim response lands in the
+ *   top-level `aiClaimVerification` field (Round 2 Part 3 adjustment 1
+ *   L191-210; shared type added in Task 13a).
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
@@ -124,19 +122,13 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
         choice: j.choice as JudgmentChoice,
         reasoning: j.reason,
       })),
+      aiClaimVerification: {
+        response: aiClaim.response,
+        submittedAt: Date.now(),
+      },
       decision: {
         choice: decision.choice,
         reasoning: decision.reason,
-      },
-      inputBehavior: {
-        // TODO(task-11): migrate to a top-level `aiClaimVerification` field on
-        // V5Phase0Submission once Round 3 Part 3 adjustment 1 L191-207 lands
-        // in @codelens-v5/shared. Kept here so sAiClaimDetection still has
-        // raw text to scan, via metadata.signalResults input plumbing.
-        aiClaimVerification: {
-          response: aiClaim.response,
-          submittedAt: Date.now(),
-        },
       },
     };
 

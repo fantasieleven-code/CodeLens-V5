@@ -32,6 +32,33 @@ export interface P0ModuleSpecific {
     scenario: string;
     options: Array<{ id: string; label: string; description: string }>;
   };
+  /**
+   * Round 2 Part 3 调整 1 (v5-design-clarifications.md L116-137) — a short
+   * AI-generated code block + AI explanation where the explanation claims a
+   * feature the code does not implement (e.g. "uses WATCH/MULTI" but the code
+   * only has a single SET NX). The candidate must spot the gap; this block
+   * provides all the fixed data `sAiClaimDetection` needs to score the
+   * response.
+   *
+   * Retroactive addition that should have shipped with Task 11; the client
+   * fixture (packages/client/src/pages/phase0/mock.ts) has been carrying a
+   * matching local shape with a TODO(task-10) marker.
+   */
+  aiClaimDetection: {
+    /** AI-generated code the candidate must audit. 20-40 lines. */
+    code: string;
+    /** AI explanation text; contains the deceptive claim. */
+    aiExplanation: string;
+    /** Features the explanation claims. Includes the deceptive one. */
+    claimedFeatures: string[];
+    /** Features the code actually has. Excludes the deceptive claim. */
+    actualFeatures: string[];
+    /** The one claim that does not match reality — drives sAiClaimDetection. */
+    deceptivePoint: {
+      claimedFeature: string;
+      realityGap: string;
+    };
+  };
 }
 
 // ───────────────────────────── MA ─────────────────────────────

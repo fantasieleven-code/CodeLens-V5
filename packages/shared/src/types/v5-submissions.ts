@@ -23,6 +23,20 @@ export interface V5Phase0Submission {
     choice: 'A' | 'B' | 'both_good' | 'both_bad';
     reasoning: string;
   }>;
+  /**
+   * Round 2 Part 3 调整 1 (v5-design-clarifications.md L191-210) — candidate's
+   * verification of an AI-generated code + explanation block where the
+   * explanation deliberately misrepresents one feature. Source for
+   * `sAiClaimDetection.candidateResponse`.
+   *
+   * Retroactive addition that should have shipped with Task 11; the client
+   * previously bridged this via `inputBehavior.aiClaimVerification` with a
+   * TODO(task-11) marker in Phase0Page.tsx.
+   */
+  aiClaimVerification: {
+    response: string;
+    submittedAt: number;
+  };
   decision: {
     choice: string;
     reasoning: string;

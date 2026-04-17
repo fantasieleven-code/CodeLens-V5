@@ -172,7 +172,7 @@ describe('<Phase0Page />', () => {
   });
 
   describe('submit payload shape', () => {
-    it('constructs V5Phase0Submission + bridges AI claim via inputBehavior', () => {
+    it('constructs V5Phase0Submission with top-level aiClaimVerification', () => {
       const captured: { s: V5Phase0Submission | null } = { s: null };
       render(<Phase0Page onSubmit={(s) => (captured.s = s)} />);
 
@@ -201,15 +201,8 @@ describe('<Phase0Page />', () => {
 
       expect(s?.decision).toEqual({ choice: 'C', reasoning: DECISION_REASON });
 
-      // Round 3 Part 3 adjustment 1 bridge — the AI claim response is
-      // stored under inputBehavior.aiClaimVerification until Task 11 promotes
-      // it to a top-level field in V5Phase0Submission.
-      const bridge = (s?.inputBehavior?.aiClaimVerification as {
-        response: string;
-        submittedAt: number;
-      });
-      expect(bridge.response).toBe(AI_CLAIM_RESPONSE);
-      expect(typeof bridge.submittedAt).toBe('number');
+      expect(s?.aiClaimVerification.response).toBe(AI_CLAIM_RESPONSE);
+      expect(typeof s?.aiClaimVerification.submittedAt).toBe('number');
     });
 
     it('writes the submission into session.store and advances to moduleA', () => {
