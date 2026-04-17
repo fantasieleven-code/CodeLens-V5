@@ -5,7 +5,16 @@
 | Job | 失败原因 | Task owner | 状态 |
 |---|---|---|---|
 | prompt-regression | `packages/server/promptfooconfig.yaml` 未创建 | Task 7 | known-red |
-| e2e | Playwright webServer 启动超时 — `npm run dev` (tsx) 报 `ERR_MODULE_NOT_FOUND: src/index.ts`。种子/迁移已通过,失败发生在 `npx playwright test` 起 dev server 阶段。疑似 tsx ESM resolution 配置问题或 server 入口依赖未装。 | Task 19 | known-red |
+| e2e | Playwright webServer 启动超时 — `npm run dev` (tsx) 报 `ERR_MODULE_NOT_FOUND: src/index.ts`。种子/迁移已通过,失败发生在 `npx playwright test` 起 dev server 阶段。疑似 tsx ESM resolution 配置问题或 server 入口依赖未装。 | Task 5 / CI infra | known-red |
+
+### e2e 失败 — 推测原因与调查方向
+
+**可能原因**:
+1. server 需要 Task 5（SandboxProvider）才能完整启动
+2. tsx 配置或 tsconfig `moduleResolution` 问题
+3. server `src/index.ts` 有被 Task 2/3/4 改动后未 rebuild 的引用
+
+**调查建议**（Task 5 启动前）:先 `cd packages/server && npm run dev` 复现,看是 server 本体启动问题还是 sandbox 依赖问题。如果是纯 ESM 配置,优先作为 CI infra PR 单独修（不阻塞 Task 5）。
 
 ## 约定
 
