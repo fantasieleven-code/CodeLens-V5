@@ -19,6 +19,8 @@ import { useSessionStore } from './stores/session.store.js';
 import { EvaluationIntroPage } from './pages/EvaluationIntroPage.js';
 import { SelfAssessPage } from './pages/SelfAssessPage.js';
 import { CompletePage } from './pages/CompletePage.js';
+import { ReportPreviewPage } from './report/preview/ReportPreviewPage.js';
+import { SectionGalleryPage } from './report/preview/SectionGalleryPage.js';
 import { colors, spacing, fontSizes, fontWeights } from './lib/tokens.js';
 
 export function App() {
@@ -28,6 +30,8 @@ export function App() {
         <Route path="/exam/:sessionId" element={<ExamRouter />} />
         <Route path="/admin/*" element={<AdminRoutes />} />
         <Route path="/share/report/:token" element={<SharedReportPage />} />
+        <Route path="/__preview/report" element={<ReportPreviewPage />} />
+        <Route path="/__preview/sections" element={<SectionGalleryPage />} />
         <Route path="/" element={<LandingPage />} />
         <Route path="*" element={<ErrorPage message="页面不存在" />} />
       </Routes>
