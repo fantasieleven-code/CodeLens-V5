@@ -88,6 +88,18 @@ export const SelfAssessPage: React.FC = () => {
     setSubmission('selfAssess', submission);
 
     const socket = getSocket();
+    // The server handler for `self-assess:submit` doesn't exist yet (pending
+    // Backend Cluster D). Without a timeout, a missing ack leaves the button
+    // stuck on "提交中…" forever. Guard with an 8s fallback — once the server
+    // handler lands, acks arrive well under that and the timeout is invisible.
+    let settled = false;
+    const timeoutId = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      setSubmitting(false);
+      setError('提交遇到问题,请稍后重试');
+    }, 8000);
+
     socket.emit(
       'self-assess:submit',
       {
@@ -96,6 +108,9 @@ export const SelfAssessPage: React.FC = () => {
         responseTimeMs: Date.now() - mountTimeRef.current,
       },
       (ok: boolean) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeoutId);
         setSubmitting(false);
         if (ok) {
           advance();
