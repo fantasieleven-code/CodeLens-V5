@@ -34,6 +34,50 @@
 **发布影响**:**Acceptable** — V5.0 生产用 E2B sandbox(不依赖 docker),Docker 降级验证可 V5.2 加
 **Timeline**:V5.2 才硬性要求清理
 
+## V5.0 Signal Production Gap(2026-04-18 新增)
+
+> **Source**:`docs/v5-planning/v5-signal-production-coverage.md` audit。
+> **本 section 不是 CI job 红,而是 signal production readiness gate**。列在 CI_KNOWN_RED
+> 的原因:V5 防御纪律要求一切"发布前必须清理但暂未清理"的结构性问题都集中记录,
+> 便于 release checklist 落地。未来 V5.1 引入 Signal Production Readiness Gate
+> (类似 CI job)后,本 section 迁移到真正的 CI job 形式。
+
+### 单项状态
+
+**47 signal 中 35 failing**(16 broken + 19 unimplemented,74.5%)。
+
+| Cluster | 影响 signal 数 | Root cause | Task owner | 发布影响 |
+|---------|----------------|-------------|------------|----------|
+| **A · behavior:batch ingest 缺失** | 11 MB + 2 间接(sWritingQuality 部分 / sIterationEfficiency fallback) | Client 发 `behavior:batch` socket event,server 未注册 `socket.on('behavior:batch')`;mb.service 无 persistence path 写入 `editorBehavior.{aiCompletionEvents, chatEvents, diffEvents, editSessions, fileNavigationHistory, testRuns}` | **新 Task 18.1**(Backend) | **Critical-Release-Blocker** |
+| **B · finalFiles / finalTestPassRate persist 缺失** | 3(sPrecisionFix / sChallengeComplete / sIterationEfficiency) | `fileSnapshotService.persistToMetadata` 定义存在但无 production call site;`run_test` handler 计算 passRate 但不 persist;签约的 "submission 时 snapshot" 机制未接通 | Task 18.1 同 PR | **Critical-Release-Blocker** |
+| **C · Phase 0 / MA / MD 整模块未接入** | 19(5 P0 + 10 MA + 4 MD) | Phase0Page / ModuleAPage / ModuleDPage **零 socket.emit**;server 无 submission handler 也无 REST 端点 | **新 Task 18.2**(Frontend + Backend) | **Critical-Release-Blocker** |
+| **D · self-assess socket handler 缺失** | 1(sMetaCognition) | SelfAssessPage 发 `self-assess:submit`,server 未注册;shared ws.ts 也未声明此 event type | Task 18.2 同 PR | **Critical-Release-Blocker** |
+
+### V5.0 Ship Decision Gate
+
+- **当前 ACTIVE signal = 12 / 47 = 25.5%**
+- **AE 维度 ACTIVE 信号 ≈ 0**(最核心卖点失效)
+- **CQ 维度 ACTIVE 信号 = 0**
+- **Steve 授权的 "broken > 3 → 考虑延期" 规则已触发**(broken = 16)
+
+**V5.0 发布前必须决定**:
+
+1. **路径 1 · 严格修**:把 Cluster A/B/C/D 作为 V5.0 must-fix,新增 Task 18.1 + 18.2,
+   工期估 7-8 elapsed days(multi-agent 并行 ~4-5 days),V5.0 延期 ≥ 1 周。
+2. **路径 2 · scope downgrade**:承认 V5.0 只是 MB + MC pilot,P0/MA/MD/SE 延到 V5.1。
+   套件定义 / 对外材料 / fixture 全需调整。
+3. **路径 3 · ship-as-is**:不推荐,违背 V5 防御文档精神。
+
+**Claude 推荐路径 1**。具体见
+`docs/v5-planning/v5-signal-production-coverage.md` 第 4 部分。
+
+### 清理时间点约定
+
+- Cluster A + B + D:V5.0 发布前必清(即使走路径 1,也要 Task 18.1 落地)
+- Cluster C:路径 1 下 V5.0 发布前必清;路径 2 下可 V5.1
+- 任何 signal 从 broken / unimplemented 转 ACTIVE 后,同 PR 更新
+  `v5-signal-production-coverage.md` matrix 的 status 列
+
 ## 发布影响级别定义
 
 | 级别 | 含义 | 清理时间点 |

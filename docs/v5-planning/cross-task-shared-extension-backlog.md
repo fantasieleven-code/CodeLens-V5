@@ -67,6 +67,25 @@
 | `packages/shared/src/types/v5-session.ts`:`SessionMetadata.signalResults` migration 策略 | **中概率** | Backward compatibility(V5.0 session 如何重放) | V5.1 |
 | `packages/shared/`:`V5ScoringResult` vs legacy `ScoringResult` rename 归并 | **低概率** | 当前 additive 共存,V5.2 时可能 rename legacy | V5.2 |
 
+### **V5.0 Signal Production Gap — Must-fix cluster**(新增 2026-04-18)
+
+> **Source**:`docs/v5-planning/v5-signal-production-coverage.md` audit。
+> 47 signal 中 35 failing(16 broken + 19 unimplemented,74.5%)。V5.0 ship judgment
+> 需选路径 1/2/3,参见 audit 第 4 部分。**本 section 假设走路径 1(严格修复)**,
+> 列出为新 Task 18.1 / 18.2 所需的全部扩展。
+
+| 扩展项 | 概率 | 影响 | 注意 |
+|--------|------|------|------|
+| **Task 18.1 A:server `behavior:batch` socket handler** | **必然** | 消费 `ws.ts:27-29` 已定义的 `behavior:batch` event,按 type 分发到 `editorBehavior.{aiCompletionEvents, chatEvents, diffEvents, editSessions, fileNavigationHistory, testRuns}`;11 个 MB Cursor / Stage2 signal 全部 unblock | 需同时定义 shown/responded 配对规则(lineNumber + shownAt) |
+| **Task 18.1 B:`fileSnapshotService.persistToMetadata` call site** | **必然** | 在 MB "提交本模块"生命周期末执行(如 `v5:mb:audit:submit` 后 OR 新增 `v5:mb:submit` 事件),写入 `session.metadata.mb.finalFiles`;sPrecisionFix unblock | |
+| **Task 18.1 C:`run_test` handler persist `finalTestPassRate`** | **必然** | 当前只 emit `MB_TEST_RUN` event,需增 `mb.service.persistTestRun(sessionId, passRate, duration)` 写 `metadata.mb.finalTestPassRate`(最后一次测试)+ append `editorBehavior.testRuns[]` | sIterationEfficiency / sChallengeComplete unblock |
+| **Task 18.2 A:Phase 0 submission pipeline** | **必然** | Phase0Page 接 socket emit `v5:phase0:submit`(或 REST) → ws.ts 新增 event type → mb-handlers style 的 `p0-handlers.ts` → `p0.service.persistSubmission` 写 `metadata.phase0`;5 个 P0 signal unblock | 涉及 Frontend + Backend + shared |
+| **Task 18.2 B:Module A submission pipeline** | **必然** | 同上,接 `v5:moduleA:round1:submit` / `v5:moduleA:round2:submit`;10 个 MA signal unblock | Round 分次 submit 或合并方案待决 |
+| **Task 18.2 C:Module D submission pipeline** | **必然** | 同上,接 `v5:md:submit`(已在 backlog Task 14 列为必然)+ payload 携带 subModules / tradeoffText / aiOrchestrationPrompts / constraintsSelected;4 个 MD signal unblock | **与 Task 14 合并考虑** |
+| **Task 18.2 D:self-assess socket handler** | **必然** | SelfAssessPage 已发 `self-assess:submit`(1 signal UNimplemented 状态);需 (a) shared ws.ts 声明 event + payload type,(b) server 注册 handler 写 `metadata.selfAssess`;sMetaCognition unblock | ack callback 契约要兑现(client 等 ack 决定 advance) |
+| **Task 18.2 E:Frontend banner — P0/MA/MD/SelfAssess 数据接入前的过渡 UI** | **高概率** | 走路径 1 时避免中途 candidate 误以为提交生效;可选 | 走路径 2 时必做(scope downgrade 交付) |
+| **Task 18.2 F:Fixture re-calibration for post-ingest data** | **高概率** | behavior:batch 接入后,Liam/Steve/Emma/Max 4 fixture 的 aiCompletionEvents 需按实际生产 payload 重构;A7 audit 记录 Max 500ms 边界 bug / Steve 1500ms uniform 过高 | 与 Task 17b fixture 维护同团队 |
+
 ## 历史防御成功案例
 
 ### Task 17 `V5ScoringResult` 扩展(Backend pre-verify catch)
