@@ -121,3 +121,40 @@ docs/v5-planning/v5-design-clarifications.md 是 V5 设计的权威补丁层,
 Task 8（MD 前端）,Task 9（SelfAssess + Complete）,Task 10-11（Admin）,Task 12（集成测试）。
 
 遇到 clarifications 和 tasks 冲突或疑惑,停下报告 Steve。
+
+---
+## V5 Defense Documentation(必读)
+
+本项目有 5 个防御文档在 `docs/v5-planning/`。Pre-verify 和 Task 开工前必查,避免 V5 开发期已命中 6+ 种 Pattern(A-G)再次发生。
+
+### 必查文档清单
+
+1. **`observations.md`** — 项目历史 pattern 归档
+   - 用途:了解项目已发生的失误 / cluster 成型的 signal candidates
+   - 时机:新 session 启动读一遍,掌握历史 gotchas
+
+2. **`field-naming-glossary.md`** — Shared type 字段 canonical 名称 + import path
+   - 用途:**Pre-verify 时,引用任何 shared 字段前 grep 本文件**
+   - 时机:Pre-verify 步骤中,对比 brief 的字段名和 shared 实际
+   - 触发 stop:brief 字段名 vs 本文件 vs shared 实际,任何两者冲突
+
+3. **`cross-task-shared-extension-backlog.md`** — 跨 Task shared 扩展 backlog
+   - 用途:**Pre-verify 时,看本 Task 有无 pending shared 扩展**
+   - 时机:Pre-verify 步骤中,grep 目标 Task 的 entry
+   - 触发 action:若有"必然"或"高概率"pending 扩展,brief 未明示 → stop-for-clarification
+
+4. **`CI_KNOWN_RED.md`** — CI 持续红 job 索引 + 发布影响
+   - 用途:**PR 交付时,区分 pre-existing 红和新红**
+   - 时机:PR CI 结果判断
+   - 触发 action:CI red 不在 known-red list → 是新红,必须 fix 或 stop
+
+5. **`claude-self-check-checklist-v2.md`** — Claude coordinator 自查清单
+   - 用途:Claude 发 brief 前用,agent 可参考了解 brief 质量标准
+   - 时机:如觉得某条 brief 质量可疑(数字不精确 / 字段引用模糊 / 假设前置完成),参照本 checklist 识别 Pattern A-G 类型并 stop
+
+### 文档维护纪律
+
+- 每个 PR 交付后 PR body 的 Observations 章节 → Claude 追加到 `observations.md`
+- Shared type 变动(packages/shared/src/types/** 改动)→ Backend 同 commit 更新 `field-naming-glossary.md`
+- Cross-task pending 扩展识别出 → 追加 `cross-task-shared-extension-backlog.md`
+- CI 红状态变化 → 对应 Task owner 更新 `CI_KNOWN_RED.md`
