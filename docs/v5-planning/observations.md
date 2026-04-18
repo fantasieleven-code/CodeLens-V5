@@ -215,6 +215,40 @@ e2e + prompt-regression **在 main 红 5+ merges**。Task 17 owner 需修或 mar
 **trace**: Backend Task 17b confirmation (session Day 2 late)
 Backend Task 17b confirm 6 条核心方法 100% 命中 + 主动加 "diagnostic test 删除"。
 
+### #045 — `meta-pattern` Pattern C 第 4 次:`sDecisionPauseQuality` vs `sDecisionLatencyQuality`
+**trace**: A7 audit PR #56 (commit 96def46) + v5-signal-production-coverage audit
+**category**: Pattern C naming mismatch
+V5.0 补齐清单 PDF 写 "A7 sDecisionPauseQuality" 提议新 signal;agent pre-verify grep 发现 Task 13c Round 3 已实装 `sDecisionLatencyQuality`(同语义)。Pattern C 命中 +1 次(累计 4 次)。Pre-verify 100% catch,未进入实装。决议:codebase 保留 `sDecisionLatencyQuality`,PDF 命名误记录为 historical noise(不回改)。
+
+### #046 — `meta-pattern` Pattern F 第 3 次:Signal 总数 47 vs brief 48
+**trace**: v5-signal-production-coverage audit(本文件)
+**category**: Pattern F 数字不精确
+Brief "48 signals",codebase `EXPECTED_SIGNAL_COUNT = 47`(`packages/server/src/signals/index.ts` L69)。累计 F 命中 5 次(原 4 次 + 本次)。Audit 全程按 47 计算,第 1 部分矩阵 header 显式注明。
+
+### #047 — `meta-pattern` Pattern H 正式化:Production-ingest gap(test ≠ production)
+**trace**: A7 audit PR #56 + v5-signal-production-coverage audit
+**category**: 新 Pattern H 命名并登记
+本 audit 单次发现 4 个独立 cluster(behavior:batch 缺失 / persistToMetadata 无 call site / P0+MA+MD 零 emit / self-assess handler 缺失),共 35 个 signal 生产失效。单元测试 + Golden Path fixture 均绿,但 production ingest 链路断,fixture 通过直构数据绕过。升级阈值(≥3 cluster 实例)达成。
+
+**Pattern H 定义**:Signal / 功能的单元测试 + 集成 fixture 测试双绿,但
+生产环境下的数据源头断链(client emit 未发出、server handler 缺失、persistence 未
+接入),因此生产永远得到 null/空输出。fixture 直构数据绕过 ingest layer,造成
+"测试绿 == production ready" 假象。
+
+**防御 checklist 追加**:任何 signal / feature 交付前,pre-verify 除单元测试 +
+fixture 测试之外,必须 grep client side `socket.emit` / `api.post` 对应 event /
+endpoint,再 grep server side `socket.on` / `router.*` 对应 handler。双向断链
+触发 Pattern H 的 stop-for-clarification。
+
+### #048 — `agent-pattern` A7 audit 触发 broader production coverage audit
+**trace**: A7 audit PR #56 → v5-signal-production-coverage audit(本文件)
+**category**: Audit as investigation
+A7 audit 原 scope 为 0.2 天单 signal calibration check,pre-verify 发现 server
+handler 缺失后 Steve 授权扩大到全 47 signal production coverage audit。结果是
+发现 74.5% signal failing,V5.0 ship judgment 需重新判断。"Audit 从 small scope
+涨到 ship-blocking investigation" 展示了 pre-verify 机制对系统性 debt 的
+拉出能力。
+
 ---
 
 ## Meta-pattern 累计统计(Day 1-2)
@@ -223,12 +257,13 @@ Backend Task 17b confirm 6 条核心方法 100% 命中 + 主动加 "diagnostic t
 |---------|------|----------|-----------------|
 | A | V4 前置已复制 default FALSE | 6 | #001, #032, + 4 次(未一一编号) |
 | B | Cross-task shared extensions 发现过晚 | 3 | #004, #014, #023 |
-| C | 字段名相似导致 Claude 混淆 | 3 | #011, #018, + 1 次 |
+| C | 字段名相似导致 Claude 混淆 | 4 | #011, #018, + 1 次, #045 |
 | D | interface 字段 ≠ algorithm 消费字段 | 3 | #013, #033, + 1 次 |
 | E | Claude memory ≠ filesystem truth | 1 | #015 |
-| F | Claude 凭记忆粗估 list 数量 / 完成度 | 4 | #025, #028, + 2 次(估工类) |
+| F | Claude 凭记忆粗估 list 数量 / 完成度 | 5 | #025, #028, + 2 次(估工类), #046 |
+| **H** | **Production-ingest gap:test 绿 ≠ production ready** | **≥5** | **#047**(cluster 证据:4 个独立根因 × 35 signal 实例) |
 
-**总 violations**:20+ 次 / ~100 指令 = ~20%
+**总 violations**:22+ 次 / ~100 指令 = ~22%
 **防御率**:agent pre-verify 100% catch(零代码 landed with error)
 **V5.0 发布前提**:Claude coordinator brief 质量提升是唯一 unblock 路径
 
