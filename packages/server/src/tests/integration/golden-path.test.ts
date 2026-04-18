@@ -129,6 +129,16 @@ describe('Golden Path — scoreSession end-to-end', () => {
         expect(profile.nameZh).toBeTruthy();
       }
     });
+
+    it(`${name}: capability profile labels match Phase 3 calibration`, async () => {
+      const result = results.get(name) ?? (await scoreSession(fixture));
+      results.set(name, result);
+      for (const profile of result.capabilityProfiles) {
+        const expectedLabel = expectation.capabilityLabels[profile.id];
+        expect(expectedLabel).toBeTruthy();
+        expect(profile.label).toBe(expectedLabel);
+      }
+    });
   }
 
   it('monotonic ordering: Liam > Steve > Emma > Max on composite', async () => {

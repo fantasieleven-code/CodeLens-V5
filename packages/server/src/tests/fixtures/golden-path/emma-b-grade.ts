@@ -41,16 +41,21 @@ const submissions: V5Submissions = {
   moduleA: {
     round1: {
       schemeId: 'A',
-      reasoning:
-        '选 A,秒杀需要性能,Redis 扣减延迟低;B 方案 QPS 500 不够。C 延迟太高体验不好。',
+      reasoning: [
+        '我选方案 A。需求是设计一个秒杀系统的库存扣减模块,支持 10000 QPS 峰值,需要避免超卖、保证幂等,并在 Redis 和 MySQL 之间做一致性设计。',
+        '感觉 Redis 原子 decr 是最直接的选择,性能应该可以,悲观锁 500 QPS 太慢了。一致性弱是局限,但是加幂等键应该能缓解,具体怎么做我没仔细想过。',
+      ].join('\n'),
       structuredForm: {
-        scenario: '秒杀库存扣减,QPS 高',
-        tradeoff: 'A 快但一致性弱,B 慢但一致,C 最终一致',
-        decision: 'A',
-        verification: '压测一下',
+        scenario: '秒杀系统的库存扣减模块,10000 QPS 峰值,Redis 和 MySQL 一致性',
+        tradeoff:
+          '方案 A 性能好 QPS 吞吐够;悲观锁 500 QPS 太慢扛不住秒杀。A 的代价是一致性弱,要做对账;MQ 异步延迟高用户体验不好。',
+        decision: '方案 A',
+        verification: '压测看 QPS 和 P99 延迟,对账任务检查 Redis 和 MySQL 差异。',
       },
-      challengeResponse:
-        'Redis 崩溃的概率不高,而且 AOF 可以恢复。选 A 还是合理的。',
+      challengeResponse: [
+        '我觉得 A 还是可以坚持。Redis 崩溃应该有 AOF 和主从能恢复,故障概率不高。悲观锁 500 QPS 完全撑不住秒杀峰值。',
+        '但是 A 的一致性确实偏弱,RTO 大概 30 秒以内,具体对账时效我没仔细想过,可能生产要调。幂等键大概用 requestId 就够了。',
+      ].join('\n'),
     },
     round2: {
       markedDefects: [
@@ -63,12 +68,16 @@ const submissions: V5Submissions = {
     },
     round3: {
       correctVersionChoice: 'success',
-      diffAnalysis: '成功版本多了检查和回滚',
-      diagnosisText: '缺少检查会超卖',
+      diffAnalysis: '成功版本在 line 2 多了 decr 的返回值检查,line 3 的 mysql.insert 失败后也做了 Redis 回滚。',
+      diagnosisText:
+        '失败版本缺少 Redis decr 返回值检查,高并发下会超卖。同时 MySQL 写入失败不会回滚 Redis,导致库存永久错误。成功版本多了 if 判断保护。',
     },
     round4: {
-      response:
-        '红包场景也用 Redis 吧,性能需要,具体参数没想好。',
+      response: [
+        '核心思路差不多,红包场景也可以用 Redis 预扣 + 异步落库。',
+        '参数需要调整:红包的 TTL 要短一些,因为抢购瞬时;幂等键换成 userId 更合适。考虑到金额精度问题,Lua 脚本里用整数。',
+        '大概和之前 R1 选 A 的思路一致,但具体阈值和峰值我没仔细想过。',
+      ].join('\n'),
       submittedAt: T0 + 60_000,
       timeSpentSec: 60,
     },
@@ -106,13 +115,20 @@ const submissions: V5Submissions = {
       ],
       fileNavigationHistory: [
         { timestamp: T0 + 10_000, filePath: 'src/inventory/InventoryRepository.ts', action: 'open' },
+        { timestamp: T0 + 170_000, filePath: 'src/inventory/InventoryService.ts', action: 'open' },
       ],
       editSessions: [
         {
           filePath: 'src/inventory/InventoryRepository.ts',
           startTime: T0 + 60_000,
-          endTime: T0 + 200_000,
+          endTime: T0 + 160_000,
           keystrokeCount: 80,
+        },
+        {
+          filePath: 'src/inventory/InventoryService.ts',
+          startTime: T0 + 180_000,
+          endTime: T0 + 210_000,
+          keystrokeCount: 25,
         },
       ],
       testRuns: [{ timestamp: T0 + 220_000, passRate: 0.5, duration: 3_000 }],
@@ -134,6 +150,7 @@ const submissions: V5Submissions = {
     finalTestPassRate: 0.5,
     standards: {
       rulesContent: '# Rules\n1. 扣减要检查超卖\n2. 要有日志',
+      agentContent: 'Agent 改 InventoryRepository 前需要读 rules.md 的规则。',
     },
     audit: {
       violations: [
@@ -144,33 +161,38 @@ const submissions: V5Submissions = {
   },
   selfAssess: {
     confidence: 0.55,
-    reasoning:
-      '我感觉整体答得还行,但有些细节没到位。MB 测试只过 50%,说明边界情况没处理好。P0 和 MA 的深度应该 OK。',
-    reviewedDecisions: ['MA R1 scheme A'],
+    reasoning: [
+      '整体答完了,但感觉几个点没到位。',
+      'P0 的 L3 我只抓了一个瓶颈维度,round-trip 和随机数熵其实没展开。MA 的 R4 红包场景的阈值没给出来,感觉框架有但具体细节不够。',
+      'MB 的测试只过了 50%,说明边界情况没处理好,Lua 脚本那边我也不太确信。',
+      'MC 挑战环节几轮追问我基本能接住,但感觉回答得偏粗,depth 不够。',
+      '综合判断应该在 B 档,再刷一遍可能能补一些。',
+    ].join('\n'),
+    reviewedDecisions: ['MA R1 scheme A', 'MB test coverage', 'MC R3 answer'],
   },
   moduleC: [
     {
       round: 1,
       question: '描述 R1 选的方案 A 的核心思路',
-      answer: 'A 方案是用 Redis 做扣减,MySQL 落库,因为秒杀要性能。',
+      answer: 'A 方案就是 Redis 扣减,MySQL 落库。我觉得应该可以的,差不多这样吧。',
       probeStrategy: 'baseline',
     },
     {
       round: 2,
       question: 'Redis 挂掉怎么办?',
-      answer: '可以用 AOF 恢复,挂了的话可能需要手动处理一下。',
+      answer: '嗯,你说得对,Redis 挂了就用 MySQL 兜底,我之前没考虑这个风险。',
       probeStrategy: 'weakness',
     },
     {
       round: 3,
       question: 'QPS 涨到 100k 呢?',
-      answer: '需要集群吧,分片按 SKU。',
+      answer: 'QPS 100k 的话可能要加集群吧,分片按 SKU 就可以,大致是这样。',
       probeStrategy: 'escalation',
     },
     {
       round: 4,
       question: '红包场景还会选 A 吗?',
-      answer: '应该可以,差不多的场景。',
+      answer: '红包差不多吧,感觉可以用同一方案,性能要求类似。具体参数要调一下。',
       probeStrategy: 'transfer',
     },
   ],
