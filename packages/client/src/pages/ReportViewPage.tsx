@@ -16,13 +16,14 @@
  * double-layer structure introduced in Task 2.
  */
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ReportRenderer } from '../report/ReportRenderer.js';
 import { registerAllSections } from '../report/sections/index.js';
 import { REPORT_FIXTURES } from '../report/__fixtures__/index.js';
 import type { ReportLayer, ReportViewModel } from '../report/types.js';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../lib/tokens.js';
+import { buildReportFilename, exportLayerToPdf } from '../utils/pdfExport.js';
 
 registerAllSections();
 
@@ -43,8 +44,40 @@ export const ReportViewPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const [layer, setLayer] = useState<ReportLayer>('summary');
+  const [exporting, setExporting] = useState<ReportLayer | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   const viewModel = resolveFixture(sessionId);
+
+  const handleExport = async (exportLayer: ReportLayer) => {
+    const node = reportRef.current;
+    if (!node || !viewModel) return;
+    setExporting(exportLayer);
+    setExportError(null);
+    // Temporarily render the target layer into the DOM so html2canvas
+    // captures the correct content — then restore the user's selection.
+    const previousLayer = layer;
+    try {
+      if (exportLayer !== previousLayer) setLayer(exportLayer);
+      // Wait a tick so React commits the layer switch before capture.
+      await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+      await exportLayerToPdf({
+        layer: exportLayer,
+        element: node,
+        filename: buildReportFilename({
+          candidateName: viewModel.candidateName,
+          suiteId: viewModel.suite.id,
+          layer: exportLayer,
+        }),
+      });
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setExporting(null);
+      if (exportLayer !== previousLayer) setLayer(previousLayer);
+    }
+  };
 
   if (!viewModel) {
     return (
@@ -79,37 +112,73 @@ export const ReportViewPage: React.FC = () => {
             <h1 style={styles.title}>评估报告</h1>
             <p style={styles.sessionLabel}>Session · {sessionId}</p>
           </div>
-          <div style={styles.layerToggle} role="tablist" aria-label="report-layer">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={layer === 'summary'}
-              data-testid="report-view-layer-summary"
-              onClick={() => setLayer('summary')}
-              style={{
-                ...styles.toggleBtn,
-                ...(layer === 'summary' ? styles.toggleBtnActive : {}),
-              }}
-            >
-              摘要
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={layer === 'detail'}
-              data-testid="report-view-layer-detail"
-              onClick={() => setLayer('detail')}
-              style={{
-                ...styles.toggleBtn,
-                ...(layer === 'detail' ? styles.toggleBtnActive : {}),
-              }}
-            >
-              完整
-            </button>
+          <div style={styles.headerActions}>
+            <div style={styles.exportGroup}>
+              <button
+                type="button"
+                disabled={exporting !== null}
+                onClick={() => handleExport('summary')}
+                style={{
+                  ...styles.exportBtn,
+                  ...(exporting !== null ? styles.exportBtnDisabled : {}),
+                }}
+                data-testid="report-view-export-summary"
+              >
+                {exporting === 'summary' ? '导出中…' : '导出摘要 PDF'}
+              </button>
+              <button
+                type="button"
+                disabled={exporting !== null}
+                onClick={() => handleExport('detail')}
+                style={{
+                  ...styles.exportBtn,
+                  ...(exporting !== null ? styles.exportBtnDisabled : {}),
+                }}
+                data-testid="report-view-export-detail"
+              >
+                {exporting === 'detail' ? '导出中…' : '导出完整 PDF'}
+              </button>
+            </div>
+            <div style={styles.layerToggle} role="tablist" aria-label="report-layer">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={layer === 'summary'}
+                data-testid="report-view-layer-summary"
+                onClick={() => setLayer('summary')}
+                style={{
+                  ...styles.toggleBtn,
+                  ...(layer === 'summary' ? styles.toggleBtnActive : {}),
+                }}
+              >
+                摘要
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={layer === 'detail'}
+                data-testid="report-view-layer-detail"
+                onClick={() => setLayer('detail')}
+                style={{
+                  ...styles.toggleBtn,
+                  ...(layer === 'detail' ? styles.toggleBtnActive : {}),
+                }}
+              >
+                完整
+              </button>
+            </div>
           </div>
         </header>
 
-        <ReportRenderer viewModel={viewModel} layer={layer} />
+        {exportError && (
+          <div style={styles.error} data-testid="report-view-export-error">
+            导出失败:{exportError}
+          </div>
+        )}
+
+        <div ref={reportRef} data-testid="report-view-capture-root">
+          <ReportRenderer viewModel={viewModel} layer={layer} />
+        </div>
       </div>
     </div>
   );
@@ -149,6 +218,39 @@ const styles: Record<string, React.CSSProperties> = {
     color: colors.overlay1,
     margin: `${spacing.xs} 0 0`,
     fontFamily: 'monospace',
+  },
+  headerActions: {
+    display: 'flex',
+    gap: spacing.md,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  exportGroup: {
+    display: 'flex',
+    gap: spacing.xs,
+  },
+  exportBtn: {
+    padding: `${spacing.xs} ${spacing.md}`,
+    backgroundColor: colors.mauve,
+    border: 'none',
+    borderRadius: radii.sm,
+    color: colors.base,
+    fontSize: fontSizes.sm,
+    fontWeight: fontWeights.semibold,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
+  exportBtnDisabled: {
+    opacity: 0.5,
+    cursor: 'not-allowed',
+  },
+  error: {
+    padding: spacing.md,
+    backgroundColor: 'rgba(243, 139, 168, 0.12)',
+    border: `1px solid ${colors.red}`,
+    borderRadius: radii.sm,
+    color: colors.red,
+    fontSize: fontSizes.sm,
   },
   layerToggle: {
     display: 'flex',
