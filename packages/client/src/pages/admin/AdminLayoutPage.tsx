@@ -39,7 +39,7 @@ const AdminLayoutPage: React.FC = () => (
   <div style={styles.container} data-testid="admin-layout">
     <header style={styles.header}>
       <div style={styles.brand}>CodeLens · Admin</div>
-      <nav style={styles.nav}>
+      <nav style={styles.nav} aria-label="Admin 主导航">
         {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.to}

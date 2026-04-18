@@ -24,6 +24,7 @@ import { EvaluationIntroPage } from './pages/EvaluationIntroPage.js';
 import { Phase0Page } from './pages/Phase0Page.js';
 import { ModuleAPage } from './pages/ModuleAPage.js';
 import { ModuleBPage } from './pages/ModuleBPage.js';
+import { ModuleCPage } from './pages/ModuleCPage.js';
 import { ModuleDPage } from './pages/ModuleDPage.js';
 import { SelfAssessPage } from './pages/SelfAssessPage.js';
 import { CompletePage } from './pages/CompletePage.js';
@@ -78,26 +79,13 @@ function ExamRouter() {
     case 'selfAssess':
       return <SelfAssessPage />;
     case 'moduleC':
-      // ModuleCPage is present but pending voice.store + useVoiceRTC (Task 7);
-      // render a placeholder until that wiring lands.
-      return <ModulePlaceholder name="Module C · 语音追问" />;
+      return <ModuleCPage />;
     case 'complete':
       return <CompletePage />;
     default:
       return <ErrorPage message="未知模块" />;
   }
 }
-
-const ModulePlaceholder: React.FC<{ name: string }> = ({ name }) => (
-  <div style={placeholderStyles.container} data-testid="module-placeholder">
-    <div style={placeholderStyles.card}>
-      <h1 style={placeholderStyles.title}>{name}</h1>
-      <p style={placeholderStyles.body}>
-        该模块尚在构建中（后续 Task 将实现）。
-      </p>
-    </div>
-  </div>
-);
 
 const SharedReportPage: React.FC = () => (
   <ErrorPage message="分享报告页尚未启用" />

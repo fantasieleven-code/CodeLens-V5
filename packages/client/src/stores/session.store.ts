@@ -21,12 +21,17 @@ import type {
   V5ModuleKey,
   V5Submissions,
 } from '@codelens-v5/shared';
+import { SUITES } from '@codelens-v5/shared';
+import { useModuleStore } from './module.store.js';
+import { findSessionById } from '../pages/admin/mock/admin-sessions-fixtures.js';
 
 export interface DecisionSummary {
   ma?: { schemeId: string; reasoning: string };
   mb?: { decomposition: string };
   md?: { subModuleCount: number; constraintCount: number };
 }
+
+export type SessionLoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
 
 export interface SessionStore {
   sessionId: string | null;
@@ -44,6 +49,14 @@ export interface SessionStore {
    * Admin login flow).
    */
   token: string | null;
+  /**
+   * Reflects the most recent `loadSession` outcome. Pages gate their loading /
+   * error UX on this value so a `sessionId` that never resolves (invalid URL
+   * token, 404 in Layer 2) surfaces as an explicit error instead of a
+   * silently-disabled page.
+   */
+  loadStatus: SessionLoadStatus;
+  loadError: string | null;
 
   loadSession: (sessionId: string) => Promise<void>;
   setToken: (token: string | null) => void;
@@ -76,6 +89,8 @@ const INITIAL_STATE = {
   submissions: {} as Partial<V5Submissions>,
   timer: null as TimerState | null,
   token: null as string | null,
+  loadStatus: 'idle' as SessionLoadStatus,
+  loadError: null as string | null,
 };
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
@@ -83,14 +98,34 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   setToken: (token) => set({ token }),
 
-  loadSession: async (_sessionId) => {
-    // TODO(Task 1 batch 4+): wire to `/api/v5/session/:id` REST endpoint
-    // once Backend session bootstrap ships. Expected hydration:
-    //   sessionId, candidateId, suiteId, examInstanceId, moduleOrder,
-    //   submissions (resume-in-progress), timer snapshot.
-    console.warn(
-      '[session.store] loadSession is a skeleton — Backend endpoint pending.',
-    );
+  loadSession: async (sessionId) => {
+    // Layer-1 mock: resolve the session from the admin fixtures so the
+    // candidate flow is walkable end-to-end without a backend. Task 12
+    // Layer 2 swaps this for a real `/api/v5/session/:id` fetch.
+    set({ loadStatus: 'loading', loadError: null });
+    const session = findSessionById(sessionId);
+    if (!session) {
+      set({ loadStatus: 'error', loadError: `未找到会话 ${sessionId}` });
+      return;
+    }
+    const suite = SUITES[session.suiteId];
+    if (!suite) {
+      set({ loadStatus: 'error', loadError: `未知套件 ${session.suiteId}` });
+      return;
+    }
+    const moduleOrder = [...suite.modules] as V5ModuleKey[];
+    set({
+      sessionId: session.id,
+      candidateId: session.candidate.id,
+      suiteId: session.suiteId,
+      examInstanceId: session.examInstanceId,
+      moduleOrder,
+      loadStatus: 'loaded',
+      loadError: null,
+    });
+    // Prime module.store so ExamRouter renders the intro (currentModule
+    // becomes 'intro') and Start button is enabled.
+    useModuleStore.getState().setSuite(session.suiteId, moduleOrder);
   },
 
   setModuleSubmissionLocal: (moduleKey, data) => {

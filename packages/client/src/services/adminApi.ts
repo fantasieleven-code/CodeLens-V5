@@ -110,7 +110,11 @@ async function mockCreateSession(
   }
 
   const id = `sess-${String(ADMIN_SESSIONS.length + 1).padStart(5, '0')}`;
-  const shareableLink = `/share/report/tok-${id}`;
+  // The shareable link is what the recruiter sends to the candidate — it
+  // must point to the candidate exam flow (`/exam/:sessionId`), not a
+  // report URL. `/share/report/:token` remains reserved for future public
+  // report-share feature (Task 12 Layer 2 / V5.1).
+  const shareableLink = `/exam/${id}`;
   const session: AdminSessionSummary = {
     id,
     suiteId: req.suiteId,

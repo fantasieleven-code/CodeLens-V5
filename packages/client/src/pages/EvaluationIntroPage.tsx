@@ -7,12 +7,11 @@
  * start button calls moduleStore.advance(), which transitions from 'intro'
  * to the first module in moduleOrder.
  *
- * loadSession is kicked off on mount. Once it resolves the session will
- * either start fresh (currentModule == 'intro') or jump to the in-progress
- * module; ExamRouter handles the branch by switching on currentModule.
+ * ExamRouter owns the `loadSession` call (keyed on the URL `:sessionId`),
+ * so this page just gates its UX on `loadStatus` + hydrated state.
  */
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import type { V5ModuleKey } from '@codelens-v5/shared';
 import { SUITES } from '@codelens-v5/shared';
 import { useModuleStore } from '../stores/module.store.js';
@@ -37,24 +36,40 @@ const HOUSE_RULES = [
 ];
 
 export const EvaluationIntroPage: React.FC = () => {
-  const sessionId = useSessionStore((s) => s.sessionId);
   const suiteId = useSessionStore((s) => s.suiteId);
-  const loadSession = useSessionStore((s) => s.loadSession);
+  const loadStatus = useSessionStore((s) => s.loadStatus);
+  const loadError = useSessionStore((s) => s.loadError);
   const moduleOrderFromSession = useSessionStore((s) => s.moduleOrder);
   const moduleOrderFromStore = useModuleStore((s) => s.moduleOrder);
   const advance = useModuleStore((s) => s.advance);
-
-  useEffect(() => {
-    if (sessionId) {
-      void loadSession(sessionId);
-    }
-  }, [sessionId, loadSession]);
 
   const moduleOrder =
     moduleOrderFromStore.length > 0 ? moduleOrderFromStore : moduleOrderFromSession;
   const suite = suiteId ? SUITES[suiteId] : null;
 
   const canStart = Boolean(suite && moduleOrder.length > 0);
+
+  if (loadStatus === 'loading' && !suite) {
+    return (
+      <div data-testid="evaluation-intro-loading" style={styles.statusContainer}>
+        <div style={styles.spinner} aria-hidden="true" />
+        <p style={styles.statusText}>正在加载会话…</p>
+      </div>
+    );
+  }
+
+  if (loadStatus === 'error') {
+    return (
+      <div data-testid="evaluation-intro-error" style={styles.statusContainer}>
+        <div style={styles.errorCard}>
+          <h1 style={styles.errorTitle}>无法加载评估</h1>
+          <p style={styles.statusText}>
+            {loadError ?? '会话链接无效或已过期,请联系招聘联系人。'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div data-testid="evaluation-intro-container" style={styles.container}>
@@ -293,4 +308,56 @@ const styles: Record<string, React.CSSProperties> = {
     opacity: 0.4,
     cursor: 'not-allowed',
   },
+  statusContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.lg,
+    minHeight: '100vh',
+    backgroundColor: colors.base,
+    padding: spacing.xl,
+  },
+  statusText: {
+    fontSize: fontSizes.md,
+    color: colors.subtext0,
+    margin: 0,
+    textAlign: 'center' as const,
+    lineHeight: 1.6,
+  },
+  spinner: {
+    width: 36,
+    height: 36,
+    borderRadius: '50%',
+    border: `3px solid ${colors.surface1}`,
+    borderTopColor: colors.mauve,
+    animation: 'evaluation-intro-spin 0.9s linear infinite',
+  },
+  errorCard: {
+    maxWidth: 480,
+    padding: spacing.xl,
+    backgroundColor: colors.mantle,
+    borderRadius: radii.lg,
+    border: `1px solid ${colors.surface0}`,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: spacing.md,
+    textAlign: 'center' as const,
+  },
+  errorTitle: {
+    fontSize: fontSizes.xl,
+    fontWeight: fontWeights.bold,
+    color: colors.red,
+    margin: 0,
+  },
 };
+
+if (typeof document !== 'undefined') {
+  const STYLE_ID = 'evaluation-intro-keyframes';
+  if (!document.getElementById(STYLE_ID)) {
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = `@keyframes evaluation-intro-spin { to { transform: rotate(360deg); } }`;
+    document.head.appendChild(style);
+  }
+}

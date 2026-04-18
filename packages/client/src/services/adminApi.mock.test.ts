@@ -70,7 +70,7 @@ describe('adminApi mock', () => {
       candidate: { name: 'Test Candidate', email: 'test@example.com' },
     });
     expect(res.session.status).toBe('CREATED');
-    expect(res.shareableLink).toMatch(/^\/share\/report\/tok-/);
+    expect(res.shareableLink).toMatch(/^\/exam\/sess-/);
     expect(ADMIN_SESSIONS.length).toBe(prevCount + 1);
     expect(ADMIN_SESSIONS[0].id).toBe(res.session.id);
     // Cleanup so the side effect doesn't leak into other tests.

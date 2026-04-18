@@ -91,7 +91,7 @@ describe('<AdminCreateSessionPage />', () => {
       expect(screen.getByTestId('admin-create-success')).toBeInTheDocument(),
     );
     const link = screen.getByTestId('admin-create-shareable-link') as HTMLInputElement;
-    expect(link.value).toMatch(/^\/share\/report\/tok-sess-/);
+    expect(link.value).toMatch(/^\/exam\/sess-/);
     expect(screen.getByTestId('admin-create-copy-link')).toBeInTheDocument();
   });
 
