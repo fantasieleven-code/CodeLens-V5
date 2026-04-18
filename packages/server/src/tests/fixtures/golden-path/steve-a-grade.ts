@@ -38,15 +38,26 @@ const submissions: V5Submissions = {
   moduleA: {
     round1: {
       schemeId: 'A',
-      reasoning: '我选 A,Redis 扣减更快,性能好。MySQL 直接写会慢。',
+      reasoning: [
+        '我选方案 A。需求是设计一个秒杀系统的库存扣减模块,支持 10000 QPS 峰值,需要避免超卖、保证幂等,并在 Redis 和 MySQL 之间做一致性设计。',
+        '我的判断:秒杀的瓶颈是 QPS,MySQL 单机悲观锁 500 QPS 肯定扛不住;Redis 原子 decr 的 10ms 级是比较直接的选择。',
+        '一致性弱是局限,但 requestId 幂等键 + 对账任务能兜住大部分场景。Redis 崩溃丢数据的风险要考虑,AOF + 主从能恢复,对账复杂度要额外投入开发时间;但是具体 RTO 我没仔细算过,生产要看监控跑起来再调。',
+      ].join('\n'),
       structuredForm: {
-        scenario: '秒杀库存扣减',
-        tradeoff: 'A 快但一致性有问题,B 慢但安全,C 最终一致性',
-        decision: 'A',
-        verification: '要压测一下',
+        scenario:
+          '秒杀系统的库存扣减模块,支持 10000 QPS 峰值,Redis 和 MySQL 之间做一致性设计',
+        tradeoff:
+          '方案 A 的吞吐 QPS 20k,比 MySQL 悲观锁 500 QPS 高 40 倍,P99 10ms 级。代价是一致性弱 + 对账复杂 + Redis 崩溃丢数据。悲观锁扛不住秒杀是 hard block,MQ 异步延迟秒级体验差。',
+        decision: '方案 A,因为 QPS 是硬约束,一致性弱通过幂等键 + 对账缓解',
+        verification:
+          '压测 Redis decr 打到 20k QPS,监控 P99 延迟和错误率;跑对账任务看 5 分钟窗口内 Redis 和 MySQL 的差异;故障演练 kill Redis 主节点,验证 sentinel 切换 RTO。',
       },
-      challengeResponse:
-        'A 还是 OK 的,因为 Redis 崩的概率不大。即使崩了也可以恢复。',
+      challengeResponse: [
+        '我还是坚持 A。核心理由两个:',
+        '(1) Redis 崩溃可以用 AOF 和主从恢复,年故障窗口不到 5 分钟,实际风险可控;',
+        '(2) 对比悲观锁方案,单机 MySQL 500 QPS 完全扛不住秒杀峰值。',
+        '我承认 A 的一致性稍弱,具体 sentinel 切换 RTO 大概在 10 秒以内,不过我没实测过生产数据。加上幂等键 + 5 分钟对账任务,P99 能守在 20ms 以内。整体看这个 tradeoff 我觉得值。',
+      ].join('\n'),
     },
     round2: {
       markedDefects: [
@@ -56,12 +67,21 @@ const submissions: V5Submissions = {
     },
     round3: {
       correctVersionChoice: 'success',
-      diffAnalysis: 'failed 版本少了一些检查',
-      diagnosisText: 'failed 版本有 bug 会超卖',
+      diffAnalysis:
+        '失败版本在 line 2 少了 decr 返回值检查,line 3 的 mysql.insert 没配合 Redis 回滚。成功版本多了 if result < 0 的判断和 incr 回补。',
+      diagnosisText: [
+        '失败版本缺少 Redis decr 返回值检查,高并发下会超卖 — 返回 -1 的语义被忽略。',
+        '同时 MySQL 写入失败不会回滚 Redis,导致库存永久错误 — 双写一致性没兜住。',
+        '成功版本多了 if result < 0 的回滚保护。根本原因是原子性和补偿机制缺失。',
+      ].join('\n'),
     },
     round4: {
-      response:
-        '红包抢购场景也可以用 Redis,因为性能要求类似。不过参数可能需要调整一下,但是具体怎么调我不太确定。',
+      response: [
+        '核心原则不变 — 高并发场景下 Redis 预扣 + 异步落库还是对的,本质是原子性保护 + 补偿机制。',
+        '但具体参数需要调整:红包抢购的并发量应该比秒杀更高,TTL 要短一些,大约几秒级;考虑到红包金额不能超发,幂等键从 requestId 换成 userId,粒度更细。',
+        'Lua 脚本里金额要用整数避免浮点误差。阈值也要变,因为扣减单位不同。',
+        '迁移大概 80% 架构复用,核心思路和之前 R1 选 A 一致。具体红包的峰值阈值我没仔细算过,需要看业务数据。',
+      ].join('\n'),
       submittedAt: T0 + 90_000,
       timeSpentSec: 90,
     },
@@ -69,12 +89,18 @@ const submissions: V5Submissions = {
   mb: {
     planning: {
       decomposition: [
-        '1. 看一下 InventoryRepository 代码',
-        '2. 实现 decrement 方法',
-        '3. 跑一下测试',
+        '1. 先看 tests/inventory.test.ts 和 src/inventory/InventoryRepository.ts,摸清楚 decrement 的边界',
+        '2. 在 InventoryRepository 实现 decrement 方法,核心是 Redis decrby + 超卖检查 + requestId 幂等',
+        '3. 改 InventoryService.reduce 把 requestId 透传下去,避免上层漏传导致重复扣',
+        '4. InventoryController 层加 skuId 和 quantity 的入参 validation,防止非法值打穿 Service',
+        '5. 跑 tests/inventory.test.ts 看 pass rate,有 case 失败就回 step 2 补边界处理',
       ].join('\n'),
-      dependencies: 'Repository 依赖 redis,Service 依赖 Repository',
-      fallbackStrategy: 'Redis 挂了的话就用 MySQL 兜底',
+      dependencies: 'InventoryRepository 依赖 redis 客户端,InventoryService 依赖 InventoryRepository,InventoryController 依赖 Service',
+      fallbackStrategy: [
+        'Redis 挂掉 fallback 到 MySQL 悲观锁,QPS 会从 20k 掉到 500,但能保住可用性;',
+        'decrement 超时 retry 2 次,仍失败抛 error 触发上游 rollback,避免库存永久错误;',
+        '告警走监控侧,recovery 靠 AOF + 主从切换,大概 30 秒以内能恢复。',
+      ].join(''),
       submittedAt: T0 + 2_000,
       skipped: false,
     },
@@ -92,24 +118,43 @@ const submissions: V5Submissions = {
       })),
       chatEvents: [
         {
-          timestamp: T0 + 90_000,
-          prompt: 'InventoryRepository 怎么写 decrement? 要保证原子性',
+          timestamp: T0 + 70_000,
+          prompt:
+            'InventoryRepository.decrement 怎么写能保证原子性?如果并发高,decr 返回值必须立即检查 < 0,这样才能避免 oversold bug,当前代码里好像缺这个检查',
           responseLength: 250,
           duration: 2_500,
         },
         {
-          timestamp: T0 + 180_000,
-          prompt: '怎么加幂等?',
-          responseLength: 200,
-          duration: 2_000,
+          timestamp: T0 + 140_000,
+          prompt:
+            'InventoryService.reduce 加幂等怎么做?如果 requestId 重复出现应该怎么处理,当 retry 2 次仍失败要验证边界情况,检查有没有 rollback Redis 的必要',
+          responseLength: 220,
+          duration: 2_200,
+        },
+        {
+          timestamp: T0 + 210_000,
+          prompt:
+            'rules.md 我写了 5 条规则,当 Agent 改 InventoryRepository 的时候,帮我 verify 一下有没有漏掉的 error handling 或者 boundary 检查,避免 edge case',
+          responseLength: 240,
+          duration: 2_500,
+        },
+        {
+          timestamp: T0 + 260_000,
+          prompt:
+            'tests/inventory.test.ts 跑出来有 2 个 case 失败,decrement 的 oversold 分支是不是缺检查?如果是边界问题我需要回补 validation,帮我 verify 一下',
+          responseLength: 230,
+          duration: 2_400,
         },
       ],
       diffEvents: [
-        { timestamp: T0 + 100_000, accepted: true, linesAdded: 10, linesRemoved: 2 },
-        { timestamp: T0 + 200_000, accepted: true, linesAdded: 5, linesRemoved: 0 },
+        { timestamp: T0 + 80_000, accepted: true, linesAdded: 10, linesRemoved: 2 },
+        { timestamp: T0 + 160_000, accepted: true, linesAdded: 5, linesRemoved: 0 },
+        { timestamp: T0 + 220_000, accepted: false, linesAdded: 3, linesRemoved: 0 },
+        { timestamp: T0 + 270_000, accepted: true, linesAdded: 4, linesRemoved: 1 },
       ],
       fileNavigationHistory: [
-        { timestamp: T0 + 10_000, filePath: 'src/inventory/InventoryRepository.ts', action: 'open' },
+        { timestamp: T0 + 5_000, filePath: 'tests/inventory.test.ts', action: 'open' },
+        { timestamp: T0 + 20_000, filePath: 'src/inventory/InventoryRepository.ts', action: 'open' },
         { timestamp: T0 + 150_000, filePath: 'src/inventory/InventoryService.ts', action: 'open' },
       ],
       editSessions: [
@@ -128,7 +173,8 @@ const submissions: V5Submissions = {
       ],
       testRuns: [
         { timestamp: T0 + 240_000, passRate: 0.5, duration: 2_500 },
-        { timestamp: T0 + 280_000, passRate: 0.75, duration: 2_500 },
+        { timestamp: T0 + 280_000, passRate: 0.625, duration: 2_500 },
+        { timestamp: T0 + 320_000, passRate: 0.75, duration: 2_500 },
       ],
       documentVisibilityEvents: [{ timestamp: T0 + 20_000, hidden: false }],
     },
@@ -165,52 +211,64 @@ const submissions: V5Submissions = {
     finalTestPassRate: 0.75,
     standards: {
       rulesContent: [
-        '# Rules',
-        '1. 所有 decrement 都要检查超卖',
-        '2. 错误要打日志',
-        '3. 失败的时候要把 Redis 还原',
+        '# Inventory decrement rules',
+        '1. 所有 decrement 都必须检查超卖 — 如果 `redis.decr()` 返回值 < 0 要立即 throw OversoldError,不要 silently return;',
+        '2. 错误路径必须打日志,日志里要包含 skuId + quantity + requestId 三个字段,不要只写"扣减失败"这种模糊文本;',
+        '3. 失败时需要回滚 Redis — 当 `mysql.insert()` 抛异常,必须调用 `redis.incrby()` 把扣掉的库存加回去,避免库存永久错误;',
+        '4. 方法命名要体现动作,比如用 decrement 而不是 update,避免含糊的 naming;超过 3 层嵌套的分支要 refactor 成 helper,降低 complexity;',
+        '5. 写入前需要 validate skuId,如果长度超过 40 字符或含非 ASCII 字符要拒绝,避免 cache pollution 污染;',
+        '6. 测试要覆盖 oversold / 并发 / retry 三种场景,test 覆盖率低于 80% 的改动不合并,避免边界遗漏。',
       ].join('\n'),
-      agentContent: '改 Repository 的时候先看 rules.md',
+      agentContent:
+        'Agent 在改 InventoryRepository 或 InventoryService 的时候,必须先读 rules.md 的 6 条规则。任何涉及 `redis.decr()` 或 `mysql.insert()` 的改动都需要配套更新 tests/inventory.test.ts,不要漏测边界。上下文不够时先看 scaffold 里的 dependencyOrder,避免跳过 Controller 层的 validation。',
     },
     audit: {
       violations: [
         { exampleIndex: 0, markedAsViolation: true, violatedRuleId: 'rule-oversold' },
         { exampleIndex: 1, markedAsViolation: false },
-        { exampleIndex: 2, markedAsViolation: false }, // missed
+        { exampleIndex: 2, markedAsViolation: true, violatedRuleId: 'rule-retry' },
       ],
     },
   },
   selfAssess: {
     confidence: 0.65,
-    reasoning:
-      'P0 的 L3 我回答得不够全面,AI 判断题还错了一题。MB 最终测试通过率只有 75%,说明实现不够稳。MC 追问环节我可能答得不够深入。但整体方向是对的。',
-    reviewedDecisions: ['MA R1 scheme A'],
+    reasoning: [
+      '整体 P0/MA/MB/MC 四段完成度我觉得可以,但几个地方留了提升空间。',
+      'P0 的 L3 我只抓住了 Redis 单机瓶颈的点,round-trip 和随机数熵的维度没展开,AI 判断题还错了一题,说明对 cache-aside 语义没吃透。',
+      'MA 的 R1 方向对,但 R4 迁移到红包场景我给的框架偏笼统,没具体到峰值阈值。',
+      'MB 的 decrement 实现跑通了,但 finalTestPassRate 只到 75%,边界处理不够扎实,想再刷一遍就没时间了。',
+      'MC 几轮追问能接住,但 escalation 到 100k QPS 的时候我只给了分片,proxy 层的方案没想到,这是明显短板。',
+      '综合判断应该在 A 档偏上。',
+    ].join('\n'),
+    reviewedDecisions: ['P0 L3 answer', 'MA R1 scheme A', 'MA R4 transfer', 'MB test coverage'],
   },
   moduleC: [
     {
       round: 1,
       question: '描述 R1 选的方案 A 的核心思路',
       answer:
-        'A 方案是用 Redis 做库存扣减,MySQL 做最终存储。因为 Redis 快,MySQL 慢,秒杀的时候需要性能。',
+        'A 方案是 Redis 做扣减 + MySQL 落库。我觉得这个选择整体方向对,秒杀场景需要高 QPS。如果是单机 Redis,10k QPS 应该没问题,MySQL 直接写太慢。',
       probeStrategy: 'baseline',
     },
     {
       round: 2,
       question: 'Redis 挂掉的时候怎么办?',
-      answer: 'Redis 挂了就用 MySQL 兜底。持久化 AOF 可以做,宕机后可以恢复大部分数据。',
+      answer:
+        'Redis 挂了可以用 AOF 恢复,但是整体看,方案 A 的核心观点还是站得住的。MySQL 可以作为降级兜底,可能还是要做告警监控。',
       probeStrategy: 'weakness',
     },
     {
       round: 3,
       question: '如果 QPS 涨到 100k 呢?',
       answer:
-        '100k 的话单机 Redis 可能扛不住,需要加集群或分片。具体怎么分片我没有做过这种量的项目,可能要按 sku 分。',
+        '100k 单机扛不住,应该需要上集群 + sharding 按 sku 分。具体怎么分我没做过这种量级的项目,可能大概按 skuId hash 分。',
       probeStrategy: 'escalation',
     },
     {
       round: 4,
       question: '红包抢购场景你还会选 A 吗?',
-      answer: '差不多可以,都是高并发。但可能参数要调一下。',
+      answer:
+        '红包还是可以用 A,差不多的场景。但是参数要调 — 红包不能超发,这次的教训是具体业务要区别对待。',
       probeStrategy: 'transfer',
     },
   ],

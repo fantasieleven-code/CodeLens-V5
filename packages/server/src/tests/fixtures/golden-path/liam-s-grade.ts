@@ -49,18 +49,38 @@ const submissions: V5Submissions = {
   moduleA: {
     round1: {
       schemeId: 'A',
-      reasoning:
-        '我选 A(Redis 预扣 + MySQL 异步落库)。核心原因是秒杀场景的首要瓶颈是瞬时 QPS 20k,MySQL 单机悲观锁只有 500 QPS,远不够。Redis 原子减 decr 的 P99 延迟 10ms,能扛住峰值。异步落库的一致性弱点可以通过幂等订单号 + 对账任务补齐,代价可控。',
+      reasoning: [
+        '我选方案 A(Redis 预扣 + MySQL 异步落库)。回到题面,需求是「设计一个秒杀系统的库存扣减模块,支持 10000 QPS 峰值。需要避免超卖、保证幂等,并在 Redis 和 MySQL 之间做一致性设计」。',
+        '我从 性能 / 一致性 / 可用性 三个维度拆:',
+        '(1) 性能与吞吐 — 瞬时 QPS 20k 对 10000 QPS 基线留 2x 余量。MySQL 单机悲观锁只能撑 500 QPS,量级不匹配,瓶颈在行锁等待和 B+ 树回表。Redis 原子 decr 的 P99 延迟 10ms、单实例 80k QPS 是正解。',
+        '(2) 一致性与幂等 — 异步落库的一致性弱是局限,不过 requestId 幂等键 + 5 分钟对账任务能把双写不一致率压到 10 ppm 以下,代价可控。',
+        '(3) 可用性与风险 — 首要风险是 Redis 崩溃丢数据,对账复杂,所以用 AOF(fsync=everysec) + sentinel 主从热备,RTO < 5s,窗口期降级到 MySQL 兜底。',
+        '但是 A 的 tradeoff 在业务语境下最小 — 悲观锁 500 QPS 是 hard block,MQ 异步延迟秒级体验差。综合权衡选 A。',
+      ].join('\n'),
       structuredForm: {
-        scenario: '10000 QPS 秒杀系统的库存扣减模块,Redis 和 MySQL 一致性',
-        tradeoff:
-          'A 方案延迟低 10ms 吞吐高 QPS 20k,但一致性弱、Redis 崩溃丢数据;B 方案强一致但 QPS 500 扛不住;C 方案削峰但延迟秒级体验差。',
-        decision: 'A 方案,因为 QPS 是首要约束,一致性弱点可通过幂等 + 对账缓解',
-        verification:
-          '压测 20k QPS,监控 Redis 与 MySQL 差异,确认 5 分钟内对账完成。注意 Redis 宕机恢复机制需要做快照 + AOF。',
+        scenario:
+          '设计一个秒杀系统的库存扣减模块,支持 10000 QPS 峰值,需要避免超卖、保证幂等,并在 Redis 和 MySQL 之间做一致性设计。瞬时峰值预估 20k QPS,对账窗口 5 分钟。',
+        tradeoff: [
+          'A 方案(Redis 预扣 + 异步落库):吞吐 QPS 20k、P99 10ms,代价是一致性弱 + Redis 崩溃丢数据 + 对账复杂;',
+          '悲观锁方案:强一致但 QPS 500 扛不住 10000 QPS 峰值,是 hard block;',
+          'MQ 异步方案:削峰解耦,但用户等待秒级,体验不可接受,消息顺序与补偿风险大。',
+          '三选一:A 的局限可缓解,其余两个的瓶颈不可解,所以 A。',
+        ].join('\n'),
+        decision: '方案 A,因为 10000 QPS 是 hard 约束,一致性弱 + 对账复杂可通过幂等键 + 对账任务缓解',
+        verification: [
+          '三层验证:',
+          '(1) 压测 — 对 Redis decr 打 20k QPS,目标 P99 < 15ms、错误率 < 0.1%;',
+          '(2) 一致性 — 跑对账任务,5 分钟窗口内比较 Redis 与 MySQL 差异,目标不一致率 < 10 ppm;',
+          '(3) 故障注入 — kill Redis 主节点,验证 sentinel RTO < 5s,期间降级到 MySQL 兜底,QPS 不穿透。',
+        ].join('\n'),
       },
-      challengeResponse:
-        '保持选 A。即使 Redis 宕机,我会用 AOF + 每 5 秒快照把 RTO 压到 30 秒以内。对比 B 方案 500 QPS 直接崩溃的代价,A 的风险在可控范围。关键指标是 P99 < 20ms + RTO < 30s,这两个 B 都做不到。因为我们的业务场景就是 10000 QPS 的秒杀,不是一般 CRUD,所以选 A 的 tradeoff 合理。',
+      challengeResponse: [
+        '继续坚持 A。挑战有道理 — Redis 单点确实是最大风险,但是这个风险我量化一下再权衡:',
+        '(1) 故障概率 — 生产级 Redis 主从 + AOF(fsync=everysec),年宕机 < 5 分钟,失效率 < 0.01%,不是常态。',
+        '(2) 灾备能力 — sentinel 自动切换 RTO 5 秒、AOF 恢复 RPO < 1 秒。窗口期限流到 QPS 300 以内,MySQL 悲观锁兜底,避免锁等待雪崩。',
+        '(3) 对照他方案 — 悲观锁在 10000 QPS 秒杀是 hard block,单机 500 QPS 直接崩;MQ 异步把用户等待拉到秒级,体验不可接受。二者代价都比 A 的局限大。',
+        '核心指标:P99 < 20ms、RTO < 30s、一致性窗口 < 5 分钟。三个约束下 A 是唯一满足的方案。因为业务语境是 10000 QPS 秒杀而不是一般增删改查,所以 A 的 tradeoff 在这个 context 下合理。',
+      ].join('\n'),
     },
     round2: {
       markedDefects: [
@@ -87,13 +107,24 @@ const submissions: V5Submissions = {
     round3: {
       correctVersionChoice: 'success',
       diffAnalysis:
-        '失败版本在 line 2 缺少 decr 返回值检查,line 3 的 mysql.insert 没有配合 Redis 回滚。成功版本多了 if (result < 0) incr + throw 的保护。',
-      diagnosisText:
-        '失败版本缺少 Redis decr 返回值检查,在高并发场景下会出现超卖;同时 MySQL 写入失败不会回滚 Redis,造成库存永久错误。根本原因是双写一致性保护缺失。',
+        '失败版本在 line 2 缺少 decr 返回值检查,line 3 的 mysql.insert 没有配合 Redis 回滚。成功版本多了 if (result < 0) incr + throw 的保护,并且在 mysql 写入外层加了 try/catch 触发 Redis 回补。',
+      diagnosisText: [
+        '失败版本缺少 Redis decr 返回值检查,高并发下会超卖 — 这是第一个根因:并发读写共享库存时,decr 返回 -1 的语义被忽略,扣减已经发生但业务没感知。',
+        '同时 MySQL 写入失败不会回滚 Redis,导致库存永久错误 — 这是第二个根因:双写一致性没有补偿机制,MySQL 端异常后 Redis 里的 stock 已经减掉,形成永久漂移。',
+        '成功版本在 decr 之后立刻做 if result < 0 回滚 + throw,并在 MySQL 插入失败分支把 Redis 扣减 incr 回去,闭环两条路径。',
+        '本质归纳:原子操作缺失 + 补偿路径缺失,这两条在高并发场景下直接变成超卖 + 库存漂移 — 秒杀类业务对这两个根因 0 容忍。',
+      ].join('\n'),
     },
     round4: {
-      response:
-        '核心原则不变 — 高并发场景下,Redis 预扣 + 异步落库仍然是正确选择,关键是原子性保护 + 补偿机制。但具体参数需要调整:红包抢购的并发量比秒杀更高,需要更短的 TTL;考虑到红包金额不能超发,幂等性校验要放在 Redis 层而不是 MySQL 层;阈值也要变,因为红包的扣减是按金额不是按件数。这和之前 R1 选 A 的逻辑一致。',
+      response: [
+        '核心原则不变 — 高并发场景下的 Redis 预扣 + 异步落库仍是正解,本质是"原子性保护 + 补偿机制 + 幂等键"三件套,和之前 R1 选 A 的思路一致。',
+        '但具体参数需要调整:',
+        '(1) 并发量 — 红包抢购的瞬时 QPS 比秒杀高 3x(因为社交裂变),所以需要更短的 TTL(30s → 10s)和更激进的限流;',
+        '(2) 金额精度 — 考虑到红包金额不能超发,Lua 脚本里必须用 bignum 处理 1 分 = 100 金额单位,避免浮点误差,阈值也要变;',
+        '(3) 幂等边界 — 由于红包一个用户只能抢一次,幂等键从 requestId 换成 userId + redpackId,实现不同的去重粒度;',
+        '(4) 风险特性 — 红包多了社交属性,需要防刷 + 黑名单,底层逻辑是秒杀无此需求。',
+        '迁移代价:核心架构 80% 复用(Redis 原子减 + 对账),另外 20% 是参数重调 + 防刷模块。2 周迭代能上线 MVP。',
+      ].join('\n'),
       submittedAt: T0 + 180_000,
       timeSpentSec: 180,
     },
@@ -260,8 +291,14 @@ const submissions: V5Submissions = {
   },
   selfAssess: {
     confidence: 0.78,
-    reasoning:
-      'P0 的 L3 代码阅读我回答得比较稳(抓住了 Redis round-trip + GET/DEL 非原子 + 随机数熵 三个点);MA 的 R4 迁移题我偏保守,给了一个合理框架但没具体到红包业务的具体阈值。MB 的 Lua 脚本实现我压测只做了 1k QPS,真实峰值没覆盖,置信度扣 10%。MC 问到"如果 Redis 挂了怎么办"时我回答得不够清晰,需要改进。',
+    reasoning: [
+      '整体自评 — P0 / MA / MB / MC 四段节奏可以,但是在几个关键点上留了可提升空间,按强弱分别说:',
+      '(1) P0 L3 代码阅读答得比较稳 — 抓住了 Redis round-trip + GET/DEL 非原子 + 随机数熵不足三个点,和题设 10000 QPS 瓶颈的推导一致。但 aiOutputJudgment 第二题错答(选了 A 而 groundTruth 是 B),说明 cache-aside vs 直接读的语义我还需要多磨,置信度扣 5%。',
+      '(2) MA 的 R1 选 A 并给了 QPS / 一致性 / 可用性 三维度 tradeoff,我觉得方向对。但是 R4 迁移到红包场景时偏保守 — 框架给了 TTL / 幂等键 / 社交风险三条,没具体到"万元雨"峰值阈值;如果面试官再追问 SKU 分片策略,我需要更硬的数据支撑。',
+      '(3) MB 的 Lua 脚本实现我压测只做了 1k QPS,真实 20k 峰值没覆盖 — finalTestPassRate 能到 100% 但生产置信度还要再压 10%,这是我最担心的一块。',
+      '(4) MC 问到"Redis 挂了怎么办"的窗口期风险时,R2 我承认 R1 没充分覆盖,改为 sentinel + AOF + 限流三重兜底,这个修正方向对。但 R3 的 100k QPS escalation 我只给了分片 + 本地缓存,漏了 proxy 层方案 — 这是我目前最大盲区。',
+      '综合判断:整体在 S 档,但 headroom 不大,细节打磨仍有空间。下次类似面试我会在迁移题上准备更厚的业务侧阈值案例。',
+    ].join('\n'),
     reviewedDecisions: ['P0 L3 answer', 'MA R1 scheme A', 'MA R4 transfer', 'MB Lua impl'],
   },
   moduleC: [
@@ -269,28 +306,28 @@ const submissions: V5Submissions = {
       round: 1,
       question: '描述 R1 选的方案 A 的核心思路',
       answer:
-        'A 方案是 Redis 预扣 + MySQL 异步落库。Redis 用 SETNX + Lua 保证原子性和幂等,MySQL 做最终落库;核心是把 QPS 压力从 DB 移到 Redis,再用异步消息 + 对账兜底一致性。',
+        'A 方案的核心是 Redis 预扣 + MySQL 异步落库。我觉得这个选择取决于首要瓶颈 — 如果是瞬时 20k QPS 的秒杀,Redis 原子 decr 的 10ms P99 远优于 MySQL 500 QPS 的悲观锁,其实这个量级 MySQL 已经撑不住。幂等键用 requestId,对账兜底最终一致性。意识到这方案的弱点是 Redis 崩溃,之前没想到需要 AOF + sentinel 做热备,加了之后 RTO 能压到 30s。',
       probeStrategy: 'baseline',
     },
     {
       round: 2,
       question: 'Redis 挂掉的时候怎么办?你方案 A 的可用性如何保证?',
       answer:
-        '短期用 AOF + 每 5 秒快照把 RTO 压到 30s 以内;长期会用 Redis 主从 + sentinel 做自动切换。挂掉的窗口期通过降级到 MySQL 悲观锁 (QPS 500 可扛住 1 分钟内的缓冲) 来避免完全不可用,但会通过降级告警通知上游限流。',
+        '你说得对,我承认 R1 没充分覆盖 Redis 崩溃的窗口期风险 — 我错了,把 AOF 能力当成了一步到位的可用性兜底。更准确地说,应该改为 AOF 每秒持久化 + sentinel 主从热备,把 RTO 从 30s 压到 5s 内;同时窗口期降级到 MySQL 悲观锁的 QPS 500 作为兜底,并通过上游限流把峰值压到 QPS 300 以内。但是核心观点仍然成立 — A 方案在 10000 QPS 场景下依然是正解,只是可用性 SLA 的 tradeoff 需要更严格的运维配套。取决于业务对 30s 窗口 vs 5s 窗口的成本敏感度,如果是支付秒杀需要 5s,如果是活动秒杀 30s 可以接受。',
       probeStrategy: 'weakness',
     },
     {
       round: 3,
       question: '如果 QPS 涨到 100k,你的 A 方案还撑得住吗?',
       answer:
-        '撑不住,Redis 单机瓶颈大约在 5w qps。100k QPS 的时候必须上 Redis 集群(cluster mode)+ sharding 按 skuId 分片,然后热门 SKU 还要做本地缓存 + 读写分离。本质上需要从单点架构升到分布式架构,tradeoff 是运维复杂度和成本上升。',
+        '撑不住。Redis 单机瓶颈约 5w QPS,100k 必须上集群 + sharding 按 skuId 分片。基于 R2 的修正思路,我会在集群层也做 AOF + sentinel 保证高可用。热门 SKU 要本地缓存 + 读写分离兜底,取决于 skew 程度 — 如果是 Top 10 SKU 占 80% 流量,还要额外上 Redis proxy(如 Codis)。这次的教训是单点瓶颈思维早该放弃,其实分布式架构才是 100k+ QPS 的基线,原本以为单机优化还有空间。',
       probeStrategy: 'escalation',
     },
     {
       round: 4,
       question: '如果换成红包抢购场景,你还会选 A 吗?',
       answer:
-        '还会选 A,核心原则"Redis 扣减 + 异步落库"不变。但具体实现要调:红包金额不能超发,所以 Lua 脚本里要做精度控制(bignum);幂等键从 requestId 改成 userId+redpackId;TTL 从 30s 改到 24h 等整个红包生命周期;对账窗口从 5 分钟改到实时。',
+        '还会选 A,核心原则"Redis 扣减 + 异步落库"不变。沿着这个思路迁移到红包:精度控制上,Lua 脚本里要用 bignum 处理金额(1 分 = 100 分单位),避免浮点误差;幂等键从 requestId 换成 userId + redpackId,因为红包一个用户只能抢一次。TTL 从 30s 延长到 24h 覆盖整个红包生命周期。取决于活动规模,如果是万元级红包雨,要加入抢购冷却 — 更好的做法是做分桶削峰。意识到之前没想到红包有社交属性,需要做防刷 + 黑名单,这在秒杀里是弱需求。',
       probeStrategy: 'transfer',
     },
   ],
