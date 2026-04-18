@@ -32,6 +32,7 @@ import { ReportPreviewPage } from './report/preview/ReportPreviewPage.js';
 import { SectionGalleryPage } from './report/preview/SectionGalleryPage.js';
 import { Phase0PreviewPage } from './pages/phase0/Phase0PreviewPage.js';
 import { ModuleAPreviewPage } from './pages/moduleA/ModuleAPreviewPage.js';
+import { AdminRoutes } from './pages/admin/AdminLayoutPage.js';
 import { colors, spacing, fontSizes, fontWeights } from './lib/tokens.js';
 
 export function App() {
@@ -96,10 +97,6 @@ const ModulePlaceholder: React.FC<{ name: string }> = ({ name }) => (
       </p>
     </div>
   </div>
-);
-
-const AdminRoutes: React.FC = () => (
-  <ErrorPage message="Admin 控制台尚未启用" />
 );
 
 const SharedReportPage: React.FC = () => (
