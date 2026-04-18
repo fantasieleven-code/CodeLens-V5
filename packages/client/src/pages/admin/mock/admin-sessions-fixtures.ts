@@ -17,7 +17,7 @@ export const ADMIN_SESSIONS: AdminSessionSummary[] = [
     completedAt: Date.UTC(2026, 3, 2, 11, 1),
     grade: 'A',
     composite: 78,
-    shareableLink: '/share/report/tok-sess-00001',
+    shareableLink: '/exam/sess-00001',
   },
   {
     id: 'sess-00002',
@@ -30,7 +30,7 @@ export const ADMIN_SESSIONS: AdminSessionSummary[] = [
     completedAt: Date.UTC(2026, 3, 5, 14, 38),
     grade: 'S+',
     composite: 92,
-    shareableLink: '/share/report/tok-sess-00002',
+    shareableLink: '/exam/sess-00002',
   },
   {
     id: 'sess-00003',
@@ -43,7 +43,7 @@ export const ADMIN_SESSIONS: AdminSessionSummary[] = [
     completedAt: null,
     grade: null,
     composite: null,
-    shareableLink: '/share/report/tok-sess-00003',
+    shareableLink: '/exam/sess-00003',
   },
   {
     id: 'sess-00004',
@@ -56,7 +56,7 @@ export const ADMIN_SESSIONS: AdminSessionSummary[] = [
     completedAt: Date.UTC(2026, 3, 9, 16, 40),
     grade: 'B',
     composite: 58,
-    shareableLink: '/share/report/tok-sess-00004',
+    shareableLink: '/exam/sess-00004',
   },
   {
     id: 'sess-00005',
@@ -69,7 +69,7 @@ export const ADMIN_SESSIONS: AdminSessionSummary[] = [
     completedAt: null,
     grade: null,
     composite: null,
-    shareableLink: '/share/report/tok-sess-00005',
+    shareableLink: '/exam/sess-00005',
   },
   {
     id: 'sess-00006',
@@ -82,7 +82,7 @@ export const ADMIN_SESSIONS: AdminSessionSummary[] = [
     completedAt: Date.UTC(2026, 3, 12, 15, 32),
     grade: 'S',
     composite: 86,
-    shareableLink: '/share/report/tok-sess-00006',
+    shareableLink: '/exam/sess-00006',
   },
   {
     id: 'sess-00007',
@@ -108,7 +108,7 @@ export const ADMIN_SESSIONS: AdminSessionSummary[] = [
     completedAt: Date.UTC(2026, 3, 15, 16, 2),
     grade: 'A',
     composite: 77,
-    shareableLink: '/share/report/tok-sess-00008',
+    shareableLink: '/exam/sess-00008',
   },
   {
     id: 'sess-00009',
@@ -121,7 +121,7 @@ export const ADMIN_SESSIONS: AdminSessionSummary[] = [
     completedAt: null,
     grade: null,
     composite: null,
-    shareableLink: '/share/report/tok-sess-00009',
+    shareableLink: '/exam/sess-00009',
   },
   {
     id: 'sess-00010',
@@ -134,7 +134,7 @@ export const ADMIN_SESSIONS: AdminSessionSummary[] = [
     completedAt: null,
     grade: null,
     composite: null,
-    shareableLink: '/share/report/tok-sess-00010',
+    shareableLink: '/exam/sess-00010',
   },
 ];
 

@@ -50,4 +50,10 @@ describe('<AdminRoutes />', () => {
       expect(screen.getByTestId('admin-exam-library-root')).toBeInTheDocument(),
     );
   });
+
+  it('admin nav exposes an aria-label for screen readers', () => {
+    renderAt('/admin');
+    const nav = screen.getByRole('navigation', { name: 'Admin 主导航' });
+    expect(nav).toBeInTheDocument();
+  });
 });
