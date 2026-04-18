@@ -195,6 +195,70 @@ describe('<SelfAssessPage />', () => {
     expect(useSessionStore.getState().submissions.selfAssess).toBeDefined();
   });
 
+  it('surfaces a timeout message + restores the submit button when no ack arrives within 8s', () => {
+    vi.useFakeTimers();
+    try {
+      render(<SelfAssessPage />);
+
+      fireEvent.change(screen.getByTestId('selfassess-reasoning'), {
+        target: { value: '我觉得我表现还行但 Phase 0 不确定' },
+      });
+      fireEvent.click(screen.getByTestId('selfassess-submit'));
+
+      // Button enters the loading state immediately after emit.
+      const submit = screen.getByTestId('selfassess-submit') as HTMLButtonElement;
+      expect(submit.textContent).toMatch(/提交中/);
+      expect(submit.disabled).toBe(true);
+
+      // Walk the clock to the 8s guard without invoking the ack — simulates
+      // Cluster D's missing server handler.
+      act(() => {
+        vi.advanceTimersByTime(8000);
+      });
+
+      expect(screen.getByText(/提交遇到问题/)).toBeInTheDocument();
+      // Button text + enabled state restored so the candidate can retry.
+      expect(submit.textContent).toMatch(/提交自评/);
+      expect(submit.disabled).toBe(false);
+      // Still on selfAssess — no silent advance on timeout.
+      expect(useModuleStore.getState().currentModule).toBe('selfAssess');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ack arriving before 8s advances and no timeout error surfaces afterwards', () => {
+    vi.useFakeTimers();
+    try {
+      render(<SelfAssessPage />);
+      fireEvent.change(screen.getByTestId('selfassess-reasoning'), {
+        target: { value: '我觉得我表现还行但 Phase 0 不确定' },
+      });
+      fireEvent.click(screen.getByTestId('selfassess-submit'));
+
+      const selfAssessCall = mockSocket.emit.mock.calls.find(
+        ([event]) => event === 'self-assess:submit',
+      );
+      const ack = selfAssessCall![2] as (ok: boolean) => void;
+      // Ack within 1s.
+      act(() => {
+        vi.advanceTimersByTime(1000);
+        ack(true);
+      });
+
+      expect(useModuleStore.getState().currentModule).toBe('moduleC');
+
+      // Advance past the original 8s guard — the timeout callback must be
+      // cleared so the error doesn't surface after a successful advance.
+      act(() => {
+        vi.advanceTimersByTime(10_000);
+      });
+      expect(screen.queryByText(/提交遇到问题/)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('DecisionSummary renders MD summary with submodule + constraint counts', () => {
     useSessionStore.getState().setModuleSubmissionLocal('moduleD', MD_SUB);
     render(<SelfAssessPage />);

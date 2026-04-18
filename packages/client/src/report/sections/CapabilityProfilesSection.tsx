@@ -88,7 +88,7 @@ export function CapabilityProfilesSection({ viewModel }: SectionProps): React.Re
                   marginBottom: spacing.xs,
                 }}
               >
-                {profile.score.toFixed(1)}
+                {profile.score?.toFixed(1) ?? '—'}
               </div>
 
               <p
@@ -126,7 +126,7 @@ export function CapabilityProfilesSection({ viewModel }: SectionProps): React.Re
                     >
                       {V5_DIMENSION_LABELS_ZH[dim as keyof typeof V5_DIMENSION_LABELS_ZH] ?? dim}
                       <span style={{ color: colors.overlay1, marginLeft: 4 }}>
-                        +{contribution.toFixed(1)}
+                        +{contribution?.toFixed(1) ?? '—'}
                       </span>
                     </span>
                   ))}
