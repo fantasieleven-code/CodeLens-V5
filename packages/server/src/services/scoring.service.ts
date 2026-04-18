@@ -7,8 +7,11 @@
  * - gradeCandidate: composite + dims + suite → GradeDecision(Round 3 重构 2:confidence + boundaryAnalysis + reasoning + dangerFlag)
  * - computeCapabilityProfile / computeAllProfiles: dims → 4 个 CapabilityProfile(Round 3 重构 4)
  *
- * SignalResult.value 规约假设为 0-100 scale;若 Task 13 实现的信号采用 0-1 scale,
- * 需要在这里乘 100 再进入维度聚合,届时会由 Task 13 一次性调整(本文件加 TODO 不适当)。
+ * Resolved 2026-04-18 Task 17: signal output is 0-1 scale (frozen by
+ * `signals/__tests__/registry-assertions.test.ts` gate). Conversion to
+ * 0-100 happens at the `computeDimensions` aggregation boundary; all
+ * downstream artifacts (dimensions / composite / grade threshold /
+ * capability profile) operate on 0-100 consistently.
  */
 
 import {
@@ -79,7 +82,7 @@ export function computeDimensions(
     const values: number[] = [];
     for (const id of dimSignalIds) {
       const v = signals[id]?.value;
-      if (v != null) values.push(v);
+      if (v != null) values.push(v * 100);
     }
 
     out[dim] = values.length === 0 ? null : values.reduce((a, b) => a + b, 0) / values.length;

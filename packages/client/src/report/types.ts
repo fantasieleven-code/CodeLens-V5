@@ -1,5 +1,6 @@
 import type {
   CapabilityProfile,
+  CursorBehaviorLabel,
   GradeDecision,
   SignalDefinition,
   SignalResults,
@@ -10,21 +11,15 @@ import type {
 } from '@codelens-v5/shared';
 
 /**
- * Round 3 调整 5 的 Cursor 行为标签(Layer 1 段内结论）。
- * full_stack / ai_engineer / deep_dive 才有此字段；
- * architect / quick_screen 的 reportSections 不含 cursor-behavior-label。
+ * Round 3 调整 5 的 Cursor 行为标签(Layer 1 段内结论）— full_stack /
+ * ai_engineer / deep_dive 套件才有此字段;architect / quick_screen
+ * 的 reportSections 不含 cursor-behavior-label。
+ *
+ * Task 17 Gap #5: `CursorBehaviorLabel` 类型本体已迁到
+ * `@codelens-v5/shared/types/v5-scoring.ts`;此处仅 re-export 保持
+ * 现有 client 代码的 import path 不破坏。
  */
-export type CursorBehaviorLabelId =
-  | '深思熟虑型'
-  | '熟练接受型'
-  | '快速粘贴型'
-  | '无序混乱型';
-
-export interface CursorBehaviorLabel {
-  label: CursorBehaviorLabelId;
-  summary: string;
-  evidenceSignals: string[];
-}
+export type { CursorBehaviorLabel, CursorBehaviorLabelId } from '@codelens-v5/shared';
 
 /**
  * 信号元数据(前端只读副本）。Server 侧的 SignalDefinition 带 compute/fallback

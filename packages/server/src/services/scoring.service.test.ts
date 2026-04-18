@@ -381,16 +381,19 @@ describe('computeAllProfiles', () => {
 // ────────────────────────────────────────────────────────────────────────────
 
 describe('computeDimensions', () => {
-  it('averages signal values per dimension', () => {
+  // Task 17 scale contract: signal.value ∈ [0, 1]; computeDimensions multiplies
+  // by 100 before averaging so dimensions / composite / thresholds all share
+  // the 0-100 scale.
+  it('averages signal values per dimension (0-1 → 0-100)', () => {
     const defs: SignalDefinition[] = [
       makeDef('sA', V5Dimension.TECHNICAL_JUDGMENT),
       makeDef('sB', V5Dimension.TECHNICAL_JUDGMENT),
       makeDef('sC', V5Dimension.CODE_QUALITY),
     ];
     const signals: SignalResults = {
-      sA: res(80),
-      sB: res(60),
-      sC: res(70),
+      sA: res(0.8),
+      sB: res(0.6),
+      sC: res(0.7),
     };
     const dims = computeDimensions(signals, defs, SUITES.full_stack);
     expect(dims[V5Dimension.TECHNICAL_JUDGMENT]).toBe(70);
@@ -399,7 +402,7 @@ describe('computeDimensions', () => {
 
   it('returns null for dim with no participating signals', () => {
     const defs: SignalDefinition[] = [makeDef('sA', V5Dimension.TECHNICAL_JUDGMENT)];
-    const signals: SignalResults = { sA: res(80) };
+    const signals: SignalResults = { sA: res(0.8) };
     const dims = computeDimensions(signals, defs, SUITES.full_stack);
     expect(dims[V5Dimension.METACOGNITION]).toBeNull();
   });
@@ -410,7 +413,7 @@ describe('computeDimensions', () => {
       makeDef('sB', V5Dimension.TECHNICAL_JUDGMENT),
     ];
     const signals: SignalResults = {
-      sA: res(80),
+      sA: res(0.8),
       sB: res(null),
     };
     const dims = computeDimensions(signals, defs, SUITES.full_stack);
@@ -422,10 +425,20 @@ describe('computeDimensions', () => {
       makeDef('sA', V5Dimension.COMMUNICATION),
       makeDef('sB', V5Dimension.SYSTEM_DESIGN),
     ];
-    const signals: SignalResults = { sA: res(80), sB: res(80) };
+    const signals: SignalResults = { sA: res(0.8), sB: res(0.8) };
     const dims = computeDimensions(signals, defs, SUITES.quick_screen);
     expect(dims[V5Dimension.COMMUNICATION]).toBeNull();
     expect(dims[V5Dimension.SYSTEM_DESIGN]).toBeNull();
+  });
+
+  it('signal value 1.0 → dimension 100; signal value 0.0 → dimension 0', () => {
+    const defs: SignalDefinition[] = [makeDef('sA', V5Dimension.TECHNICAL_JUDGMENT)];
+    expect(
+      computeDimensions({ sA: res(1.0) }, defs, SUITES.full_stack)[V5Dimension.TECHNICAL_JUDGMENT],
+    ).toBe(100);
+    expect(
+      computeDimensions({ sA: res(0.0) }, defs, SUITES.full_stack)[V5Dimension.TECHNICAL_JUDGMENT],
+    ).toBe(0);
   });
 });
 
