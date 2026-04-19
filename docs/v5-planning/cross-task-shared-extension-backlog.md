@@ -181,11 +181,13 @@ Task 25 必须在 Task 22-24 全 merge 后启动,验证修复模板再扩到 P0
 Task 25 本身 decoupled from Task 26/27(可并行)
 
 
-Task 26 · Cluster C-MA:MA R1/R2 submit handlers(Backend + Frontend verify,~1 天)
-修复目标:MA Round 1 + Round 2 submit pipeline 打通
-扩展项概率影响注意packages/shared/ws.ts ma:round1:submit + ma:round2:submit events必然Link 2grep MAPage 当前 emit 确认 canonicalpackages/server/src/sockets/ma-submit.handler.ts(或拆 2 handler)必然Link 3R1 + R2 可共 handler 分 payload 类型V5MASubmission persist(含 challengeResponse / schemeId / reasoning / migrationScenario 等)必然Link 4schema 已 ready(参 glossary Scheme 系列 / Challenge 系列)MAModuleSpecific.migrationScenario field finalize(backlog Task 10 owner pending,Task 13b local narrow cast)必然#014 cross-task debt 清偿Task 26 本 sprint 合并Frontend MAPage 从 silent-success 改为 socket.emit + ack必然Frontend 同 sprint 子任务单测 + e2e必然规则 11
+Task 26 · Cluster C-MA:MA submit handler(Backend + Frontend verify,~0.5 天)— **DONE**(PR pending self-merge / canonical event `moduleA:submit`(单一最终 submit,非 R1/R2 拆分)经 Phase 1 verify 决定;10 个 MA signals 解锁(TJ × 7 + CQ × 3),累计 27/47 → 37/47 = 78.7% / Pattern H v2.2 5th gate 实装,cross-Task preservation + last-write-wins 三 case 全绿 / 命名空间 `metadata.moduleA.*` top-level(继承 Task 23-25 lineage,非 D-2 `metadata.submissions.moduleA`)/ Round 2 commentType enum lock 4 值 `'bug' | 'suggestion' | 'question' | 'nit'`,'style' V5.2+ A6 scope / hydrator contract lock for Task 15 Admin API owner)
+修复目标:MA 单次 final submit pipeline 打通(round1 + round2 + round3 + round4 一次性提交,Mode C local-only → emit/ack 上线)
+扩展项概率影响注意packages/shared/ws.ts moduleA:submit event(单一 final submit,非 R1/R2 拆)必然Link 2Phase 1 grep ModuleAPage 确认仅 handleFinalSubmit 一处 emit 点;命名 `moduleA:submit` lowercase-hyphen 与 `phase0:submit` / `self-assess:submit` 同风格,不冠 `v5:` 前缀packages/server/src/socket/moduleA-handlers.ts 新建必然Link 3Zod 4-round nested schema(round4 Pattern D-2 drift Phase 1 captured),strict field pick 继承 Task 23-25 lineageV5ModuleASubmission persist 到 `metadata.moduleA.*`(top-level,非 `metadata.submissions.moduleA` V4 ghost)必然Link 4schema 已 ready(参 glossary Scheme/Challenge/Defect/Diagnosis 系列);last-write-wins 由 service 层完整 persistable spread 保障Round 2 commentType enum 锁 4 值,'style' V5.2+ A6 scope必然规则 13 决议Phase 1 verify 决定不扩 'style';integration test 含 'style' 拒绝 caseFrontend ModuleAPage handleFinalSubmit 嵌入 emit + ack(fire-and-forget,timeout guard V5.0.5 backlog)必然Frontend 同 sprint 子任务,sessionId 兜底 `moduleA-pending`Pattern H v2.2 5th gate integration test必然规则 11i. emit → persist → all 10 MA signals non-null with Liam-tier scores;ii. cross-Task regression defense:4 sibling namespaces(mb/selfAssess/phase0/moduleC)intact after MA write;iii. last-write-wins
 Data Pipeline Verification:
-LinkCurrent stateExpected post-Task 261. Client emit✗(MAPage local-only)✓2. ws.ts declaration✗✓3. Server handler✗✓4. Persist✗✓5. Signal read✓(MA signals 已存在)✓
+LinkCurrent stateExpected post-Task 261. Client emit✗(MAPage local-only)→ ✓✓2. ws.ts declaration✗ → ✓✓3. Server handler✗ → ✓✓4. Persist✗ → ✓ at `metadata.moduleA.*`✓5. Signal read✓(10 MA signals 已存在,Phase 1 verify 全部读 `metadata.moduleA.*`)✓
+Hydrator contract lock for Task 15 Admin API:
+Task 15 owner MUST hydrate session detail by reading `metadata.moduleA.{round1, round2, round3, round4}`(top-level,非 `metadata.submissions.moduleA`)。Task 26 已 freeze 此 namespace,Task 15 改 namespace 必须 PR-block Task 26 owner re-verify。
 
 Task 27 · Cluster C-MD:MD submit handler(Backend + Frontend verify,~1 天)
 修复目标:MD submit pipeline 打通 + Max fixture 500ms 边界 bug 小修

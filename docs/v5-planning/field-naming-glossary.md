@@ -229,16 +229,14 @@
 
 | Event name(canonical) | Direction | Payload | 消费方 | 备注 |
 |----------------------|-----------|---------|--------|------|
-| `ma:round1:submit` OR `v5:ma:round1:submit`(待 Task 26 grep)| client → server | `V5MASubmission['round1']` | **Task 26 新建 server handler** | Pattern C:Backend pre-verify grep MAPage 实际 emit 确认 prefix。若 V4 legacy 则保留 |
-| `ma:round2:submit` OR `v5:ma:round2:submit` | client → server | `V5MASubmission['round2']` | **Task 26 新建 server handler** | 同上 |
-| `ma:round1:submit:response` | server → client | `{ success: true, submissionId }` | MAPage onSubmit ack | Task 26 定义 shape |
-| `ma:round2:submit:response` | server → client | 同上 | | |
+| `moduleA:submit` | client → server | `{ sessionId: string; submission: V5ModuleASubmission }`(ack `(ok: boolean) => void`) | Task 26 `registerModuleAHandlers`(`packages/server/src/socket/moduleA-handlers.ts`)→ `persistModuleASubmission` 写 `metadata.moduleA.{round1, round2, round3, round4}` → MODULE_SUBMITTED;10 个 MA signals(sSchemeJudgment / sReasoningDepth / sContextQuality / sCriticalThinking / sArgumentResilience / sDiagnosisAccuracy / sPrincipleAbstraction TJ ×7,sCodeReviewQuality / sHiddenBugFound / sReviewPrioritization CQ ×3)解锁 | **Pattern C 决议(Phase 1 verify confirm)**:Phase 1 grep `packages/client/src/pages/ModuleAPage.tsx:174-222` 发现客户端只 `setModuleSubmissionLocal('moduleA', …)` 走本地 store,**0 个 socket emit**。canonical 选 `moduleA:submit` 小写连字符,与 `phase0:submit`(Task 25)/`self-assess:submit`(Task 24)命名约定一致(`v5:` 前缀仅用于多事件命名空间)。**Single final submit(Mode C)**:R1/R2/R3 是本地 UI gate(setR{N}Done),只有 R4 `handleFinalSubmit` 触发 emit;不是 per-round emit(早期 brief 推测 4 events,Phase 1 grep 推翻)。**V5-native shape**(无 V4 bridge,Phase 1 Q6(a)),server 直接 strict field pick 持久化。**4 rounds(非 design doc 3 rounds,Pattern D-2 drift)**:round4 由 Round 3 Part 3 调整 2 新增,required not optional。`sessionId` 在 envelope 顶层(Task 24 Option C 沿用,server 无 socket-level 中间件,Task 15 owner)。**Fire-and-forget emit**:本地 store 是 in-session UI 真值源,ack 不 gate `advance()`(无 timeout guard,V5.0.5 添加 retry/error UX) |
+| `moduleA:submit` ack | server → client (callback) | `(ok: boolean) => void` | ModuleAPage handleFinalSubmit 注册 no-op callback(`(_ok: boolean) => {}`) | Task 26 实装。**ack signature lock**:`(ok: boolean)` 与 `phase0:submit` / `self-assess:submit` / `v5:mb:submit` 一致;`ok=false` 保留给 server 显式失败(zod 4-round schema invalid / persist throw) |
 
-**Cluster C-MA 修复 note**:Frontend MAPage 当前是 silent-success(Backend Q2 verified),
-Task 26 必须**同时改 Frontend emit + 新建 Backend handler + 回 ack**。
-否则 Frontend 改 emit 但 server 无 handler 会触发 SelfAssessPage 类型的
-timeout 错觉(PR #58 timeout guard 在 MA 页未装)。Task 26 brief 要求
-Frontend 同 sprint 子任务加 timeout guard 模板(复用 PR #58)。
+**Hydrator contract lock(Task 15 Admin API owner awareness)**:`metadata.moduleA.*` 是 top-level canonical namespace。**不要** hydrate `metadata.submissions.moduleA.*`(D-2 pre-Task 22 namespace,只有 archived V4 `mc-probe-engine.ts:369-370` 引用)。Task 15 Admin API hydration 必须读 `metadata.moduleA.*` 并 pass into `ScoreSessionInput.submissions.moduleA`。
+
+**Round 2 commentType enum**:`'bug' | 'suggestion' | 'question' | 'nit'`。**不含 'style'**(sAestheticJudgment 不在 V5.0 43-signal set,V5.2+ A6 scope)。Zod schema 在 `moduleA-handlers.ts:50` 严格 validate 4 种值;`'style'` 触发 ack(false)。
+
+**markedDefects 字段对齐**:`commentType` + `comment` + 可选 `fixSuggestion` 是 V5.0 锁定字段;`severity` 不在候选人侧(只在 `MAModuleSpecific.defects[]` ground truth 上,sHiddenBugFound 通过 defectId join 取)。
 
 ---
 
