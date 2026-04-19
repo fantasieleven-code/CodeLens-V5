@@ -29,6 +29,8 @@ import {
   appendVisibilityEvent,
   calculatePassRate,
   persistAudit,
+  persistFinalTestRun,
+  persistMbSubmission,
   persistPlanning,
   persistStandards,
 } from './mb.service.js';
@@ -282,6 +284,186 @@ describe('appendAiCompletionEvents (Task 22 / Cluster A)', () => {
     await appendAiCompletionEvents('missing', [
       { timestamp: 1, accepted: true, lineNumber: 1, completionLength: 5 },
     ]);
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe('persistFinalTestRun (Task 23 / Cluster B)', () => {
+  it('writes mb.finalTestPassRate AND appends mb.editorBehavior.testRuns[]', async () => {
+    findUnique.mockResolvedValueOnce({
+      metadata: {
+        mb: {
+          editorBehavior: {
+            testRuns: [{ timestamp: 1, passRate: 0.4, duration: 200 }],
+            aiCompletionEvents: [
+              { timestamp: 50, accepted: true, lineNumber: 3, completionLength: 5 },
+            ],
+          },
+        },
+      },
+    });
+    update.mockResolvedValueOnce({});
+
+    await persistFinalTestRun('s1', { passRate: 0.8, duration: 350, timestamp: 1000 });
+
+    const { data } = update.mock.calls[0][0];
+    expect(data.metadata.mb.finalTestPassRate).toBe(0.8);
+    expect(data.metadata.mb.editorBehavior.testRuns).toEqual([
+      { timestamp: 1, passRate: 0.4, duration: 200 },
+      { timestamp: 1000, passRate: 0.8, duration: 350 },
+    ]);
+    // Pattern H v2.2: existing aiCompletionEvents must survive.
+    expect(data.metadata.mb.editorBehavior.aiCompletionEvents).toHaveLength(1);
+  });
+
+  it('seeds testRuns + finalTestPassRate when no prior mb metadata', async () => {
+    findUnique.mockResolvedValueOnce({ metadata: {} });
+    update.mockResolvedValueOnce({});
+
+    await persistFinalTestRun('s1', { passRate: 1, duration: 100, timestamp: 5 });
+
+    const { data } = update.mock.calls[0][0];
+    expect(data.metadata.mb.finalTestPassRate).toBe(1);
+    expect(data.metadata.mb.editorBehavior.testRuns).toEqual([
+      { timestamp: 5, passRate: 1, duration: 100 },
+    ]);
+  });
+
+  it('overwrites finalTestPassRate with the latest run (last-write-wins)', async () => {
+    findUnique.mockResolvedValueOnce({
+      metadata: { mb: { finalTestPassRate: 0.9 } },
+    });
+    update.mockResolvedValueOnce({});
+
+    await persistFinalTestRun('s1', { passRate: 0.3, duration: 200, timestamp: 10 });
+
+    const { data } = update.mock.calls[0][0];
+    expect(data.metadata.mb.finalTestPassRate).toBe(0.3);
+  });
+
+  it('no-ops when session is missing', async () => {
+    findUnique.mockResolvedValueOnce(null);
+    await persistFinalTestRun('missing', { passRate: 0.5, duration: 100 });
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe('persistMbSubmission (Task 23 / Pattern H v2.2 cross-Task regression defense)', () => {
+  it('persists planning/standards/audit/finalFiles/finalTestPassRate', async () => {
+    findUnique.mockResolvedValueOnce({ metadata: {} });
+    update.mockResolvedValueOnce({});
+
+    await persistMbSubmission('s1', {
+      planning: { decomposition: 'd', dependencies: 'dep', fallbackStrategy: 'f' },
+      standards: { rulesContent: 'r' },
+      audit: {
+        violations: [{ exampleIndex: 0, markedAsViolation: true, violatedRuleId: 'r1' }],
+      },
+      finalFiles: [{ path: 'src/foo.py', content: 'pass\n' }],
+      finalTestPassRate: 0.75,
+      editorBehavior: {
+        aiCompletionEvents: [],
+        chatEvents: [],
+        diffEvents: [],
+        fileNavigationHistory: [],
+        editSessions: [],
+        testRuns: [],
+      },
+    });
+
+    const { data } = update.mock.calls[0][0];
+    expect(data.metadata.mb.planning.decomposition).toBe('d');
+    expect(data.metadata.mb.standards.rulesContent).toBe('r');
+    expect(data.metadata.mb.audit.violations).toHaveLength(1);
+    expect(data.metadata.mb.finalFiles).toEqual([{ path: 'src/foo.py', content: 'pass\n' }]);
+    expect(data.metadata.mb.finalTestPassRate).toBe(0.75);
+  });
+
+  it('STRIPS editorBehavior — Task 22 persisted aiCompletionEvents survive', async () => {
+    findUnique.mockResolvedValueOnce({
+      metadata: {
+        mb: {
+          editorBehavior: {
+            aiCompletionEvents: [
+              { timestamp: 100, accepted: true, lineNumber: 5, completionLength: 12 },
+              { timestamp: 200, accepted: false, lineNumber: 9, completionLength: 4 },
+            ],
+            documentVisibilityEvents: [{ timestamp: 50, hidden: false }],
+            testRuns: [{ timestamp: 80, passRate: 0.6, duration: 100 }],
+          },
+        },
+      },
+    });
+    update.mockResolvedValueOnce({});
+
+    // Frontend submission with EMPTY editorBehavior (intentional — see
+    // ModuleBPage.tsx top-of-file comment). A naive spread-merge here would
+    // wipe the 2 aiCompletionEvents, the visibility event, and the testRun.
+    await persistMbSubmission('s1', {
+      audit: { violations: [] },
+      finalFiles: [],
+      finalTestPassRate: 0,
+      editorBehavior: {
+        aiCompletionEvents: [],
+        chatEvents: [],
+        diffEvents: [],
+        fileNavigationHistory: [],
+        editSessions: [],
+        testRuns: [],
+      },
+    });
+
+    const { data } = update.mock.calls[0][0];
+    expect(data.metadata.mb.editorBehavior.aiCompletionEvents).toHaveLength(2);
+    expect(data.metadata.mb.editorBehavior.documentVisibilityEvents).toHaveLength(1);
+    expect(data.metadata.mb.editorBehavior.testRuns).toHaveLength(1);
+  });
+
+  it('preserves other top-level metadata keys (moduleC, signalResults, fileSnapshot)', async () => {
+    findUnique.mockResolvedValueOnce({
+      metadata: {
+        moduleC: [{ round: 1 }],
+        signalResults: { sFoo: { value: 0.5 } },
+        fileSnapshot: { 'a.py': { current: 'x', history: [] } },
+      },
+    });
+    update.mockResolvedValueOnce({});
+
+    await persistMbSubmission('s1', {
+      audit: { violations: [] },
+      finalFiles: [],
+      finalTestPassRate: 0.5,
+      editorBehavior: {
+        aiCompletionEvents: [],
+        chatEvents: [],
+        diffEvents: [],
+        fileNavigationHistory: [],
+        editSessions: [],
+        testRuns: [],
+      },
+    });
+
+    const { data } = update.mock.calls[0][0];
+    expect(data.metadata.moduleC).toEqual([{ round: 1 }]);
+    expect(data.metadata.signalResults.sFoo.value).toBe(0.5);
+    expect(data.metadata.fileSnapshot['a.py'].current).toBe('x');
+  });
+
+  it('no-ops when session is missing', async () => {
+    findUnique.mockResolvedValueOnce(null);
+    await persistMbSubmission('missing', {
+      audit: { violations: [] },
+      finalFiles: [],
+      finalTestPassRate: 0,
+      editorBehavior: {
+        aiCompletionEvents: [],
+        chatEvents: [],
+        diffEvents: [],
+        fileNavigationHistory: [],
+        editSessions: [],
+        testRuns: [],
+      },
+    });
     expect(update).not.toHaveBeenCalled();
   });
 });
