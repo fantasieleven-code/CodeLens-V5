@@ -15,9 +15,20 @@
  *   - fallback to MD_MOCK_FIXTURE when no `module` prop
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import type { V5ModuleDSubmission } from '@codelens-v5/shared';
+
+let mockSocket: {
+  emit: ReturnType<typeof vi.fn>;
+  on: ReturnType<typeof vi.fn>;
+  off: ReturnType<typeof vi.fn>;
+};
+
+vi.mock('../lib/socket.js', () => ({
+  getSocket: () => mockSocket,
+}));
+
 import { ModuleDPage } from './ModuleDPage.js';
 import { MD_MOCK_FIXTURE, type MDMockModule } from './moduleD/mock.js';
 import { useModuleStore } from '../stores/module.store.js';
@@ -88,6 +99,11 @@ function fillRequiredFields() {
 
 describe('<ModuleDPage />', () => {
   beforeEach(() => {
+    mockSocket = {
+      emit: vi.fn(),
+      on: vi.fn(),
+      off: vi.fn(),
+    };
     seedModuleD();
   });
 
@@ -378,6 +394,54 @@ describe('<ModuleDPage />', () => {
       expect(captured.called).toBe(false);
       expect(useSessionStore.getState().submissions.moduleD).toBeUndefined();
       expect(useModuleStore.getState().currentModule).toBe('moduleD');
+    });
+  });
+
+  describe('socket emit (Task 27)', () => {
+    it('emits moduleD:submit with sessionId + V5ModuleDSubmission on submit', () => {
+      useSessionStore.setState({ sessionId: 'sess-task27-test' });
+      render(<ModuleDPage />);
+      fillRequiredFields();
+
+      fireEvent.click(screen.getByTestId('md-submit'));
+
+      const call = mockSocket.emit.mock.calls.find(([event]) => event === 'moduleD:submit');
+      expect(call).toBeDefined();
+      const [, payload, ack] = call!;
+      expect(payload).toMatchObject({
+        sessionId: 'sess-task27-test',
+        submission: {
+          subModules: [
+            {
+              name: SUBMODULE_A.name,
+              responsibility: SUBMODULE_A.responsibility,
+              interfaces: ['POST /order/create', 'PUT /order/{id}/cancel'],
+            },
+          ],
+          dataFlowDescription: DATA_FLOW,
+          tradeoffText: TRADEOFF,
+        },
+      });
+      expect(typeof ack).toBe('function');
+    });
+
+    it('falls back to moduleD-pending sessionId when store has none, and ack=false does not undo advance/local persist', () => {
+      render(<ModuleDPage />);
+      fillRequiredFields();
+      fireEvent.click(screen.getByTestId('md-submit'));
+
+      const call = mockSocket.emit.mock.calls.find(([event]) => event === 'moduleD:submit');
+      const [, payload, ack] = call!;
+      expect((payload as { sessionId: string }).sessionId).toBe('moduleD-pending');
+
+      // Local persist + advance happen synchronously (fire-and-forget emit).
+      expect(useSessionStore.getState().submissions.moduleD).toBeDefined();
+      expect(useModuleStore.getState().currentModule).toBe('selfAssess');
+
+      // Server-rejected ack must not crash the no-op callback nor revert state.
+      expect(() => act(() => (ack as (ok: boolean) => void)(false))).not.toThrow();
+      expect(useSessionStore.getState().submissions.moduleD).toBeDefined();
+      expect(useModuleStore.getState().currentModule).toBe('selfAssess');
     });
   });
 

@@ -28,10 +28,11 @@
  * Submit path:
  *   - setSubmission('moduleD', payload) writes locally (CompletePage /
  *     DecisionSummary read from there)
+ *   - getSocket().emit('moduleD:submit', ...) round-trips to server (Task 27
+ *     Cluster C-MD persist closer). Fire-and-forget mirroring Task 25/26: the
+ *     local store is the source of truth for in-session UI; the ack is
+ *     reserved for V5.0.5 retry/error UX and does not gate advance().
  *   - advance() moves the module store forward
- *   - NO socket emit — `v5:md:submit` is not in shared/ws.ts (Backend Task 14
- *     pending). When that lands, add the emit alongside setSubmission and
- *     remove this comment.
  *
  * Mock fallback:
  *   When no `module` prop is provided, falls back to MD_MOCK_FIXTURE so the
@@ -44,6 +45,7 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import type { V5ModuleDSubmission } from '@codelens-v5/shared';
+import { getSocket } from '../lib/socket.js';
 import { useModuleStore } from '../stores/module.store.js';
 import { useSessionStore } from '../stores/session.store.js';
 import { ModuleShell } from '../components/ModuleShell.js';
@@ -76,6 +78,7 @@ export const ModuleDPage: React.FC<ModuleDPageProps> = ({
 }) => {
   const advance = useModuleStore((s) => s.advance);
   const setSubmission = useSessionStore((s) => s.setModuleSubmissionLocal);
+  const sessionId = useSessionStore((s) => s.sessionId);
 
   const [subModules, setSubModules] = useState<SubModuleDraft[]>([
     { ...EMPTY_SUBMODULE },
@@ -180,6 +183,11 @@ export const ModuleDPage: React.FC<ModuleDPageProps> = ({
 
     onSubmit?.(submission);
     setSubmission('moduleD', submission);
+    getSocket().emit(
+      'moduleD:submit',
+      { sessionId: sessionId ?? 'moduleD-pending', submission },
+      (_ok: boolean) => {},
+    );
     advance();
   }, [
     canSubmit,
@@ -191,6 +199,7 @@ export const ModuleDPage: React.FC<ModuleDPageProps> = ({
     aiOrchestrationPrompts,
     onSubmit,
     setSubmission,
+    sessionId,
     advance,
   ]);
 

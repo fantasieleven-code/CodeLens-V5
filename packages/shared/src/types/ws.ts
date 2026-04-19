@@ -1,7 +1,7 @@
 import type { AIStreamChunk } from './ai.js';
 import type { FileState } from './sandbox.js';
 import type { TimerState, CheckpointTransition } from './session.js';
-import type { V5MBAudit, V5MBPlanning, V5MBSubmission, V5ModuleASubmission, V5ModuleCAnswer, V5Phase0Submission } from './v5-submissions.js';
+import type { V5MBAudit, V5MBPlanning, V5MBSubmission, V5ModuleASubmission, V5ModuleCAnswer, V5ModuleDSubmission, V5Phase0Submission } from './v5-submissions.js';
 
 // Client → Server events
 export interface ClientToServerEvents {
@@ -129,6 +129,58 @@ export interface ClientToServerEvents {
    */
   'moduleA:submit': (
     data: { sessionId: string; submission: V5ModuleASubmission },
+    ack: (ok: boolean) => void,
+  ) => void;
+  /**
+   * Task 27 — Cluster C-MD persist closer (final cluster). ModuleDPage (Task 9
+   * client) currently persists locally via setModuleSubmissionLocal but never
+   * reaches the server, so all 4 MD signals (sAiOrchestrationQuality AE,
+   * sConstraintIdentification / sDesignDecomposition / sTradeoffArticulation SD ×3)
+   * score null at the orchestrator. This event closes that gap by writing
+   * `metadata.moduleD.*` directly so signals can read non-null at scoring time.
+   * Post-Task 27: 41/47 = 87.2% signal coverage; AE dimension 0→1, SD 0→3 — all
+   * 6 V5 dimensions become non-empty (radar production-ready).
+   *
+   * V5-native shape (Phase 1 Q1 / D3): live V5ModuleDSubmission has 6 required
+   * fields (subModules, interfaceDefinitions, dataFlowDescription,
+   * constraintsSelected, tradeoffText, aiOrchestrationPrompts). The design doc
+   * mentions 8 fields (challengeResponse, designRevision) but those never
+   * shipped to the live shape — Task 27 mirrors the live shape, not the doc
+   * (Pattern D-2 lineage: Task 26 round4 precedent of trusting the live type
+   * over earlier design intent).
+   *
+   * Naming (Phase 1 Q3 / D1): lowercase-hyphen `moduleD:submit` matches
+   * `moduleA:submit` / `phase0:submit` / `self-assess:submit` convention.
+   * The earlier glossary entry `v5:md:submit` (L247-248, never wired) is
+   * superseded by this declaration — consistency with the lowercase-hyphen
+   * Cluster C lineage outweighs the historical placeholder.
+   *
+   * Single final submit (Phase 1 Q2 — Mode C): ModuleDPage builds the full
+   * 6-field submission client-side and emits once from `handleSubmit` after
+   * the candidate confirms. No per-section emits.
+   *
+   * `sessionId` in envelope (Task 24 Option C lineage): server has no
+   * socket-level session middleware until Task 15, so the client must pass it.
+   *
+   * Ack contract: `(ok: boolean) => void` — matches `moduleA:submit` /
+   * `phase0:submit` / `self-assess:submit` / `v5:mb:submit` verbatim.
+   * `ok=false` reserved for explicit server failures (zod 6-field validation,
+   * persist throw).
+   *
+   * Hydrator contract lock (Task 15 owner awareness): server writes to
+   * `metadata.moduleD.*` top-level (Task 22-26 lineage), NOT
+   * `metadata.submissions.moduleD.*` (pre-Task 22 D-2 namespace, only
+   * referenced by archived V4 `mc-probe-engine.ts`). Task 15 Admin API
+   * hydration must read from the same top-level path.
+   *
+   * LLM whitelist (Phase 1 Q4): 3 of 4 MD signals route through the
+   * `gradeWithLLM` helper (sAiOrchestrationQuality / sDesignDecomposition /
+   * sTradeoffArticulation); 1 is pure rule (sConstraintIdentification).
+   * Persist contract is identical for both — the LLM split lives in
+   * `signals/md/*` and does not affect this event shape.
+   */
+  'moduleD:submit': (
+    data: { sessionId: string; submission: V5ModuleDSubmission },
     ack: (ok: boolean) => void,
   ) => void;
   // v5: ModuleC — server handler in Task 11.
