@@ -1,6 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, within } from '@testing-library/react';
 import type { V5Phase0Submission } from '@codelens-v5/shared';
+
+let mockSocket: {
+  emit: ReturnType<typeof vi.fn>;
+  on: ReturnType<typeof vi.fn>;
+  off: ReturnType<typeof vi.fn>;
+};
+
+vi.mock('../lib/socket.js', () => ({
+  getSocket: () => mockSocket,
+}));
+
 import { Phase0Page } from './Phase0Page.js';
 import { P0_MOCK_FIXTURE } from './phase0/mock.js';
 import { useModuleStore } from '../stores/module.store.js';
@@ -77,6 +88,11 @@ function fillAiClaim(text = AI_CLAIM_RESPONSE) {
 
 describe('<Phase0Page />', () => {
   beforeEach(() => {
+    mockSocket = {
+      emit: vi.fn(),
+      on: vi.fn(),
+      off: vi.fn(),
+    };
     seedPhase0();
   });
 
@@ -221,6 +237,64 @@ describe('<Phase0Page />', () => {
       expect(stored).toBeDefined();
       expect(stored?.aiOutputJudgment).toHaveLength(2);
 
+      expect(useModuleStore.getState().currentModule).toBe('moduleA');
+    });
+  });
+
+  describe('socket emit (Task 25)', () => {
+    function fillAll() {
+      fillL1();
+      fillL2();
+      fillL3();
+      fillJudgment(1, 'A');
+      fillJudgment(2, 'A');
+      fillDecision('C');
+      fillAiClaim();
+    }
+
+    it('emits phase0:submit with sessionId + V5Phase0Submission on submit', () => {
+      useSessionStore.setState({ sessionId: 'sess-task25-test' });
+      render(<Phase0Page />);
+      fillAll();
+
+      fireEvent.click(screen.getByTestId('phase0-submit'));
+
+      const call = mockSocket.emit.mock.calls.find(([event]) => event === 'phase0:submit');
+      expect(call).toBeDefined();
+      const [, payload, ack] = call!;
+      expect(payload).toMatchObject({
+        sessionId: 'sess-task25-test',
+        submission: {
+          codeReading: { l1Answer: expect.any(String), l2Answer: L2_TEXT, l3Answer: L3_TEXT },
+          aiOutputJudgment: [
+            { choice: 'A', reasoning: REASON_TEXT },
+            { choice: 'A', reasoning: REASON_TEXT },
+          ],
+          decision: { choice: 'C', reasoning: DECISION_REASON },
+          aiClaimVerification: { response: AI_CLAIM_RESPONSE, submittedAt: expect.any(Number) },
+        },
+      });
+      expect(typeof ack).toBe('function');
+    });
+
+    it('falls back to phase0-pending sessionId when store has none, and ack=false does not undo advance/local persist', () => {
+      // No sessionId set on the store — covers the early-Phase0 path before
+      // session bootstrap completes.
+      render(<Phase0Page />);
+      fillAll();
+      fireEvent.click(screen.getByTestId('phase0-submit'));
+
+      const call = mockSocket.emit.mock.calls.find(([event]) => event === 'phase0:submit');
+      const [, payload, ack] = call!;
+      expect((payload as { sessionId: string }).sessionId).toBe('phase0-pending');
+
+      // Local persist + advance happen synchronously (fire-and-forget emit).
+      expect(useSessionStore.getState().submissions.phase0).toBeDefined();
+      expect(useModuleStore.getState().currentModule).toBe('moduleA');
+
+      // Server-rejected ack must not crash the no-op callback nor revert state.
+      expect(() => act(() => (ack as (ok: boolean) => void)(false))).not.toThrow();
+      expect(useSessionStore.getState().submissions.phase0).toBeDefined();
       expect(useModuleStore.getState().currentModule).toBe('moduleA');
     });
   });

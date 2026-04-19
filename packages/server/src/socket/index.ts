@@ -15,6 +15,7 @@ import type { Server as SocketIOServer } from 'socket.io';
 import { logger } from '../lib/logger.js';
 import { registerBehaviorHandlers } from './behavior-handlers.js';
 import { registerMBHandlers } from './mb-handlers.js';
+import { registerPhase0Handlers } from './phase0-handlers.js';
 import { registerSelfAssessHandlers } from './self-assess-handlers.js';
 
 export function registerSocketHandlers(io: SocketIOServer): void {
@@ -24,6 +25,7 @@ export function registerSocketHandlers(io: SocketIOServer): void {
     registerMBHandlers(io, socket);
     registerBehaviorHandlers(io, socket);
     registerSelfAssessHandlers(io, socket);
+    registerPhase0Handlers(io, socket);
 
     socket.on('disconnect', (reason) => {
       logger.info('[socket] disconnected', { socketId: socket.id, reason });

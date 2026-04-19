@@ -170,7 +170,7 @@ Frontend PR #58 8s timeout guard 在 Task 24 merge 后 0 触发
 Frontend 侧不需改动
 
 
-Task 25 · Cluster C-P0:Phase 0 submit handler(Backend + Frontend verify,~1 天)
+Task 25 · Cluster C-P0:Phase 0 submit handler(Backend + Frontend verify,~1 天)— **DONE**(PR pending self-merge / canonical event `phase0:submit` 经 Phase 1 verify 决定;5 个 P0 signals 解锁 / Pattern H v2.2 4th gate 实装)
 修复目标:P0 submit pipeline 打通,P0-bound signals 从 null → 有值
 扩展项概率影响注意packages/shared/ws.ts p0:submit 或 v5:p0:submit event declaration必然Link 2Pattern C 关键:先 grep Phase0Page 当前有无 socket.emit,若无(local-only)则 canonical 名选 v5:p0:submit;若有 V4 legacy 名则保留packages/server/src/sockets/p0-submit.handler.ts 新建必然Link 3V5Phase0Submission persist(含 aiClaimVerification / aiOutputJudgment 等)必然Link 4schema 已 readyAck response shape必然Frontend 消费{ success, submissionId } 基线Frontend Phase0Page 从 silent-success 改为 socket.emit + ack必然若当前是 local-onlyFrontend 同 sprint 子任务(小)单测 + e2e:P0 submit → signal read必然规则 11
 Data Pipeline Verification:
