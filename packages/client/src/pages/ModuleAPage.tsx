@@ -26,6 +26,7 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import type { V5ModuleASubmission } from '@codelens-v5/shared';
+import { getSocket } from '../lib/socket.js';
 import { useModuleStore } from '../stores/module.store.js';
 import { useSessionStore } from '../stores/session.store.js';
 import { ModuleShell } from '../components/ModuleShell.js';
@@ -73,6 +74,7 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
 }) => {
   const advance = useModuleStore((s) => s.advance);
   const setSubmission = useSessionStore((s) => s.setModuleSubmissionLocal);
+  const sessionId = useSessionStore((s) => s.sessionId);
 
   // --- Round 1 state
   const [r1Scheme, setR1Scheme] = useState<'A' | 'B' | 'C' | null>(null);
@@ -203,6 +205,15 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
 
     onSubmit?.(submission);
     setSubmission('moduleA', submission);
+    // Server persist via Task 26 `moduleA:submit`. Fire-and-forget mirroring
+    // Task 25 `phase0:submit`: the local store is the source of truth for
+    // in-session UI; the ack is reserved for V5.0.5 retry/error UX and does
+    // not gate advance() (no timeout guard yet).
+    getSocket().emit(
+      'moduleA:submit',
+      { sessionId: sessionId ?? 'moduleA-pending', submission },
+      (_ok: boolean) => {},
+    );
     advance();
   }, [
     canSubmitR4,
@@ -218,6 +229,7 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
     r4StartedAt,
     onSubmit,
     setSubmission,
+    sessionId,
     advance,
   ]);
 

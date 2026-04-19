@@ -1,7 +1,7 @@
 import type { AIStreamChunk } from './ai.js';
 import type { FileState } from './sandbox.js';
 import type { TimerState, CheckpointTransition } from './session.js';
-import type { V5MBAudit, V5MBPlanning, V5MBSubmission, V5ModuleCAnswer, V5Phase0Submission } from './v5-submissions.js';
+import type { V5MBAudit, V5MBPlanning, V5MBSubmission, V5ModuleASubmission, V5ModuleCAnswer, V5Phase0Submission } from './v5-submissions.js';
 
 // Client → Server events
 export interface ClientToServerEvents {
@@ -86,6 +86,49 @@ export interface ClientToServerEvents {
    */
   'phase0:submit': (
     data: { sessionId: string; submission: V5Phase0Submission },
+    ack: (ok: boolean) => void,
+  ) => void;
+  /**
+   * Task 26 — Cluster C-MA persist closer. ModuleAPage (Task 9 client) currently
+   * persists locally via setModuleSubmissionLocal but never reaches the server,
+   * so all 10 MA signals (sArgumentResilience / sContextQuality /
+   * sCriticalThinking / sDiagnosisAccuracy / sPrincipleAbstraction /
+   * sReasoningDepth / sSchemeJudgment TJ ×7, plus sCodeReviewQuality /
+   * sHiddenBugFound / sReviewPrioritization CQ ×3) score null at the
+   * orchestrator. This event closes that gap by writing `metadata.moduleA.*`
+   * directly so signals can read non-null at scoring time.
+   *
+   * V5-native shape (no V4 bridge, Phase 1 Q6(a)): ModuleAPage builds
+   * V5ModuleASubmission directly, so the server persists as-is via strict
+   * field pick (Task 23/24/25 lineage). Task 24's V4→V5 normalize is not
+   * applicable here.
+   *
+   * Single final submit (Phase 1 Q2 — Mode C): the 4 rounds are collected
+   * client-side and submitted once from `handleFinalSubmit` after round 4.
+   * This is why the event is singular `moduleA:submit`, not per-round
+   * (`moduleA:round1:submit` etc. — earlier brief mentioned per-round; Phase 1
+   * grep of `ModuleAPage.tsx:174-222` confirmed single emit boundary).
+   *
+   * Naming: lowercase-hyphen `moduleA:submit` matches `phase0:submit` and
+   * `self-assess:submit` convention. Picked `moduleA:submit` (not `ma:submit`)
+   * to read clearly alongside `moduleC:*` (v5:modulec) and to avoid confusion
+   * with the `ma` signal file prefix (`signals/ma/s-scheme-judgment`).
+   *
+   * `sessionId` in envelope (Task 24 Option C lineage): server has no
+   * socket-level session middleware until Task 15, so the client must pass it.
+   *
+   * Ack contract: `(ok: boolean) => void` — matches `phase0:submit` /
+   * `self-assess:submit` / `v5:mb:submit` verbatim. `ok=false` reserved for
+   * explicit server failures (zod 4-round validation, persist throw).
+   *
+   * Hydrator contract lock (Task 15 owner awareness): server writes to
+   * `metadata.moduleA.*` top-level, NOT `metadata.submissions.moduleA.*`
+   * (pre-Task 22 D-2 namespace, only referenced by archived V4
+   * `mc-probe-engine.ts`). Task 15 Admin API hydration must read from the
+   * same top-level path.
+   */
+  'moduleA:submit': (
+    data: { sessionId: string; submission: V5ModuleASubmission },
     ack: (ok: boolean) => void,
   ) => void;
   // v5: ModuleC — server handler in Task 11.
