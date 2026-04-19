@@ -20,7 +20,7 @@
  */
 
 import type { Server as SocketIOServer, Socket } from 'socket.io';
-import type { V5MBAudit, V5MBPlanning, V5MBStandards } from '@codelens-v5/shared';
+import type { V5MBAudit, V5MBPlanning, V5MBStandards, V5MBSubmission } from '@codelens-v5/shared';
 import { V5Event } from '@codelens-v5/shared';
 
 import { logger } from '../lib/logger.js';
@@ -35,6 +35,8 @@ import {
   persistAudit,
   persistPlanning,
   persistStandards,
+  persistFinalTestRun,
+  persistMbSubmission,
   appendVisibilityEvent,
 } from '../services/modules/mb.service.js';
 
@@ -83,6 +85,11 @@ interface VisibilityChangePayload {
   sessionId: string;
   timestamp: number;
   hidden: boolean;
+}
+
+interface SubmitPayload {
+  sessionId: string;
+  submission: V5MBSubmission;
 }
 
 function safe<T extends unknown[]>(
@@ -221,6 +228,10 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
           passRate,
           durationMs: result.durationMs,
         });
+        await persistFinalTestRun(payload.sessionId, {
+          passRate,
+          duration: result.durationMs,
+        });
         await eventBus.emit(V5Event.MB_TEST_RUN, {
           sessionId: payload.sessionId,
           passRate,
@@ -257,6 +268,30 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
         hidden: payload.hidden,
       });
     }),
+  );
+
+  socket.on(
+    'v5:mb:submit',
+    async (payload: SubmitPayload, ack?: (ok: boolean) => void) => {
+      try {
+        await fileSnapshotService.persistToMetadata(payload.sessionId);
+        await persistMbSubmission(payload.sessionId, payload.submission);
+        await eventBus.emit(V5Event.MODULE_SUBMITTED, {
+          sessionId: payload.sessionId,
+          module: 'mb.submit',
+        });
+        ack?.(true);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.warn('[socket:mb] v5:mb:submit failed', {
+          socketId: socket.id,
+          sessionId: payload?.sessionId,
+          error: message,
+        });
+        socket.emit('v5:mb:submit:error', { error: message });
+        ack?.(false);
+      }
+    },
   );
 }
 

@@ -219,9 +219,9 @@
 | `behavior:batch:response` | server → client | (none — fire-and-forget) | Client tracker 不依赖 ack;handler 错误走 `logger.warn` + drop | Task 22 |
 | `v5:mb:chat:event` | client → server | `{ type, content, timestamp }` | Task 13c MB signals 消费 | Task 7.3 PR #40 已建立 |
 | `v5:mb:diff:event` | client → server | `{ fromContent, toContent, source }` | Task 13c MB signals 消费 | 已建立 |
-| `v5:mb:run-test` | client → server | `{ code }` | Task 23 `run_test` handler + persistToMetadata 调用补全 | Cluster B 修复点 |
-| `v5:mb:run-test:response` | server → client | `{ results: TestResult[] }` | MB stage 2 UI | 已建立 |
-| `v5:mb:submit` | client → server | `V5MBSubmission` | Task 27 预留(当前已在 ws.ts,Task 14 ownership 模糊) | Verify ownership |
+| `v5:mb:run_test` | client → server | `{ sessionId: string }` | Task 23 `run_test` handler 已补 `persistFinalTestRun` 调用,写 `metadata.mb.finalTestPassRate` + append `editorBehavior.testRuns[]`;sIterationEfficiency / sChallengeComplete 解锁 | **Pattern C #6 自纠 (a)**:本表格 Task 23 前写作 `v5:mb:run-test`(连字符),但 ws.ts L57 + mb-handlers.ts L208 + ModuleBPage Stage2 layout 全部已是 `v5:mb:run_test`(下划线)。canonical = `v5:mb:run_test`;Task 23 PR 同 sweep 修正本行。Payload `{ code }` 也是错的——实际 sandbox 从 `fileSnapshotService.getSnapshot(sessionId)` 拉文件,不需要 client 传 code |
+| `v5:mb:test_result` | server → client | `{ stdout, stderr, exitCode, passRate, durationMs }` | MB stage 2 UI 显示测试结果 + ModuleBPage 折叠 `latestPassRate` | Task 12 已建立(原 `v5:mb:run-test:response` 是错记，实际事件名是 `v5:mb:test_result`) |
+| `v5:mb:submit` | client → server | `{ sessionId, submission: V5MBSubmission }` (ack: `(ok: boolean) => void`) | Task 23 新建 server handler:`fileSnapshotService.persistToMetadata` + `persistMbSubmission`(strip editorBehavior)+ MODULE_SUBMITTED；sPrecisionFix + sChallengeComplete + sIterationEfficiency 三 signal 闭环 | **Pattern C #6 自纠 (b)**:本表格 Task 23 前注 "当前已在 ws.ts" 是错的——pre-verify grep `v5:mb:submit` 在 client/server 0 hits,`Verify ownership` 备注实属误导。Task 23 PR 同 sweep 把本行改为「新建」并补全 payload + ack signature。**Pattern H v2.2 cross-Task regression defense 关键**:此 handler 必须 STRIP `submission.editorBehavior` 后再 persist——ModuleBPage.tsx L204-211 候选人侧硬编码 6 个 empty array,naive spread-merge 会 silent 清空 Task 22 已 persist 的 `aiCompletionEvents` |
 
 ---
 
@@ -337,3 +337,13 @@ Frontend 同 sprint 子任务加 timeout guard 模板(复用 PR #58)。
       引入 lateral infra grep(auth / session / middleware)作为 pre-verify 必查项;
       引入 Pattern H gate 集成测试(handler envelope → metadata persist → signal
       field-read 三段不 mock 中间层),防 schema↔reality drift 沉默通过
+- [x] Pattern C 第 6 次命中(Task 23 sweep)双重错记修正:
+      (a) `v5:mb:run-test`(连字符)实际是 `v5:mb:run_test`(下划线);
+      (b) `v5:mb:submit` 注 "已在 ws.ts" 实际 0 hits,Task 23 才新建。
+      根因:glossary 当 ws.ts 推理来源,未 grep 实代码;Task 23 pre-verify 双侧 grep 抓到。
+      规则强化:任何「已建立 / 已在 ws.ts」备注必须附 `git grep` 行号引证,否则 reviewer 必查
+- [x] Pattern H v2.2 lateral regression grep(Task 23 扩展):
+      新 handler 写 `metadata.mb.*` 前必须先 grep "现有 writer 到 metadata.mb.editorBehavior",
+      确认新写不 spread-merge 整个 submission(否则 silent 清空 Task 22 sibling array)。
+      Task 23 `v5:mb:submit` 因此 STRIP `editorBehavior` + `agentExecutions` + `rounds` 三键再 persist;
+      集成测试 `mb-cluster-b-pipeline.test.ts` case (ii) 是该 defense 的回归门

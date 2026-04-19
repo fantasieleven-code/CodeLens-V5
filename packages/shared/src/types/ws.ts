@@ -1,7 +1,7 @@
 import type { AIStreamChunk } from './ai.js';
 import type { FileState } from './sandbox.js';
 import type { TimerState, CheckpointTransition } from './session.js';
-import type { V5MBAudit, V5MBPlanning, V5ModuleCAnswer } from './v5-submissions.js';
+import type { V5MBAudit, V5MBPlanning, V5MBSubmission, V5ModuleCAnswer } from './v5-submissions.js';
 
 // Client → Server events
 export interface ClientToServerEvents {
@@ -60,6 +60,15 @@ export interface ClientToServerEvents {
   'v5:mb:audit:submit': (data: V5MBAuditSubmitPayload) => void;
   /** Round 2 Part 3 调整 4 (v5-design-clarifications.md L550-588). */
   'v5:mb:visibility_change': (data: V5MBVisibilityChangePayload) => void;
+  /**
+   * Task 23 — full MB submission persist. Server handler MUST destructure
+   * `editorBehavior` out and skip persisting it; that pipeline is owned by
+   * `behavior:batch` (Task 22). Pattern H v2.2 cross-Task regression defense:
+   * the client builds V5MBSubmission with hardcoded EMPTY editorBehavior
+   * arrays (ModuleBPage.tsx), so a naive spread-merge here would silently
+   * clobber Task 22's persisted aiCompletionEvents.
+   */
+  'v5:mb:submit': (data: V5MBSubmitPayload, ack: (ok: boolean) => void) => void;
 }
 
 // Server → Client events
@@ -193,6 +202,21 @@ export interface V5MBVisibilityChangePayload {
   sessionId: string;
   timestamp: number;
   hidden: boolean;
+}
+
+/**
+ * Task 23 — Cluster B persistToMetadata pipeline closer.
+ *
+ * `submission` is the full V5MBSubmission shape so the server can persist
+ * `mb.planning / standards / audit / finalFiles / finalTestPassRate` and
+ * unblock 3 Cluster B signals (sIterationEfficiency AE, sChallengeComplete CQ,
+ * sPrecisionFix AE). Server MUST omit `submission.editorBehavior` from the
+ * persist write — that pipeline is owned by `behavior:batch` (Task 22) and
+ * the client sends empty arrays in this field.
+ */
+export interface V5MBSubmitPayload {
+  sessionId: string;
+  submission: V5MBSubmission;
 }
 
 // ─── MB Cursor-mode server responses ───

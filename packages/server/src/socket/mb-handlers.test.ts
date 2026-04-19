@@ -20,9 +20,12 @@ const mocks = vi.hoisted(() => ({
   persistPlanning: vi.fn(),
   persistStandards: vi.fn(),
   persistAudit: vi.fn(),
+  persistFinalTestRun: vi.fn(),
+  persistMbSubmission: vi.fn(),
   appendVisibilityEvent: vi.fn(),
   setFileContent: vi.fn(),
   getSnapshot: vi.fn(),
+  fileSnapshotPersistToMetadata: vi.fn(),
   promptRegistryGet: vi.fn(),
   eventBusEmit: vi.fn(),
   langfuseTrace: vi.fn(),
@@ -39,6 +42,8 @@ vi.mock('../services/modules/mb.service.js', () => ({
   persistPlanning: mocks.persistPlanning,
   persistStandards: mocks.persistStandards,
   persistAudit: mocks.persistAudit,
+  persistFinalTestRun: mocks.persistFinalTestRun,
+  persistMbSubmission: mocks.persistMbSubmission,
   appendVisibilityEvent: mocks.appendVisibilityEvent,
   calculatePassRate: (stdout: string) => (stdout.includes('passed') ? 1 : 0),
 }));
@@ -47,6 +52,7 @@ vi.mock('../services/file-snapshot.service.js', () => ({
   fileSnapshotService: {
     setFileContent: mocks.setFileContent,
     getSnapshot: mocks.getSnapshot,
+    persistToMetadata: mocks.fileSnapshotPersistToMetadata,
   },
 }));
 
@@ -101,7 +107,7 @@ beforeEach(() => {
 });
 
 describe('registerMBHandlers — wiring', () => {
-  it('registers all 8 MB event names on the socket', () => {
+  it('registers all 9 MB event names on the socket', () => {
     const { socket, ee } = makeSocket();
     registerMBHandlers({} as never, socket);
     const expected = [
@@ -113,6 +119,7 @@ describe('registerMBHandlers — wiring', () => {
       'v5:mb:run_test',
       'v5:mb:file_change',
       'v5:mb:visibility_change',
+      'v5:mb:submit',
     ];
     for (const name of expected) {
       expect(ee.listeners(name).length).toBeGreaterThan(0);
@@ -281,6 +288,12 @@ describe('run_test', () => {
       'v5:mb:test_result',
       expect.objectContaining({ exitCode: 0, passRate: 1, durationMs: 1234 }),
     );
+    // Task 23 Cluster B unblock: persist before MB_TEST_RUN so signal compute
+    // (sIterationEfficiency / sChallengeComplete) sees the latest pass rate.
+    expect(mocks.persistFinalTestRun).toHaveBeenCalledWith('s1', {
+      passRate: 1,
+      duration: 1234,
+    });
     expect(mocks.eventBusEmit).toHaveBeenCalledWith(V5Event.MB_TEST_RUN, {
       sessionId: 's1',
       passRate: 1,
@@ -337,6 +350,91 @@ describe('file_change / visibility_change', () => {
       timestamp: 123,
       hidden: true,
     });
+  });
+});
+
+describe('v5:mb:submit (Task 23 — Cluster B closer + Pattern H v2.2 defense)', () => {
+  function dispatchWithAck(
+    ee: EventEmitter,
+    event: string,
+    payload: unknown,
+    ack: (ok: boolean) => void,
+  ): Promise<void> {
+    const last = ee.listeners(event).at(-1) as (
+      p: unknown,
+      a: (ok: boolean) => void,
+    ) => Promise<void> | void;
+    return Promise.resolve(last(payload, ack));
+  }
+
+  function makeSubmission() {
+    return {
+      planning: { decomposition: 'd', dependencies: 'dep', fallbackStrategy: 'f' },
+      standards: { rulesContent: 'r' },
+      audit: { violations: [] },
+      finalFiles: [{ path: 'a.py', content: 'pass\n' }],
+      finalTestPassRate: 0.8,
+      // Frontend hardcodes empty arrays here — server MUST NOT trust this and
+      // MUST not let it touch persisted Task 22 editorBehavior.
+      editorBehavior: {
+        aiCompletionEvents: [],
+        chatEvents: [],
+        diffEvents: [],
+        fileNavigationHistory: [],
+        editSessions: [],
+        testRuns: [],
+      },
+    };
+  }
+
+  it('persists fileSnapshot + mb submission + emits MODULE_SUBMITTED + acks true', async () => {
+    mocks.fileSnapshotPersistToMetadata.mockResolvedValueOnce(undefined);
+    mocks.persistMbSubmission.mockResolvedValueOnce(undefined);
+
+    const { socket, ee } = makeSocket();
+    registerMBHandlers({} as never, socket);
+    const ack = vi.fn();
+    const submission = makeSubmission();
+    await dispatchWithAck(ee, 'v5:mb:submit', { sessionId: 's1', submission }, ack);
+
+    expect(mocks.fileSnapshotPersistToMetadata).toHaveBeenCalledWith('s1');
+    expect(mocks.persistMbSubmission).toHaveBeenCalledWith('s1', submission);
+    expect(mocks.eventBusEmit).toHaveBeenCalledWith(V5Event.MODULE_SUBMITTED, {
+      sessionId: 's1',
+      module: 'mb.submit',
+    });
+    expect(ack).toHaveBeenCalledWith(true);
+  });
+
+  it('acks false + emits :error when persistMbSubmission throws (no socket crash)', async () => {
+    mocks.fileSnapshotPersistToMetadata.mockResolvedValueOnce(undefined);
+    mocks.persistMbSubmission.mockRejectedValueOnce(new Error('db down'));
+
+    const { socket, emit, ee } = makeSocket();
+    registerMBHandlers({} as never, socket);
+    const ack = vi.fn();
+
+    await expect(
+      dispatchWithAck(ee, 'v5:mb:submit', { sessionId: 's1', submission: makeSubmission() }, ack),
+    ).resolves.toBeUndefined();
+
+    expect(ack).toHaveBeenCalledWith(false);
+    expect(emit).toHaveBeenCalledWith('v5:mb:submit:error', { error: 'db down' });
+  });
+
+  it('does not throw when ack is omitted (fire-and-forget callers stay safe)', async () => {
+    mocks.fileSnapshotPersistToMetadata.mockResolvedValueOnce(undefined);
+    mocks.persistMbSubmission.mockResolvedValueOnce(undefined);
+
+    const { socket, ee } = makeSocket();
+    registerMBHandlers({} as never, socket);
+
+    const last = ee.listeners('v5:mb:submit').at(-1) as (p: unknown) => Promise<void> | void;
+    await expect(
+      Promise.resolve(last({ sessionId: 's1', submission: makeSubmission() })),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.persistMbSubmission).toHaveBeenCalledOnce();
   });
 });
 

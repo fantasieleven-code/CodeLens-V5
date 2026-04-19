@@ -214,6 +214,30 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
       onSubmit?.(submission);
       setSubmission('mb', submission);
       tracker.flush();
+
+      // Task 23 — fire `v5:mb:submit` so the server persists planning /
+      // standards / audit / finalFiles / finalTestPassRate (Cluster B unblock).
+      // editorBehavior is sent as empty arrays (see top-of-file comment) and
+      // the server STRIPS it before persist — Pattern H v2.2 cross-Task
+      // regression defense, otherwise Task 22's behavior:batch persisted
+      // aiCompletionEvents would be silently clobbered.
+      // PR #58 timeout-guard: UI advances to 'complete' regardless; ack just
+      // surfaces persist failures to the console. Window guard so SSR / test
+      // harness without window doesn't crash.
+      let settled = false;
+      const w = typeof window !== 'undefined' ? window : null;
+      const timeoutId = w?.setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        console.warn('[mb-submit] ack not received within 8s; persist may have failed');
+      }, 8000);
+      getSocket().emit('v5:mb:submit', { sessionId, submission }, (ok: boolean) => {
+        if (settled) return;
+        settled = true;
+        if (timeoutId !== undefined) w?.clearTimeout(timeoutId);
+        if (!ok) console.warn('[mb-submit] server reported persist failure');
+      });
+
       setStage('complete');
     },
     [sessionId, tracker, onSubmit, setSubmission],

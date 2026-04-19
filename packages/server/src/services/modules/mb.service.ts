@@ -17,17 +17,27 @@
  */
 
 import type { Prisma } from '@prisma/client';
-import type { V5MBAudit, V5MBEditorBehavior, V5MBPlanning, V5MBStandards } from '@codelens-v5/shared';
+import type {
+  V5MBAudit,
+  V5MBEditorBehavior,
+  V5MBFinalFile,
+  V5MBPlanning,
+  V5MBStandards,
+  V5MBSubmission,
+} from '@codelens-v5/shared';
 
 import { prisma } from '../../config/db.js';
 import { logger } from '../../lib/logger.js';
 
 export type AiCompletionEvent = V5MBEditorBehavior['aiCompletionEvents'][number];
+export type TestRunEvent = V5MBEditorBehavior['testRuns'][number];
 
 type MBSlice = {
   planning?: V5MBPlanning;
   standards?: V5MBStandards;
   audit?: V5MBAudit;
+  finalFiles?: V5MBFinalFile[];
+  finalTestPassRate?: number;
 };
 
 async function readSessionMeta(sessionId: string): Promise<Record<string, unknown> | null> {
@@ -133,6 +143,73 @@ export async function appendAiCompletionEvents(
 
 function dedupKey(e: AiCompletionEvent): string {
   return `${e.lineNumber}|${e.shownAt ?? 'x'}|${e.respondedAt ?? 'x'}`;
+}
+
+/**
+ * Task 23 — persist a single test run.
+ *
+ * Cluster B unblock: writes `metadata.mb.finalTestPassRate` (latest run, used
+ * by sIterationEfficiency + sChallengeComplete) AND appends to
+ * `editorBehavior.testRuns[]` (run-count factor in both signals). Spread-merge
+ * preserves all other editorBehavior keys (Task 22 aiCompletionEvents,
+ * documentVisibilityEvents, etc).
+ */
+export async function persistFinalTestRun(
+  sessionId: string,
+  opts: { passRate: number; duration: number; timestamp?: number },
+): Promise<void> {
+  const meta = await readSessionMeta(sessionId);
+  if (!meta) return;
+  const currentMb = (meta.mb ?? {}) as Record<string, unknown>;
+  const currentBehavior = (currentMb.editorBehavior ?? {}) as Record<string, unknown>;
+  const currentRuns: TestRunEvent[] = Array.isArray(currentBehavior.testRuns)
+    ? (currentBehavior.testRuns as TestRunEvent[])
+    : [];
+  const nextRun: TestRunEvent = {
+    timestamp: opts.timestamp ?? Date.now(),
+    passRate: opts.passRate,
+    duration: opts.duration,
+  };
+  const nextBehavior = { ...currentBehavior, testRuns: [...currentRuns, nextRun] };
+  const nextMb = {
+    ...currentMb,
+    editorBehavior: nextBehavior,
+    finalTestPassRate: opts.passRate,
+  };
+  await prisma.session.update({
+    where: { id: sessionId },
+    data: { metadata: { ...meta, mb: nextMb } as unknown as Prisma.InputJsonValue },
+  });
+}
+
+/**
+ * Task 23 — persist V5MBSubmission, EXCLUDING editorBehavior.
+ *
+ * Pattern H v2.2 cross-Task regression defense: ModuleBPage.tsx builds the
+ * submission with hardcoded EMPTY editorBehavior arrays (intentional — that
+ * pipeline is owned by `behavior:batch` / Task 22). Spreading the full
+ * submission into `metadata.mb` would silently clobber Task 22's persisted
+ * aiCompletionEvents / documentVisibilityEvents / testRuns. We destructure
+ * editorBehavior + agentExecutions + rounds out and merge only the closer
+ * fields (planning, standards, audit, finalFiles, finalTestPassRate).
+ *
+ * `agentExecutions` is V5.2 reserved (per type comment) and `rounds` is V4
+ * legacy — neither is in scope for V5.0 persist.
+ */
+export async function persistMbSubmission(
+  sessionId: string,
+  submission: V5MBSubmission,
+): Promise<void> {
+  const {
+    editorBehavior: _editorBehavior,
+    agentExecutions: _agentExecutions,
+    rounds: _rounds,
+    ...persistable
+  } = submission;
+  void _editorBehavior;
+  void _agentExecutions;
+  void _rounds;
+  await writeMbSlice(sessionId, persistable);
 }
 
 /** Parse pytest "N passed, M failed" summary. Returns passed/(passed+failed) in [0,1]. */
