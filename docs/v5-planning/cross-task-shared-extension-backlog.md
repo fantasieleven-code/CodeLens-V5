@@ -127,3 +127,93 @@ Task 17 brief 引用 `scoreSession(session, suite): Promise<ScoringResult>`,Back
 本文件是 **V5 开发期 cross-task shared 扩展的唯一真实列表**。其他地方(PR body / observations / brief)引用时都回溯到本文件。
 
 更新频率:每个 Task 完成时 review + 追加。
+
+V5.0 Cluster 修复扩展(2026-04-19 Day 3 加入)
+Context:Production Coverage Audit(PR #57)+ audit errata(PR #59)
+确认 4 cluster / 34 signal 在 production 不可用。V5.0 scope 决定 Option 1
+严格修,Task 22-27 分拆如下。本章节 lock 所有 Cluster 修复涉及的
+shared 扩展、socket event canonical 名、Prisma migration 时序。
+Ordering 原则:Cluster 修复必须按 A → B → D → C 顺序启动,因为:
+
+Cluster A+B 是 Backend-only,最简单,先验证修复模板
+Cluster D(SelfAssess)Frontend PR #58 已加 8s timeout guard,server 侧
+handler 加完就 close loop
+Cluster C(P0/MA/MD)涉及 3 个页面 × Frontend/Backend 双侧,最复杂,
+放最后让前两轮的 pattern 固化
+
+
+Task 22 · Cluster A:behavior:batch handler(Backend,~1.5 天)
+修复目标:11 MB AE signals 从 null → 有值(AE 维度从 ACTIVE=4 → ~15)
+扩展项概率影响注意packages/server/src/sockets/behavior-batch.handler.ts 新建(或融入 mb-module.ts)必然Client tracker emit 的终点Link 3 修复session.metadata.editorBehavior field 持久化 schema必然Link 4 —— 11 AE signals 读源Prisma JSON field 结构 lockpackages/shared/ws.ts v5:mb:behavior:batch event declaration高概率Client tracker 当前用什么 event 名,verifyPattern C 防御 —— grep client useBehaviorTracker.ts:122 实际 emit 的 event 名,不按设计文档写(Frontend PR #58 observation #3 precedent:实际 event 可能是 V4 legacy 名)packages/shared/ws.ts v5:mb:behavior:batch:response ack shape中概率取决于 client 当前是否需要 ack自判单测覆盖:event in → metadata write → 1 AE signal non-null必然Pattern H 防御 —— 测试必须覆盖完整 pipeline,非 mock input规则 11 要求
+Data Pipeline Verification(brief 会包含):
+LinkExpected state post-Task 221. Client emit✓(已存在 useBehaviorTracker.ts)2. ws.ts declaration✓ / ✗(本 Task verify)3. Server handler✗ → ✓(本 Task 交付)4. Persist✗ → ✓(本 Task 交付)5. Signal read✓(11 signals 已存在 signals/mb/)
+
+Task 23 · Cluster B:persistToMetadata call site(Backend,~0.5 天)
+修复目标:3 MB CQ signals 从 null → 有值(CQ 维度从 ACTIVE=? → ~12)
+扩展项概率影响注意run_test handler 添加 persistToMetadata(finalTestPassRate, ...) 调用必然fileSnapshotService 已有 persistToMetadata 实现 + 单测,但 0 call siteLink 3→4 修复session.metadata.finalTestPassRate field 保留必然sChallengeComplete 等读源已 declaredMB final state persistence(submit 时 snapshot 全 file 最终态)高概率某些 CQ signal 读 "最终 snapshot"audit report 具体列哪 3 signal单测:run_test → metadata 读 → sChallengeComplete non-null必然规则 11
+Data Pipeline Verification:
+LinkExpected state post-Task 233. Server handler(run_test)✓(已存在)4. Persist(persistToMetadata call)✗ → ✓(本 Task 交付)5. Signal read✓(3 signals 已存在)
+
+Task 24 · Cluster D:self-assess:submit handler(Backend,~0.5 天)
+修复目标:Cluster D 1 signal 从 null → 有值 + Frontend PR #58 timeout
+guard 闭环(正常 flow <8s 返回,无 toast 触发)
+扩展项概率影响注意packages/server/src/sockets/self-assess.handler.ts 新建 socket.on('self-assess:submit')必然Link 3 —— 当前 0 handlerevent 名 verbatim self-assess:submit(V4 legacy 保留,Frontend PR #58 catch 的 Pattern C precedent)不改为 v5:se:*,除非 Frontend 同步改 emitpackages/shared/ws.ts 声明 self-assess:submit + ack response shape中概率Verify ws.ts 已有无 declaration;若无则补Pattern B 防御V5SelfAssessSubmission persist 到 Prisma必然Link 4schema 已 readyAck response 格式:{ success: true }(或 server-computed score)必然Frontend onSubmit ack callback 消费Verify Frontend 期望形状单测:submit event → Prisma write → Frontend ack 触发必然规则 11
+Data Pipeline Verification:
+LinkExpected state post-Task 241. Client emit✓(SelfAssessPage 已 emit)2. ws.ts declaration✓ / ✗ verify3. Server handler✗ → ✓(本 Task 交付)4. Persist✗ → ✓(本 Task 交付)5. Signal read✓(1 signal 已存在)
+副作用 expected:
+
+Frontend PR #58 8s timeout guard 在 Task 24 merge 后 0 触发
+(正常 flow server ack <1s 返回)
+Frontend 侧不需改动
+
+
+Task 25 · Cluster C-P0:Phase 0 submit handler(Backend + Frontend verify,~1 天)
+修复目标:P0 submit pipeline 打通,P0-bound signals 从 null → 有值
+扩展项概率影响注意packages/shared/ws.ts p0:submit 或 v5:p0:submit event declaration必然Link 2Pattern C 关键:先 grep Phase0Page 当前有无 socket.emit,若无(local-only)则 canonical 名选 v5:p0:submit;若有 V4 legacy 名则保留packages/server/src/sockets/p0-submit.handler.ts 新建必然Link 3V5Phase0Submission persist(含 aiClaimVerification / aiOutputJudgment 等)必然Link 4schema 已 readyAck response shape必然Frontend 消费{ success, submissionId } 基线Frontend Phase0Page 从 silent-success 改为 socket.emit + ack必然若当前是 local-onlyFrontend 同 sprint 子任务(小)单测 + e2e:P0 submit → signal read必然规则 11
+Data Pipeline Verification:
+LinkCurrent stateExpected post-Task 251. Client emit✗(Phase0Page local-only)✓2. ws.ts declaration✗✓3. Server handler✗✓4. Persist✗✓5. Signal read✓(P0 signals 已存在)✓
+Cross-task dependency:
+
+Task 25 必须在 Task 22-24 全 merge 后启动,验证修复模板再扩到 P0
+Task 25 本身 decoupled from Task 26/27(可并行)
+
+
+Task 26 · Cluster C-MA:MA R1/R2 submit handlers(Backend + Frontend verify,~1 天)
+修复目标:MA Round 1 + Round 2 submit pipeline 打通
+扩展项概率影响注意packages/shared/ws.ts ma:round1:submit + ma:round2:submit events必然Link 2grep MAPage 当前 emit 确认 canonicalpackages/server/src/sockets/ma-submit.handler.ts(或拆 2 handler)必然Link 3R1 + R2 可共 handler 分 payload 类型V5MASubmission persist(含 challengeResponse / schemeId / reasoning / migrationScenario 等)必然Link 4schema 已 ready(参 glossary Scheme 系列 / Challenge 系列)MAModuleSpecific.migrationScenario field finalize(backlog Task 10 owner pending,Task 13b local narrow cast)必然#014 cross-task debt 清偿Task 26 本 sprint 合并Frontend MAPage 从 silent-success 改为 socket.emit + ack必然Frontend 同 sprint 子任务单测 + e2e必然规则 11
+Data Pipeline Verification:
+LinkCurrent stateExpected post-Task 261. Client emit✗(MAPage local-only)✓2. ws.ts declaration✗✓3. Server handler✗✓4. Persist✗✓5. Signal read✓(MA signals 已存在)✓
+
+Task 27 · Cluster C-MD:MD submit handler(Backend + Frontend verify,~1 天)
+修复目标:MD submit pipeline 打通 + Max fixture 500ms 边界 bug 小修
+扩展项概率影响注意packages/shared/ws.ts v5:md:submit event declaration必然Link 2 —— observation #023 预见:Task 14 owner defer,Task 27 本 sprint 清偿Pattern B 第 3 次命中的清偿packages/shared/ws.ts v5:md:submit:response ack shape必然Link 2packages/server/src/sockets/md-submit.handler.ts 新建必然Link 3V5ModuleDSubmission persist(含 aiOrchestrationPrompts[] 等)必然Link 4schema 已 readyFrontend MDPage 从 local state only 改为 socket.emit(Task 8 deferred 部分)必然Task 8 PR description 明确等 Task 14,Task 27 承接Max fixture documentVisibleMs 从 500 改为 400(触发 C_reflex_accept tier)中概率Max fixture 500 边界 bug(#066)可独立小 PR 或合入 Task 27单测 + e2e必然规则 11
+Data Pipeline Verification:
+LinkCurrent stateExpected post-Task 271. Client emit✗(MDPage local-only,Task 8 deferred)✓2. ws.ts declaration✗(Task 14 deferred)✓3. Server handler✗✓4. Persist✗✓5. Signal read✓(MD signals 已存在)✓
+
+V5.0 Cold Start Validation Task(Backend + Steve,0.5 天)
+Task 22-27 全 merge 后,V5.0 发布 gate 新增必做:
+项谁做验证内容End-to-end real session runBackend agent(自动化)真实 socket 连接,candidate 跑完 P0 + MA + MD + SE,assert all 48 signals non-null in session.metadata / DB / scoring pipeline outputReport view null scanFrontend agent(自动化)真实 session 生成 report,assert 0 "待评估 / N/A" 文案出现(规则 11 要求)Steve manual smokeSteve本地 full session 跑通 + 随机 check 3 signal evidence trace 合理
+未通过 = V5.0 hold release(checklist 规则 11 最后一段新纪律)。
+
+Pre-Task 22-27 启动前 dependency check
+在 dispatch Task 22 brief 前,Claude 必须 verify:
+
+PR #58 merged(Frontend SelfAssess timeout guard + CapabilityProfiles null guard)→ ✓(0e3a604)
+PR #59 merged(Backend audit errata self-corrections)→ ✓
+PR #60 merged(checklist v2.1,规则 10/11 生效)→ ✓(54222a7)
+glossary Event Naming 小节 merged(本 turn 第 2 个 artifact)→ pending
+
+Task 22 brief dispatch 前 dependency 4 必须 resolve。
+
+Summary:V5.0 Cluster 修复时序 + 工期 band
+TaskClusterOwnerDay band并行?Task 22A(behavior)BackendDay 1-2—Task 23B(persist)BackendDay 2-3(Task 22 后)—Task 24D(self-assess)BackendDay 3可与 Task 25 并行Task 25C-P0Backend + FrontendDay 4-5Task 24 后启动Task 26C-MABackend + FrontendDay 4-5与 Task 25 并行Task 27C-MDBackend + FrontendDay 5-6Task 26 后启动(MA 模板复用)Cold Start ValidationAll + SteveDay 7sequential
+总 band:7 工作日(含 1.5x buffer on Backend 估 "4-5 days parallel")。
+playbook Option 1 的 "~28-31 工作日" 总 V5.0 timeline 继续成立。
+
+Pattern 防御 tick:
+
+ 规则 7(Pattern B):本章节 lock 所有 Cluster 修复涉及的 shared 扩展
+ 规则 10(Pattern H):每 Task 有 Data Pipeline Verification 表
+ 规则 11(Pattern H):Task 22-27 brief 模板已约束
+ 规则 2(Pattern C):Event 名 canonical 由 grep 确认,不按设计文档
+ 规则 3(Pattern F):Task 工期 band 加 1.5x buffer,不精确

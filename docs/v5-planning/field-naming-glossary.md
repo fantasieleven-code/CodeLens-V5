@@ -182,3 +182,146 @@
 - 任何 shared type 变动 → 本文件同步
 - 任何 Task 里发现的 field naming 混淆 → 本文件补充混淆案例
 - V5.1 开发时继承本文件,继续扩展
+
+# field-naming-glossary.md · Event Naming 小节 append
+
+> **指令给 Steve**:将本文件**全部内容** append 到 repo 的
+> `docs/v5-planning/field-naming-glossary.md` 末尾(现第 254 行之后)。
+> 不替换现有内容,只追加。
+>
+> **Background**:Frontend PR #58 observation #3 发现 `self-assess:submit`
+> 是 V4 legacy 命名,非 `v5:se:*` canonical。Pattern C 防御需扩到 socket
+> event names(规则 2 Day 3 扩展)。本小节是 V5.0 所有 socket events 的
+> canonical 名 single source of truth。
+
+---
+
+## Socket Event Naming Glossary(2026-04-19 Day 3 加入)
+
+**使用规则**:
+- 每次写 Task brief 里引用 socket event 名前,**grep 本小节**
+- 每次 draft ws.ts 声明前,**cross-check 本小节**
+- 若 brief 和本小节冲突,**以本小节为准**
+- 若本小节和 ws.ts 实际冲突,**先更新本小节,再发 brief**
+
+**Canonical naming convention**:
+- V5 new events: `v5:<module>:<action>` 格式
+- V4 legacy retention: 保留原 V4 名(Frontend 已用,不破坏现有 emit)
+- Response / ack events: `<event>:response` 后缀
+
+---
+
+### **Module B(MB Cursor)events**
+
+| Event name(canonical) | Direction | Payload | 消费方 | 备注 |
+|----------------------|-----------|---------|--------|------|
+| `v5:mb:behavior:batch` | client → server | `{ events: EditorBehaviorEvent[] }` | Task 22 server handler 新建 + 持久化到 `session.metadata.editorBehavior` | **Pattern C 防御提醒**:Backend pre-verify 必须 grep `packages/client/src/**/useBehaviorTracker.ts` 实际 emit 的 event 名。如果 client 用 `behavior:batch`(无 `v5:` prefix),**canonical 以 client 为准**,ws.ts 声明同名。不改 client emit(改 client 会破坏 Frontend PR #48 已 merged 工作) |
+| `v5:mb:behavior:batch:response` | server → client | `{ ok: true }` 或省略 | Client tracker 可选用 ack,不强制 | Task 22 自判 |
+| `v5:mb:chat:event` | client → server | `{ type, content, timestamp }` | Task 13c MB signals 消费 | Task 7.3 PR #40 已建立 |
+| `v5:mb:diff:event` | client → server | `{ fromContent, toContent, source }` | Task 13c MB signals 消费 | 已建立 |
+| `v5:mb:run-test` | client → server | `{ code }` | Task 23 `run_test` handler + persistToMetadata 调用补全 | Cluster B 修复点 |
+| `v5:mb:run-test:response` | server → client | `{ results: TestResult[] }` | MB stage 2 UI | 已建立 |
+| `v5:mb:submit` | client → server | `V5MBSubmission` | Task 27 预留(当前已在 ws.ts,Task 14 ownership 模糊) | Verify ownership |
+
+---
+
+### **Module A(MA Logic)events**
+
+| Event name(canonical) | Direction | Payload | 消费方 | 备注 |
+|----------------------|-----------|---------|--------|------|
+| `ma:round1:submit` OR `v5:ma:round1:submit`(待 Task 26 grep)| client → server | `V5MASubmission['round1']` | **Task 26 新建 server handler** | Pattern C:Backend pre-verify grep MAPage 实际 emit 确认 prefix。若 V4 legacy 则保留 |
+| `ma:round2:submit` OR `v5:ma:round2:submit` | client → server | `V5MASubmission['round2']` | **Task 26 新建 server handler** | 同上 |
+| `ma:round1:submit:response` | server → client | `{ success: true, submissionId }` | MAPage onSubmit ack | Task 26 定义 shape |
+| `ma:round2:submit:response` | server → client | 同上 | | |
+
+**Cluster C-MA 修复 note**:Frontend MAPage 当前是 silent-success(Backend Q2 verified),
+Task 26 必须**同时改 Frontend emit + 新建 Backend handler + 回 ack**。
+否则 Frontend 改 emit 但 server 无 handler 会触发 SelfAssessPage 类型的
+timeout 错觉(PR #58 timeout guard 在 MA 页未装)。Task 26 brief 要求
+Frontend 同 sprint 子任务加 timeout guard 模板(复用 PR #58)。
+
+---
+
+### **Module D(MD Orchestration)events**
+
+| Event name(canonical) | Direction | Payload | 消费方 | 备注 |
+|----------------------|-----------|---------|--------|------|
+| `v5:md:submit` | client → server | `V5ModuleDSubmission` | **Task 27 新建 server handler** | observation #023 预见:Task 8 defer Frontend emit,Task 14 defer Backend handler,Task 27 一次清偿 |
+| `v5:md:submit:response` | server → client | `{ success: true, submissionId, score? }` | MDPage onSubmit ack | score 字段可选:若同步 scoring 完成可返回,否则 async |
+
+---
+
+### **Module 0(P0 Phase Zero)events**
+
+| Event name(canonical) | Direction | Payload | 消费方 | 备注 |
+|----------------------|-----------|---------|--------|------|
+| `v5:p0:submit` OR `p0:submit`(待 Task 25 grep) | client → server | `V5Phase0Submission` | **Task 25 新建 server handler** | Pattern C:Backend pre-verify grep Phase0Page 当前有无 emit。若无(Backend Q2 verified:local-only)则 canonical 选 `v5:p0:submit` |
+| `v5:p0:submit:response` | server → client | `{ success, submissionId }` | Phase0Page onSubmit ack | Task 25 定义 |
+
+---
+
+### **Module SE(SelfAssess)events**
+
+| Event name(canonical) | Direction | Payload | 消费方 | 备注 |
+|----------------------|-----------|---------|--------|------|
+| `self-assess:submit` | client → server | `V5SelfAssessSubmission` | **Task 24 新建 server handler** | **V4 legacy 命名保留,不改为 v5:se:submit**(Frontend PR #58 已 emit 用此名,333 测试绿,改破坏)。**Pattern C defense 教训内化**:Claude 不按 "v5:" convention 推断,follow codebase 实际 |
+| `self-assess:submit:response` | server → client | `{ success: true }` | SelfAssessPage onSubmit ack(Frontend PR #58 消费 → clearTimeouts)| Task 24 定义 shape;**必须 <8s 返回**,否则触发 PR #58 timeout guard toast |
+
+---
+
+### **Session / Admin events**(参考,V5.0 scope 内已 stable)
+
+| Event name(canonical) | Direction | 消费方 | 备注 |
+|----------------------|-----------|--------|------|
+| `session:load` | client → server | ExamRouter | 已建立 |
+| `session:loaded` | server → client | ExamRouter | 已建立 |
+| `module:advance` | client → server | 模块切换 | 已建立 |
+| `connect` / `disconnect` | Socket.IO 内置 | — | 标准 |
+
+---
+
+### **Event naming 混淆警示**
+
+1. **`self-assess:submit` vs `v5:se:submit`** — **不是同一 event**。前者是
+   V4 legacy 保留(Frontend PR #58 实际 emit 名),后者是 Claude brief 一次
+   错写(#Pattern C 第 4 次命中)。**canonical 是 `self-assess:submit`**
+2. **`v5:mb:behavior:batch` 的 prefix** — 待 Task 22 pre-verify 确认
+   client 实际 emit,不预设。防御 Pattern C 第 5 次命中
+3. **Response event 形状** — 所有 `:response` 后缀 event 必须至少含
+   `{ success: boolean }`,让 Frontend timeout guard 有 consistent 消费接口
+4. **Ack 和 event 的区别** — Socket.IO 的 ack callback(第 3 参数 callback)
+   和独立 `:response` event 是两种机制,V5 选 **ack callback 优先**(Frontend
+   PR #58 基于 ack callback 的 settled flag pattern)
+
+---
+
+### **Task 22-27 brief 强制模板**
+
+每个 Task brief 开头必须包含:
+
+```markdown
+## Event name pre-verify(Pattern C 防御)
+
+| Event | grep 结果 file:line | Canonical 以哪方为准 |
+|-------|-------------------|-------------------|
+| <event 名> | packages/client/...:L / packages/shared/ws.ts:L / 0 hits | Client 实际 emit / glossary 本小节 / 两者一致 |
+```
+
+若 grep 结果和本 glossary 冲突,**stop-for-clarification**,不 silent 按某一方执行。
+
+---
+
+### **V5.1 候选扩展**(不阻 V5.0)
+
+| 候选 | 理由 |
+|------|------|
+| `sAgentGuidance` 事件 payload schema lock | Frontend PR #48 observation 指出 sAgentGuidance 单 signal 敏感度过高(#060),V5.1 重构时 payload shape 可能变化 |
+| Heartbeat / keepalive events | V5.0 过渡期依赖 Socket.IO 默认,V5.0.5 可考虑自定义 heartbeat 便于 metrics |
+| Admin-scoped events(`admin:*` namespace)| Task 15 Admin API 启动时扩,暂不在本 glossary |
+
+---
+
+**Pattern 防御 tick**:
+- [x] 规则 2 扩到 event 名(Day 3 新规)
+- [x] 规则 10 dual-direction grep enforcement(每 event 有 client/server 双侧记录)
+- [x] Pattern C 第 4 次命中(self-assess:submit)根因记录,前置防御案例化
