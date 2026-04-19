@@ -407,14 +407,14 @@ Task 27 merge 时 e2e + prompt-regression 红(per CI_KNOWN_RED.md baseline,do-no
 |---------|------|----------|------|--------|
 | A | V4 前置已复制 default FALSE | 6 | formalized | 中 |
 | B | Cross-task shared extensions 发现过晚 | 3 | formalized | 中 |
-| C | 字段名 / signal ID / **event 前缀**相似致 Claude 混淆 | 5 | **formalized**(Day 3 新增 event prefix 场景 #077)| 中 |
+| C | 字段名 / signal ID / **event 前缀**相似致 Claude 混淆 | **6** | **formalized**(#096 glossary 自污染 phantom events) | 中 |
 | D-1 | interface 字段 ≠ algorithm 消费字段 | 3 | formalized | 中 |
 | D-2 | design doc ≠ actual implementation | 2 | cluster candidate | 中 |
 | D-3 | **dual-shape bridge intentional mismatch**(新)| **1** | **观察**(#084)| 低 |
-| E | Claude memory ≠ filesystem truth | 4 | formalized | 中-高 |
-| F | 凭记忆粗估 list / 完成度 / 数据形状 | **10** | **formalized with strict enforcement** | **最高频** |
+| E | Claude memory ≠ filesystem truth | 5 | **formalized + 严重度上调**(#094) | 高 |
+| F | 凭记忆粗估 list / 完成度 / 数据形状 | **13** | **formalized with strict enforcement**(#095 三连 catch) | **最高频** |
 | G | Scope expansion by silent acceptance | 2 | cluster candidate | 中 |
-| H | test 绿 ≠ production ingest intact | **6 clusters + 2 lateral**(#078, #086)| **formalized**(V5 开发期最严重)| **严重** |
+| H | test 绿 ≠ production ingest intact | **7 clusters + 2 lateral**(#078, #086, #097 7th gate 最强) | **formalized**(V5 开发期最严重) | **严重** |
 | **I** | **Coordinator-agent cadence mismatch**(新)| **1** | **观察**(#092)| **中** |
 
 **Pattern F 登顶**(10 次),超 A(6 次)+ H(8+ 次命中但 6 cluster main hits)。V5.1 Claude coordinator 自律性关注点应从 "Pattern A / D-2" 转向 "**Pattern F strict enforcement + Pattern I cadence awareness**"。
@@ -467,4 +467,40 @@ Backend 执行 Day 3 housekeeping 追加 #075-#093 时触发 count verify(预期
 3. V5.0.5 backlog 候选:考虑写个 `lint-observations-numbering.sh` 脚本,CI 上跑,numbering gap = CI fail
 
 **V5.0.5 backlog 新增项**:#049-#074 narrative text recovery(可 grep transcript archive 或前任 planning Claude workspace snapshot · 若还能找到的话 · 非紧急,不阻 V5.0)。
+
+### #095 — `pattern-F` 第 11/12/13 次:Task 30 Phase 1 三连 catch · Claude brief 字段名误判
+**trace**: Task 30a Phase 2 brief draft 前 Phase 1 grep verify
+Task 30 Phase 1 brief 推测 5 个 Cluster A 剩余 signal 的 input 字段(`fileEvents` / `diffEvents+testEvents` / `editSession 数据 unclear`),Phase 1 grep 实际 signal `.ts` 推翻 3 处:
+1. **sFileNavigationEfficiency** 读 `editorBehavior.fileNavigationHistory`(brief 推测 `fileEvents`,Pattern F #11)
+2. **sTestFirstBehavior** 读 `editorBehavior.fileNavigationHistory`(brief 推测 `diffEvents+testEvents`,实际 signal 看 file 导航 + tests/ path 命名,完全不读 testEvents — Pattern F #12)
+3. **sEditPatternQuality** 读 `editorBehavior.editSessions`(brief 笼统说 "diffEvents",未提 editSessions 这个独立 namespace — Pattern F #13)
+
+Pattern F 第 11/12/13 次累计 = 13 hits,继续坐 V5 开发期最高频 pattern 座次。**Defense validation**:Phase 1 grep-before-code 在 brief draft 阶段就 catch 了 3 处错误,**0 处 leak 到 implementation**。Rule 13 Phase 1/2 split 的 verify-only 设计正是 Pattern F 防御的最强机制。
+
+### #096 — `pattern-C` 第 6 次:`field-naming-glossary` 自污染 phantom events
+**trace**: Task 30a Phase 1 dual-direction grep
+Glossary L220-221 列出 `v5:mb:chat:event` / `v5:mb:diff:event` 两条 row,标注 "Task 7.3 PR #40 已建立"。Phase 1 dual-direction grep 发现:**client / shared/ws.ts / server handler 全部 0 hits**。两个 event 名是 phantom — 真实 chat / diff event 走的是 shared `behavior:batch` envelope(Task 22 wiring,以 `event.type=chat_prompt_sent` / `diff_accepted` 等区分,server 在 `behavior-handlers.ts` 内部 dispatch)。
+
+Pattern C 第 6 次(前 5 次:Pattern C #1-5 见 #077 + glossary L218 / L222 / L224 自纠注脚)。**严重之处**:glossary 是 V5 防御文档的 Tier-1 真值源(`pre-verify` 必 grep),自污染会让下游 brief 全部继承错误。Task 30a PR 顺手将 L220-221 替换为单条 `behavior:batch` envelope row(canonical event 名指向 Task 22 wiring),消除 phantom。
+
+**Defense**:future glossary update 必须配 dual-direction grep verify(规则 10 已写,本次是规则 10 第一次顺手帮 glossary 自检的实例)。
+
+### #097 — `design-insight` shared envelope 让 Pattern H 7th gate 成为最强 cross-Task gate
+**trace**: Task 30a Phase 1 architecture discovery + Phase 2 implementation
+Task 22 build 时设计了 shared `behavior:batch` envelope 作为 client → server 的 telemetry 通道,server-side dispatch 按 `event.type` 分流。Task 30a 复用此通道 → **scope 从原计划"4 handlers + 4 persist methods"压缩到"1 dispatch 扩展 + 4 persist methods"(-40% 工作量)**,实装 0.7 day 命中 brief day band 下沿。
+
+更重要的副作用:**Pattern H 7th gate 成为 Pattern H 6 个前任 gate 中最强的一个**,因为单条 `behavior:batch` envelope 同时 fan-out 到 5 个 `editorBehavior.*` namespace(aiCompletionEvents + chatEvents + diffEvents + fileNavigationHistory + editSessions),Block 2 cross-Task regression 一次性验证 5 个 sibling namespace 不被新 dispatch 误覆盖。等价于把 Pattern H 第 1-6 gate 的"namespace preservation"维度乘以 5。
+
+**Pattern H 第 7 entry**(`behavior:batch` 多 pipeline fan-out)。Pattern library 第 8 entry。
+
+### #098 — `defense-mechanism` Rule 13 第 4 次 validation · Task 30a Phase 1/2 split
+**trace**: Task 30a Phase 1 (verify-only deliverable) + Phase 2 implementation 0 surprise
+Task 25 / 26 / 27 / **30a** Rule 13 Phase 1/2 split 第 4 次连续 validation。Task 30a 特殊性:**Phase 1 catch 3 处 Pattern F + 1 处 Pattern C** 以及 architecture re-scope(-40%),如果直接进 Phase 2 implementation 会:
+- 至少 3 个 signal 读错字段(返回 null in production,silent failure)
+- 至少 1 个 brief 引用 phantom event(misguide 下游 ws.ts cleanup)
+- 估计多 4 个 handler scaffold 后 throw away(scope discovery 来太晚)
+
+**累计 Phase 1 cost / value**(Task 25/26/27/30a):4 × 0.5 day = 2 day 成本 → 换得 ~0 implementation surprise + ~3 处 brief 错误前置 catch + 1 次 architecture pivot。Rule 13 **strongly formalized,单次成本 << 单次收益**。
+
+**Defense library status**:Pattern A-I formalized + Rule 13 formalized,V5.0 防御体系 stable enough 进入 release prep window。
 

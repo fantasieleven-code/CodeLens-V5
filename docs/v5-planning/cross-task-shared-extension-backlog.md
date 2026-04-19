@@ -272,21 +272,31 @@ Task 30 将验证 pattern 是否可 extend 到 **multi-event-type ingest pipelin
 
 ## V5.0 Remaining Scope(post-Cluster-C)
 
-### 1. Task 30 · Cluster A remaining 5 signals(1-2 day)
+### 1. Task 30 · Cluster A remaining 5 signals(Phase 1/2 split,30a + 30b · 1.0-1.5 day total)
 
-**Owner**: Backend solo
-**Scope**:5 AE signals(sPromptQuality / sFileNavigationEfficiency / sTestFirstBehavior / sEditPatternQuality / sAiOutputReview)
-**Pipeline verification** required per signal:
-- sPromptQuality reads chatEvents
-- sFileNavigationEfficiency reads fileEvents
-- sTestFirstBehavior reads diffEvents + testEvents
-- sEditPatternQuality reads diffEvents
-- sAiOutputReview reads chatEvents
+**Phase 1 outcome**(observation #095 + #096 + #097):
+- Phase 1 verify-only deliverable catch 3 处 Pattern F(brief 推测字段名 ≠ 实际 signal `.ts` 字段)+ 1 处 Pattern C #6(glossary phantom event `v5:mb:chat:event` / `v5:mb:diff:event`)
+- Architecture discovery:5 signals 共用 shared `behavior:batch` envelope(Task 22 wiring),scope 从 "4 handler + 4 persist" 压缩到 "1 dispatch + 4 persist"(-40%)
+- **Real input field map**(Phase 1 grep verified):
+  - sPromptQuality → `editorBehavior.chatEvents[]`
+  - sFileNavigationEfficiency → `editorBehavior.fileNavigationHistory[]` + `examData.MB.scaffold.dependencyOrder`
+  - sTestFirstBehavior → `editorBehavior.fileNavigationHistory[]`(读 file 导航 + tests/ path 命名,**完全不读 testEvents**)
+  - sEditPatternQuality → `editorBehavior.editSessions[]`(独立 namespace,brief 笼统的 "diffEvents" 是 Pattern F #13)
+  - sAiOutputReview → `editorBehavior.chatEvents[]` + `editorBehavior.diffEvents[]`
 
-**Pattern H risk**:3 pipelines(chat / diff / file)的 Link 3(server handler)状态**未统一 verified**。Task 7.x era 可能建了部分 handler,Task 30 pre-verify 必须对每条 pipeline 跑 dual-direction grep。
+**Task 30a · Backend solo · ~0.7-1.0 day**(本 PR scope):
+- Wire shared `behavior:batch` server-side dispatch for chat / diff / file / edit-session
+- 4 new persist methods on `mb.service`(`appendChatEvents` / `appendDiffEvents` / `appendFileNavigation` / `appendEditSessions`)
+- Pattern H 7th gate single integration test(3 Blocks:dispatch coverage / 5-namespace preservation / 4-signal non-null compute)
+- 4 / 5 signals production-active post 30a:sPromptQuality + sFileNavigationEfficiency + sTestFirstBehavior + sAiOutputReview。**Cluster A 4 / 5 production-active = 100% chat/file/diff pipeline 覆盖,sEditPatternQuality 留给 30b**
 
-**Dependencies**: Task 22 ingest pattern(已 established)
-**No Phase 1/2 split**: signal implementation 模式已证明,直接 single-phase brief
+**Task 30b · Backend solo · ~0.3-0.5 day**(post-30a follow-up):
+- Wire client-side `useBehaviorTracker` emit for `edit_session_completed`(目前 Phase 1 grep 0 client emit)
+- Activates sEditPatternQuality(5 / 5 Cluster A 闭环)
+- 不需要新 server 改动(30a 已建好 `appendEditSessions` + dispatch + Pattern H gate)
+
+**Dependencies**: Task 22 ingest pattern(已 established)+ Phase 1 verify deliverable(已交付)
+**Phase 1/2 split rationale**: Rule 13 第 4 次 validation(observation #098)— 0.5 day Phase 1 cost 换 -40% scope discovery + 4 处 brief 错误前置 catch + 0 implementation surprise
 
 ### 2. Task 15 · Admin API + production hydration wrapper(2-3 day)
 
@@ -378,10 +388,10 @@ From observations #075-#093 + prior Task 17b backlog:
 
 | Doc | Status | Last update |
 |-----|--------|-------------|
-| `observations.md` | 93 observations tracked(batch 075-093 pending append)| 2026-04-19 |
+| `observations.md` | 98 observations tracked(#094 Pattern E 第 5 次 + #095-#098 Task 30a Phase 1 batch appended) | 2026-04-19 |
 | `claude-self-check-checklist-v2.md` | v2.1(11 rules · Pattern H 规则 10/11 enforced)| PR #60 · 2026-04-19 |
-| `field-naming-glossary.md` | Event Naming section · PR #61 · **needs Pattern C #5 #077 correction for own entries** | 2026-04-19 |
-| `cross-task-shared-extension-backlog.md` | Cluster fix sprint closed · remaining V5.0 scope locked | 2026-04-19 |
+| `field-naming-glossary.md` | Event Naming section · Task 30a PR cleanup applied · L220-221 phantom `v5:mb:chat:event` / `v5:mb:diff:event` 替换为真实 `behavior:batch`(`event.type=...`)dispatch rows · 新增 file / edit-session rows | Task 30a PR · 2026-04-19 |
+| `cross-task-shared-extension-backlog.md` | Cluster fix sprint closed · Task 30 split into 30a(this PR)+ 30b(client edit_session emit follow-up) | 2026-04-19 |
 | `CI_KNOWN_RED.md` | e2e + prompt-regression baselines · 5+ merges red · **V5.0 release gate requires green-up** | 2026-04-19 |
 | `v5-signal-production-coverage.md` | 41/47 = 87.2%(post-Task-27)| 2026-04-19 |
 
