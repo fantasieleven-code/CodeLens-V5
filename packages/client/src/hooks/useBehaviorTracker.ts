@@ -42,6 +42,7 @@ export const CURSOR_BEHAVIOR_EVENTS = [
   'chat_response_received',
   'diff_accepted',
   'diff_rejected',
+  'edit_session_completed',
   'file_opened',
   'file_switched',
   'file_closed',

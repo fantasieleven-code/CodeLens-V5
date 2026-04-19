@@ -165,6 +165,10 @@ export interface V5MBEditorBehavior {
     startTime: number;
     endTime: number;
     keystrokeCount: number;
+    /** Task 30b: reason the session closed. Optional for legacy snapshots pre-30b. */
+    closedBy?: 'idle_timeout' | 'file_switch';
+    /** Task 30b: convenience field = endTime - startTime. Optional for legacy snapshots pre-30b. */
+    durationMs?: number;
   }>;
   testRuns: Array<{
     timestamp: number;
