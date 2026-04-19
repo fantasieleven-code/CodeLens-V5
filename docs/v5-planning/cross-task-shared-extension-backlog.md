@@ -224,3 +224,165 @@ Pattern 防御 tick:
  规则 11(Pattern H):Task 22-27 brief 模板已约束
  规则 2(Pattern C):Event 名 canonical 由 grep 确认,不按设计文档
  规则 3(Pattern F):Task 工期 band 加 1.5x buffer,不精确
+# cross-task-shared-extension-backlog.md · V5.0 Progress Update(post-Cluster-C)
+
+> **指令给 Steve**:将本文件**全部内容** append 到 repo 的
+> `docs/v5-planning/cross-task-shared-extension-backlog.md` 末尾
+> (已有的 Cluster Fix sprint 章节之后)。
+> 不替换现有内容,只追加。
+
+---
+
+## V5.0 Progress Snapshot · Post-Cluster-C (2026-04-19 Day 3 end)
+
+### Cluster fix sprint 完成(Task 22-27,6 PRs merged)
+
+| Task | Cluster | PR | Commit | Merged | Signals activated | Pattern H gate |
+|------|---------|-----|--------|--------|-------------------|----------------|
+| 22 | A · behavior:batch ingest | #63 | db8dfe5 | ✅ | 6 MB AE(fraction of Cluster A 11)| 1st |
+| 23 | B · persist v5:mb:submit | #66 | 77a5555 | ✅ | 3(2 AE + 1 CQ)| 2nd |
+| 24 | D · self-assess:submit | #67 | d16b738 | ✅ | 1 SE(sMetaCognition)| 3rd |
+| 25 | C-P0 · phase0:submit | #68 | 71acf50 | ✅ | 5(2 TJ + 3 METACOG)| 4th(first Rule 13 validation)|
+| 26 | C-MA · moduleA:submit | #69 | 6cd3b33 | ✅ | 10(7 TJ + 3 CQ)| 5th |
+| 27 | C-MD · moduleD:submit | #70 | 64dc7cd | ✅ | 4(1 AE + 3 SD)| **6th · LLM whitelist dual-block** |
+
+**Totals**:6 PRs · 29 signals activated · Pattern H 6-gate ladder closed · Rule 13 3 validations。
+
+### Signal coverage milestone
+
+- **Pre-sprint**: 12/47 = 25.5% production-active(Day 2 baseline per PR #57 audit)
+- **Post-Task-22-26**: 37/47 = 78.7%(Task 26 merge)
+- **Post-Task-27**: **41/47 = 87.2%** ← current state
+- **Post-Task-30 projected**: 46/47 = 97.9%(pending Task 30 Cluster A remaining 5)
+- **Dimension population**: AE 0→1 · SD 0→3 · **all 6 V5 dimensions production-ready** · radar chart unblocked
+
+### Cluster fix patterns established
+
+**Pattern library 6 entries**(第 7 pending Task 30):
+1. External-origin ingest(server-side sessionId injection)
+2. Regression defense via spread-merge + strict field pick
+3. V4→V5 normalize dual-shape bridge
+4. V5-native greenfield submit + cross-Task preservation gate
+5. Multi-round zod + last-write-wins
+6. LLM whitelist dual-block(Block 1 fallback tier + Block 2 LLM mock structural)
+
+Task 30 将验证 pattern 是否可 extend 到 **multi-event-type ingest pipeline**(chatEvents / diffEvents / fileEvents 三种 event,不止 aiCompletionEvents 一种)。
+
+---
+
+## V5.0 Remaining Scope(post-Cluster-C)
+
+### 1. Task 30 · Cluster A remaining 5 signals(1-2 day)
+
+**Owner**: Backend solo
+**Scope**:5 AE signals(sPromptQuality / sFileNavigationEfficiency / sTestFirstBehavior / sEditPatternQuality / sAiOutputReview)
+**Pipeline verification** required per signal:
+- sPromptQuality reads chatEvents
+- sFileNavigationEfficiency reads fileEvents
+- sTestFirstBehavior reads diffEvents + testEvents
+- sEditPatternQuality reads diffEvents
+- sAiOutputReview reads chatEvents
+
+**Pattern H risk**:3 pipelines(chat / diff / file)的 Link 3(server handler)状态**未统一 verified**。Task 7.x era 可能建了部分 handler,Task 30 pre-verify 必须对每条 pipeline 跑 dual-direction grep。
+
+**Dependencies**: Task 22 ingest pattern(已 established)
+**No Phase 1/2 split**: signal implementation 模式已证明,直接 single-phase brief
+
+### 2. Task 15 · Admin API + production hydration wrapper(2-3 day)
+
+**Owner**: Backend solo
+**Release gate**: **V5.0 硬需求**。
+**Hydrator contract locked**(Task 26/27 Phase 1 Q comments):
+- Read `metadata.moduleA` top-level(NOT `metadata.submissions.moduleA`)
+- Read `metadata.moduleD` top-level
+- Read `metadata.phase0` top-level
+- Read `metadata.mb.editorBehavior` + `metadata.mb.fileSnapshot`
+- Read `metadata.selfAssess` top-level
+- Read `metadata.moduleC`(如果有)top-level
+
+**Legacy cleanup**:V4 ghost `metadata.submissions.*` namespace cleanup(V5.0.5 backlog,Task 15 不必做)。
+
+**Unblocks**: Frontend Task 12 Layer 2 implementation + Frontend F-A12 candidate profile schema。
+
+**Shared types to deliver**:
+- `V5AdminSessionCreate`
+- `V5AdminSession`
+- `V5AdminExamInstance`
+- `V5AdminStatsOverview`
+- `V5ReportResponse`(Report wrapper)
+
+Frontend adminApi.types.ts shim 与这 5 个 shared types **1:1 对齐**(Frontend Task 12 Layer 2 pre-verify audit confirmed)。
+
+### 3. A-series(3.5-4.5 day,分 Backend/Frontend)
+
+- **A1 sCalibration**(0.5 day, Backend)· depends on fixture `selfAssess.confidence` 调整(#057 observation)
+- **A12 candidate profile 7 fields**(2 day, Backend + Frontend)· Prisma schema + pre-exam form + Admin view
+- **A10-lite candidate self-view**(1-2 day, Frontend)· ethics floor
+- **A14a reliability merged to Task 18+**(concurrent)
+
+### 4. CI green-up(1 day,Backend)
+
+**New scope**(#093 observation driven):V5.0 Cold Start Validation 前必须 resolve CI reds。
+- e2e "No tests found" · infra 小修
+- prompt-regression "no promptfooconfig.yaml" · infra 小修
+- Task 17 owner · 独立 slot(不合并到其他 Task)
+
+**Release gate**: CI reds 必须清 · 不能带红 CI 发 V5.0。
+
+### 5. Cold Start Validation(0.5 day,Backend + Steve)
+
+**Release gate**(#088 observation formalized):
+- End-to-end real socket session run · 非 fixture
+- Assert all 48 signals non-null in production scoring pipeline output
+- Frontend report view · 0 "待评估 / N/A" 文案
+- Steve manual smoke + 随机 check 3 signal evidence trace
+
+**未通过 = V5.0 hold release**。
+
+---
+
+## V5.0 Timeline(updated to ~8-11 workdays)
+
+| Day | Owner | Activity | Blocks |
+|-----|-------|----------|--------|
+| 1-2 | Backend | Task 30 · Cluster A remaining 5 signals | Task 15 |
+| 2-3 | Frontend | Task 12 Layer 2 prep(adminApi real-API prep,no commit yet) | Task 15 |
+| 3-5 | Backend | Task 15 · Admin API + hydrator | Task 12 Layer 2 impl + F-A12 |
+| 5-6 | Frontend | Task 12 Layer 2 impl(hydrator ready)| — |
+| 5-7 | Backend + Frontend | A-series(A1 + A12 parallel with Frontend A10-lite)| — |
+| 7-8 | Backend | CI green-up | Cold Start |
+| 8-9 | Backend + Steve | Cold Start Validation | V5.0 release |
+
+**总 estimate: 8-11 workdays from 2026-04-20**。
+
+---
+
+## V5.0.5 Backlog accumulated(post-Cluster-C)
+
+From observations #075-#093 + prior Task 17b backlog:
+
+1. **shared dist/ prebuild hook**(Frontend hit twice · confirmed necessary)
+2. **HeroSection.tsx:83 outer guard null-safety**(Frontend Task 28 follow-up)
+3. **SessionService metadata V4-ghost submissions envelope cleanup**(hydrator contract lock driven · #087)
+4. **SelfAssess + Phase0 + MA + MD timeout guard consistency pass**
+5. **V5AdminPosition scope gap**(Frontend Task 12 audit Observation #2)
+6. **sAestheticJudgment experimental commentType 'style'**(V5.2+ consideration)
+7. **V5 socket middleware · sessionId injection统一化**(#078 lateral infra Pattern H)
+8. **V4 legacy event names migration planning**(self-assess:submit / behavior:batch → v5:se:submit / v5:mb:behavior:batch · V5.1+)
+9. **V4 legacy shape deprecation + V5.1 V5-native shape emit**(Pattern D-3 cleanup · #084)
+10. **HireFlow generation_meta_prompt.md 第零步 diagnostic layer**(cross-product · MockPro/HireFlow backlog)
+
+---
+
+## Pattern defense docs status(post-batch 075-093)
+
+| Doc | Status | Last update |
+|-----|--------|-------------|
+| `observations.md` | 93 observations tracked(batch 075-093 pending append)| 2026-04-19 |
+| `claude-self-check-checklist-v2.md` | v2.1(11 rules · Pattern H 规则 10/11 enforced)| PR #60 · 2026-04-19 |
+| `field-naming-glossary.md` | Event Naming section · PR #61 · **needs Pattern C #5 #077 correction for own entries** | 2026-04-19 |
+| `cross-task-shared-extension-backlog.md` | Cluster fix sprint closed · remaining V5.0 scope locked | 2026-04-19 |
+| `CI_KNOWN_RED.md` | e2e + prompt-regression baselines · 5+ merges red · **V5.0 release gate requires green-up** | 2026-04-19 |
+| `v5-signal-production-coverage.md` | 41/47 = 87.2%(post-Task-27)| 2026-04-19 |
+
+**Pattern C #5 self-pollution**(#077):glossary 自身 Event Naming 小节有 Claude 写的 `v5:mb:behavior:batch` 错误前缀。Task 30 brief dispatch 前需先修 glossary(Backend 可 squash 进 Task 30 PR,或单独 5-min docs PR)。
