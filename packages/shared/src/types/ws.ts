@@ -40,8 +40,23 @@ export interface ClientToServerEvents {
     sessionId: string;
     events: Array<{ type: string; timestamp: string; payload: Record<string, unknown> }>;
   }) => void;
+  /**
+   * Task 24 — Cluster D self-assess submit. Frontend SelfAssessPage emits a
+   * V4-legacy field set (`selfConfidence` 0-100, `selfIdentifiedRisk`,
+   * `responseTimeMs`) that the server normalizes to V5SelfAssessSubmission
+   * before persist (see `packages/server/src/socket/self-assess-handlers.ts`).
+   * `sessionId` was added in Task 24 (Option C) so the handler has a target
+   * for `metadata.selfAssess.*` writes — the server has no socket-level
+   * session middleware (Task 15 will add it). The dual-shape bridge between
+   * the V4 socket payload and V5SelfAssessSubmission is V5.0.5 cleanup.
+   */
   'self-assess:submit': (
-    data: { selfConfidence: number; selfIdentifiedRisk?: string; responseTimeMs: number },
+    data: {
+      sessionId: string;
+      selfConfidence: number;
+      selfIdentifiedRisk?: string;
+      responseTimeMs: number;
+    },
     ack: (ok: boolean) => void,
   ) => void;
   // v5: ModuleC — server handler in Task 11.

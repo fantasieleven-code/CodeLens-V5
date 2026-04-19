@@ -104,6 +104,7 @@ export const SelfAssessPage: React.FC = () => {
     socket.emit(
       'self-assess:submit',
       {
+        sessionId: sessionId ?? 'selfassess-pending',
         selfConfidence: confidence,
         selfIdentifiedRisk: reasoning.trim() || undefined,
         responseTimeMs: Date.now() - mountTimeRef.current,

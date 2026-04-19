@@ -163,6 +163,7 @@ describe('<SelfAssessPage />', () => {
     expect(selfAssessCall).toBeDefined();
     const [, payload, ack] = selfAssessCall!;
     expect(payload).toMatchObject({
+      sessionId: 'selfassess-pending',
       selfConfidence: 75,
       selfIdentifiedRisk: '我觉得 Phase 0 的判断题可能选错了',
     });
