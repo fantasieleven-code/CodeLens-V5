@@ -37,7 +37,7 @@ export function MBDetailSection({ viewModel }: SectionProps): React.ReactElement
           alignItems: 'center',
         }}
       >
-        <Stat label="最终测试通过率" value={`${(finalTestPassRate * 100).toFixed(0)}%`} />
+        <Stat label="最终测试通过率" value={`${finalTestPassRate != null ? (finalTestPassRate * 100).toFixed(0) : '—'}%`} />
         <Stat label="文件数" value={finalFiles.length.toString()} />
       </div>
 

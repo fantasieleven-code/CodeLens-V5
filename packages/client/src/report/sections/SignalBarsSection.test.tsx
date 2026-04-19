@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { SignalBarsSection } from './SignalBarsSection.js';
 import { sPlusArchitectFixture } from '../__fixtures__/index.js';
+import type { ReportViewModel } from '../types.js';
 
 describe('<SignalBarsSection />', () => {
   it('groups signals by dimension and shows N/A summary', () => {
@@ -32,5 +33,28 @@ describe('<SignalBarsSection />', () => {
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByTestId(`signal-evidence-${signalId}`)).toBeNull();
+  });
+
+  it('Pattern H: renders "—" when an evidence contribution is nullish', () => {
+    const signalId = 'sSchemeJudgment';
+    const baseResult = sPlusArchitectFixture.signalResults[signalId]!;
+    const baseEvidence = baseResult.evidence[0]!;
+    const vm: ReportViewModel = {
+      ...sPlusArchitectFixture,
+      signalResults: {
+        ...sPlusArchitectFixture.signalResults,
+        [signalId]: {
+          ...baseResult,
+          evidence: [
+            { ...baseEvidence, contribution: undefined as unknown as number },
+            ...baseResult.evidence.slice(1),
+          ],
+        },
+      },
+    };
+    render(<SignalBarsSection viewModel={vm} />);
+    fireEvent.click(screen.getByTestId(`signal-toggle-${signalId}`));
+    const evidence = screen.getByTestId(`signal-evidence-${signalId}`);
+    expect(evidence).toHaveTextContent('贡献 —');
   });
 });

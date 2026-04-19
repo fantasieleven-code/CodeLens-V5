@@ -236,7 +236,7 @@ function SignalRow({ def, result, open, onToggle }: SignalRowProps): React.React
                     )}
                     <span style={{ marginLeft: 'auto' }}>
                       贡献 {ev.contribution > 0 ? '+' : ''}
-                      {ev.contribution.toFixed(2)}
+                      {ev.contribution?.toFixed(2) ?? '—'}
                     </span>
                   </div>
                   <div
