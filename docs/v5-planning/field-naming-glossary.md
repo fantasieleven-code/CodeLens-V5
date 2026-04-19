@@ -244,8 +244,15 @@
 
 | Event name(canonical) | Direction | Payload | 消费方 | 备注 |
 |----------------------|-----------|---------|--------|------|
-| `v5:md:submit` | client → server | `V5ModuleDSubmission` | **Task 27 新建 server handler** | observation #023 预见:Task 8 defer Frontend emit,Task 14 defer Backend handler,Task 27 一次清偿 |
-| `v5:md:submit:response` | server → client | `{ success: true, submissionId, score? }` | MDPage onSubmit ack | score 字段可选:若同步 scoring 完成可返回,否则 async |
+| `moduleD:submit` | client → server | `{ sessionId: string; submission: V5ModuleDSubmission }`(ack `(ok: boolean) => void`) | Task 27 `registerModuleDHandlers`(`packages/server/src/socket/moduleD-handlers.ts`)→ `persistModuleDSubmission` 写 `metadata.moduleD.{subModules, interfaceDefinitions, dataFlowDescription, constraintsSelected, tradeoffText, aiOrchestrationPrompts}` → MODULE_SUBMITTED;4 个 MD signals(sAiOrchestrationQuality AE,sConstraintIdentification / sDesignDecomposition / sTradeoffArticulation SD ×3)解锁。**Post-Task 27 milestone:41/47 = 87.2% signal coverage,AE 0→1,SD 0→3,所有 6 V5 维度非空(radar production-ready)** | **Pattern C 决议(Phase 1 verify confirm)**:早期占位 `v5:md:submit`(observation #023)被推翻,canonical 选 `moduleD:submit` 小写连字符,与 Task 26 `moduleA:submit` / Task 25 `phase0:submit` / Task 24 `self-assess:submit` 一致(`v5:` 前缀仅用于多事件命名空间,如 `v5:mb:*` / `v5:modulec:*`)。**Single final submit(Mode C)**:ModuleDPage `handleSubmit` 一次提交完整 6-field payload(无 per-section emit)。**V5-native shape(无 V4 bridge)**:Live `V5ModuleDSubmission` 是 6 fields(subModules / interfaceDefinitions / dataFlowDescription / constraintsSelected / tradeoffText / aiOrchestrationPrompts);design doc 提及的 `challengeResponse` / `designRevision` 从未上线 — Task 27 mirror live shape 而非 doc(Pattern D-2 lineage:Task 26 round4 的"trust live type over earlier design intent")。`sessionId` 在 envelope 顶层(Task 24 Option C 沿用,server 无 socket-level 中间件,Task 15 owner)。**Fire-and-forget emit**:本地 store 是 in-session UI 真值源,ack 不 gate `advance()`(无 timeout guard,V5.0.5 添加 retry/error UX)。**LLM whitelist split(3/4)**:sDesignDecomposition / sTradeoffArticulation / sAiOrchestrationQuality 通过 `gradeWithLLM` 走 ModelProvider;sConstraintIdentification 是纯规则。Persist contract 对两者一致 — LLM split 在 `signals/md/*` 内部,不影响 event shape |
+| `moduleD:submit` ack | server → client (callback) | `(ok: boolean) => void` | ModuleDPage handleSubmit 注册 no-op callback(`(_ok: boolean) => {}`) | Task 27 实装。**ack signature lock**:`(ok: boolean)` 与 `moduleA:submit` / `phase0:submit` / `self-assess:submit` / `v5:mb:submit` 一致;`ok=false` 保留给 server 显式失败(zod 6-field schema invalid / persist throw) |
+
+**Hydrator contract lock(Task 15 Admin API owner awareness)**:`metadata.moduleD.*` 是 top-level canonical namespace。**不要** hydrate `metadata.submissions.moduleD.*`(D-2 pre-Task 22 namespace,只有 archived V4 `mc-probe-engine.ts` 引用)。Task 15 Admin API hydration 必须读 `metadata.moduleD.*` 并 pass into `ScoreSessionInput.submissions.moduleD`。
+
+**Pattern H 6th gate dual-block coverage**:`packages/server/src/tests/integration/moduleD-pipeline.test.ts` 是 V5.0 首个 LLM whitelist Pattern H 模板:
+- Block 1(fallback path):exercises `.fallback!()` 直接,不调用 ModelProvider — 证明 persist → signal field-name alignment 不依赖 LLM nondeterminism;
+- Block 2(LLM mock):mock `modelFactory.generate` 返回 canned JSON,assert 3 个 LLM whitelist 信号路由到 `gradeWithLLM` 并返回 LLM_VERSION(structural,不校准 score);
+- Cross-Task 5-namespace 防护(mb / selfAssess / phase0 / moduleA / moduleC)— Pattern H 阶梯封顶。
 
 ---
 
