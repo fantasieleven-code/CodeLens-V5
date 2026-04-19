@@ -28,4 +28,21 @@ describe('<MBDetailSection />', () => {
     const { container } = render(<MBDetailSection viewModel={vm} />);
     expect(container.firstChild).toBeNull();
   });
+
+  it('Pattern H: renders "—%" when finalTestPassRate is nullish without crashing', () => {
+    const baseMb = aFullStackBoundaryFixture.submissions.mb!;
+    const vm: ReportViewModel = {
+      ...aFullStackBoundaryFixture,
+      submissions: {
+        ...aFullStackBoundaryFixture.submissions,
+        mb: {
+          ...baseMb,
+          finalTestPassRate: undefined as unknown as number,
+        },
+      },
+    };
+    render(<MBDetailSection viewModel={vm} />);
+    expect(screen.getByTestId('mb-detail-section')).toHaveTextContent('最终测试通过率');
+    expect(screen.getByTestId('mb-detail-section')).toHaveTextContent('—%');
+  });
 });

@@ -79,12 +79,12 @@ export function HeroSection({ viewModel }: SectionProps): React.ReactElement {
           >
             <span>{suite.nameZh}</span>
             <span style={{ margin: `0 ${spacing.sm}`, color: colors.overlay1 }}>·</span>
-            <span data-testid="hero-composite">综合 {composite.toFixed(1)}</span>
+            <span data-testid="hero-composite">综合 {composite?.toFixed(1) ?? '—'}</span>
             {boundaryAnalysis.nearestUpperGrade && boundaryAnalysis.distanceToUpper !== null && (
               <>
                 <span style={{ margin: `0 ${spacing.sm}`, color: colors.overlay1 }}>·</span>
                 <span data-testid="hero-distance-upper">
-                  距 {boundaryAnalysis.nearestUpperGrade} 差 {boundaryAnalysis.distanceToUpper.toFixed(1)}
+                  距 {boundaryAnalysis.nearestUpperGrade} 差 {boundaryAnalysis?.distanceToUpper?.toFixed(1) ?? '—'}
                 </span>
               </>
             )}

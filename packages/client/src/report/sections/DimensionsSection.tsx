@@ -40,7 +40,7 @@ export function DimensionsSection({ viewModel }: SectionProps): React.ReactEleme
         {orderedDims.map((dim) => {
           const score = dimensions[dim] ?? 0;
           const weight = suite.weightProfile[dim] ?? 0;
-          const label = `${V5_DIMENSION_LABELS_ZH[dim]} · 权重 ${(weight * 100).toFixed(0)}%`;
+          const label = `${V5_DIMENSION_LABELS_ZH[dim]} · 权重 ${weight != null ? (weight * 100).toFixed(0) : '—'}%`;
           return (
             <ScoreBar key={dim} score={score} maxScore={100} label={label} />
           );

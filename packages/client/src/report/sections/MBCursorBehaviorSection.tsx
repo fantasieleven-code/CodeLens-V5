@@ -48,7 +48,7 @@ export function MBCursorBehaviorSection({ viewModel }: SectionProps): React.Reac
           marginBottom: spacing.md,
         }}
       >
-        <Metric label="Completion 接受率" value={`${acceptRate.toFixed(0)}%`} />
+        <Metric label="Completion 接受率" value={`${acceptRate?.toFixed(0) ?? '—'}%`} />
         <Metric label="Completion 事件" value={completionCount.toString()} />
         <Metric label="Chat 事件" value={chatCount.toString()} />
         <Metric label="Diff 事件" value={diffCount.toString()} />
