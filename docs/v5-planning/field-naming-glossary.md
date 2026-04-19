@@ -215,8 +215,8 @@
 
 | Event name(canonical) | Direction | Payload | 消费方 | 备注 |
 |----------------------|-----------|---------|--------|------|
-| `v5:mb:behavior:batch` | client → server | `{ events: EditorBehaviorEvent[] }` | Task 22 server handler 新建 + 持久化到 `session.metadata.editorBehavior` | **Pattern C 防御提醒**:Backend pre-verify 必须 grep `packages/client/src/**/useBehaviorTracker.ts` 实际 emit 的 event 名。如果 client 用 `behavior:batch`(无 `v5:` prefix),**canonical 以 client 为准**,ws.ts 声明同名。不改 client emit(改 client 会破坏 Frontend PR #48 已 merged 工作) |
-| `v5:mb:behavior:batch:response` | server → client | `{ ok: true }` 或省略 | Client tracker 可选用 ack,不强制 | Task 22 自判 |
+| `behavior:batch` | client → server | `{ sessionId: string, events: EditorBehaviorEvent[] }` | Task 22 server handler 新建 + 持久化到 `session.metadata.mb.editorBehavior.aiCompletionEvents`(其余 event types Task 22.x follow-up) | **Pattern C #5 自纠**:本表格曾把 canonical 写作 `v5:mb:behavior:batch`(Pattern C 防御提醒注脚),但 Task 22 pre-verify 实际 grep 发现 client(`useBehaviorTracker.ts:122`)+ shared `ws.ts:27` 都已用 `behavior:batch`。canonical = `behavior:batch`(无 `v5:` prefix);Task 22 PR 同 sweep 修正本行。`sessionId` 在 envelope 顶层(非 per-event):server 无 socket-level session 中间件,client 必须显式传 |
+| `behavior:batch:response` | server → client | (none — fire-and-forget) | Client tracker 不依赖 ack;handler 错误走 `logger.warn` + drop | Task 22 |
 | `v5:mb:chat:event` | client → server | `{ type, content, timestamp }` | Task 13c MB signals 消费 | Task 7.3 PR #40 已建立 |
 | `v5:mb:diff:event` | client → server | `{ fromContent, toContent, source }` | Task 13c MB signals 消费 | 已建立 |
 | `v5:mb:run-test` | client → server | `{ code }` | Task 23 `run_test` handler + persistToMetadata 调用补全 | Cluster B 修复点 |
@@ -285,8 +285,14 @@ Frontend 同 sprint 子任务加 timeout guard 模板(复用 PR #58)。
 1. **`self-assess:submit` vs `v5:se:submit`** — **不是同一 event**。前者是
    V4 legacy 保留(Frontend PR #58 实际 emit 名),后者是 Claude brief 一次
    错写(#Pattern C 第 4 次命中)。**canonical 是 `self-assess:submit`**
-2. **`v5:mb:behavior:batch` 的 prefix** — 待 Task 22 pre-verify 确认
-   client 实际 emit,不预设。防御 Pattern C 第 5 次命中
+2. **`behavior:batch` 的 prefix** — Task 22 pre-verify(2026-04-19)grep
+   结果:`packages/client/src/hooks/useBehaviorTracker.ts:122` + 共享
+   `packages/shared/src/types/ws.ts:27` 两侧一致用 **无 prefix** 的
+   `behavior:batch`。本 glossary 第 218 行原写作 `v5:mb:behavior:batch`,
+   Task 22 同 PR sweep 修正(**Pattern C 第 5 次命中**:glossary 预设 vs
+   client/shared 实测不一致 → canonical 永远以 dual-direction grep 为准,
+   不以 brief 预设)。Envelope 形状:`{ sessionId: string, events: [...] }`,
+   sessionId 在顶层(server 无 socket-level session 中间件)
 3. **Response event 形状** — 所有 `:response` 后缀 event 必须至少含
    `{ success: boolean }`,让 Frontend timeout guard 有 consistent 消费接口
 4. **Ack 和 event 的区别** — Socket.IO 的 ack callback(第 3 参数 callback)
@@ -325,3 +331,9 @@ Frontend 同 sprint 子任务加 timeout guard 模板(复用 PR #58)。
 - [x] 规则 2 扩到 event 名(Day 3 新规)
 - [x] 规则 10 dual-direction grep enforcement(每 event 有 client/server 双侧记录)
 - [x] Pattern C 第 4 次命中(self-assess:submit)根因记录,前置防御案例化
+- [x] Pattern C 第 5 次命中(behavior:batch prefix)Task 22 sweep 修正:glossary
+      预设错,client/shared 实测对;canonical 以 grep 为准的规则强化
+- [x] Pattern H v2.2(Task 22 引入):test-green ≠ production-ingest-intact;
+      引入 lateral infra grep(auth / session / middleware)作为 pre-verify 必查项;
+      引入 Pattern H gate 集成测试(handler envelope → metadata persist → signal
+      field-read 三段不 mock 中间层),防 schema↔reality drift 沉默通过

@@ -21,6 +21,7 @@ export const SelfAssessPage: React.FC = () => {
   const advance = useModuleStore((s) => s.advance);
   const suiteId = useModuleStore((s) => s.suiteId);
   const setSubmission = useSessionStore((s) => s.setModuleSubmissionLocal);
+  const sessionId = useSessionStore((s) => s.sessionId);
   // Subscribe to submissions so re-renders reflect upstream module writes —
   // store getters don't trigger React updates on their own.
   const submissions = useSessionStore((s) => s.submissions);
@@ -30,7 +31,7 @@ export const SelfAssessPage: React.FC = () => {
     () => useSessionStore.getState().getDecisionSummary(),
     [submissions],
   );
-  const behavior = useBehaviorTracker('selfAssess');
+  const behavior = useBehaviorTracker(sessionId ?? 'selfassess-pending', 'selfAssess');
   const mountTimeRef = useRef(Date.now());
 
   const [confidence, setConfidence] = useState(60);
