@@ -1,7 +1,7 @@
 import type { AIStreamChunk } from './ai.js';
 import type { FileState } from './sandbox.js';
 import type { TimerState, CheckpointTransition } from './session.js';
-import type { V5MBAudit, V5MBPlanning, V5MBSubmission, V5ModuleCAnswer } from './v5-submissions.js';
+import type { V5MBAudit, V5MBPlanning, V5MBSubmission, V5ModuleCAnswer, V5Phase0Submission } from './v5-submissions.js';
 
 // Client → Server events
 export interface ClientToServerEvents {
@@ -57,6 +57,35 @@ export interface ClientToServerEvents {
       selfIdentifiedRisk?: string;
       responseTimeMs: number;
     },
+    ack: (ok: boolean) => void,
+  ) => void;
+  /**
+   * Task 25 — Cluster C-P0 persist closer. Phase0Page (Task 9 client) currently
+   * persists locally via setModuleSubmissionLocal but never reaches the server,
+   * so all 5 P0 signals (sBaselineReading TJ, sTechProfile / sDecisionStyle /
+   * sAiCalibration METACOGNITION, sAiClaimDetection TJ) score null at the
+   * orchestrator. This event closes that gap by writing
+   * `metadata.phase0.*` directly so signals can read non-null at scoring time.
+   *
+   * V5-native shape (no V4 bridge): Phase0Page builds V5Phase0Submission
+   * directly, so unlike Task 24's `self-assess:submit` (V4→V5 normalize) the
+   * server can persist as-is via strict field pick. The V5.0.5 cleanup item
+   * referenced in `self-assess:submit` does not apply here.
+   *
+   * Naming: lowercase-hyphen `phase0:submit` matches `self-assess:submit`
+   * convention (Task 24). The `v5:` prefix is reserved for per-module
+   * multi-event namespaces (`v5:mb:*`, `v5:modulec:*`); P0 has a single event
+   * and follows the flat-event convention.
+   *
+   * `sessionId` in envelope (Task 24 Option C lineage): server has no
+   * socket-level session middleware until Task 15, so the client must pass it.
+   *
+   * Ack contract: `(ok: boolean) => void` — matches `self-assess:submit` /
+   * `v5:mb:submit` ack shape verbatim. `ok=false` is reserved for explicit
+   * server failures (validation, persist throw).
+   */
+  'phase0:submit': (
+    data: { sessionId: string; submission: V5Phase0Submission },
     ack: (ok: boolean) => void,
   ) => void;
   // v5: ModuleC — server handler in Task 11.

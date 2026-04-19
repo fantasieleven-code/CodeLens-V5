@@ -26,6 +26,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import type { V5Phase0Submission } from '@codelens-v5/shared';
+import { getSocket } from '../lib/socket.js';
 import { useModuleStore } from '../stores/module.store.js';
 import { useSessionStore } from '../stores/session.store.js';
 import { ModuleShell } from '../components/ModuleShell.js';
@@ -71,6 +72,7 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
 }) => {
   const advance = useModuleStore((s) => s.advance);
   const setSubmission = useSessionStore((s) => s.setModuleSubmissionLocal);
+  const sessionId = useSessionStore((s) => s.sessionId);
 
   const [l1Answer, setL1Answer] = useState<number | null>(null);
   const [l2Answer, setL2Answer] = useState('');
@@ -133,6 +135,15 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
     };
 
     setSubmission('phase0', submission);
+    // Server persist via Task 25 `phase0:submit`. Fire-and-forget: the local
+    // store is the source of truth for in-session UI, and the ack is reserved
+    // for V5.0.5 retry/error UX — do not gate advance() on it (no timeout
+    // guard means a missing ack would otherwise strand the user).
+    getSocket().emit(
+      'phase0:submit',
+      { sessionId: sessionId ?? 'phase0-pending', submission },
+      (_ok: boolean) => {},
+    );
     onSubmit?.(submission);
     advance();
   }, [
@@ -145,6 +156,7 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
     aiClaim,
     moduleContent,
     setSubmission,
+    sessionId,
     onSubmit,
     advance,
   ]);

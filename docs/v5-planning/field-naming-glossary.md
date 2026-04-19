@@ -255,8 +255,8 @@ Frontend 同 sprint 子任务加 timeout guard 模板(复用 PR #58)。
 
 | Event name(canonical) | Direction | Payload | 消费方 | 备注 |
 |----------------------|-----------|---------|--------|------|
-| `v5:p0:submit` OR `p0:submit`(待 Task 25 grep) | client → server | `V5Phase0Submission` | **Task 25 新建 server handler** | Pattern C:Backend pre-verify grep Phase0Page 当前有无 emit。若无(Backend Q2 verified:local-only)则 canonical 选 `v5:p0:submit` |
-| `v5:p0:submit:response` | server → client | `{ success, submissionId }` | Phase0Page onSubmit ack | Task 25 定义 |
+| `phase0:submit` | client → server | `{ sessionId: string, submission: V5Phase0Submission }`(ack `(ok: boolean) => void`) | Task 25 `registerPhase0Handlers`(`packages/server/src/socket/phase0-handlers.ts`)→ `persistPhase0Submission` 写 `metadata.phase0.{codeReading, aiOutputJudgment, aiClaimVerification, decision, inputBehavior?}` → MODULE_SUBMITTED;5 个 P0 信号(sBaselineReading TJ / sTechProfile / sDecisionStyle / sAiCalibration METACOGNITION / sAiClaimDetection TJ)解锁 | **Pattern C 决议**:Phase 1 verify(grep `packages/client/src/pages/Phase0Page.tsx`)发现客户端只 `setModuleSubmissionLocal('phase0', …)` 走本地 store,**0 个 socket emit**。canonical 选 `phase0:submit` 小写连字符,与 Task 24 `self-assess:submit` 命名约定一致(`v5:` 前缀仅用于多事件命名空间,如 `v5:mb:*` / `v5:modulec:*`)。**V5-native shape**(无 V4 bridge,Phase0Page 直接构造 V5Phase0Submission)。`sessionId` 在 envelope 顶层(Task 24 Option C 沿用,server 无 socket-level 中间件,Task 15 owner)。**Fire-and-forget emit**:本地 store 仍是 in-session UI 真值源,ack 不 gate `advance()`(无 timeout guard,V5.0.5 添加 retry/error UX) |
+| `phase0:submit` ack | server → client (callback) | `(ok: boolean) => void` | Phase0Page handleSubmit 注册 no-op callback(`(_ok: boolean) => {}`) | Task 25 实装。**ack signature lock**:`(ok: boolean)` 与 `self-assess:submit` / `v5:mb:submit` 一致;`ok=false` 保留给 server 显式失败(zod schema invalid / persist throw) |
 
 ---
 
