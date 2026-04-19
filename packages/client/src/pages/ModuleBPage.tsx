@@ -51,6 +51,7 @@ import type { V5MBAudit, V5MBPlanning, V5MBStandards, V5MBSubmission } from '@co
 import { useModuleStore } from '../stores/module.store.js';
 import { useSessionStore } from '../stores/session.store.js';
 import { useBehaviorTracker } from '../hooks/useBehaviorTracker.js';
+import { useEditSessionTracker } from '../hooks/useEditSessionTracker.js';
 import { ModuleShell } from '../components/ModuleShell.js';
 import { MB1PlanningPanel } from '../components/mb/MB1PlanningPanel.js';
 import { MB3StandardsPanel } from '../components/mb/MB3StandardsPanel.js';
@@ -85,6 +86,7 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
   const tracker = useBehaviorTracker(sessionId, 'mb');
   // Children expect a stable `track` reference; pull the same one tracker uses.
   const trackerForChildren = useMemo(() => ({ track: tracker.track }), [tracker.track]);
+  const editSession = useEditSessionTracker(trackerForChildren);
 
   const [stage, setStage] = useState<Stage>('planning');
   const [planning, setPlanning] = useState<V5MBPlanning | null>(null);
@@ -104,6 +106,7 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
         prev.map((f) => (f.path === path ? { ...f, content } : f)),
       );
       tracker.trackKeystroke();
+      editSession.onEdit(path);
       getSocket().emit('v5:mb:file_change', {
         sessionId,
         filePath: path,
@@ -111,7 +114,7 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
         source: 'manual_edit',
       });
     },
-    [sessionId, tracker],
+    [sessionId, tracker, editSession],
   );
 
   // ─────────────────── Stage 2 — test_result listener ───────────────────
