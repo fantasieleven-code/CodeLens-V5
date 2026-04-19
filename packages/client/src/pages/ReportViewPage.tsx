@@ -19,7 +19,7 @@
 import React, { useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ReportRenderer } from '../report/ReportRenderer.js';
-import { registerAllSections } from '../report/sections/index.js';
+import { registerAllSections, TransparencyStatement } from '../report/sections/index.js';
 import { REPORT_FIXTURES } from '../report/__fixtures__/index.js';
 import type { ReportLayer, ReportViewModel } from '../report/types.js';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../lib/tokens.js';
@@ -178,6 +178,9 @@ export const ReportViewPage: React.FC = () => {
 
         <div ref={reportRef} data-testid="report-view-capture-root">
           <ReportRenderer viewModel={viewModel} layer={layer} />
+          <div style={styles.transparencyTrailer}>
+            <TransparencyStatement />
+          </div>
         </div>
       </div>
     </div>
@@ -297,6 +300,9 @@ const styles: Record<string, React.CSSProperties> = {
     color: colors.subtext0,
     lineHeight: 1.6,
     margin: 0,
+  },
+  transparencyTrailer: {
+    marginTop: spacing.xl,
   },
   homeBtn: {
     padding: `${spacing.sm} ${spacing.xl}`,
