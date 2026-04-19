@@ -26,6 +26,10 @@ vi.mock('../../config/db.js', () => ({
 
 import {
   appendAiCompletionEvents,
+  appendChatEvents,
+  appendDiffEvents,
+  appendEditSessions,
+  appendFileNavigation,
   appendVisibilityEvent,
   calculatePassRate,
   persistAudit,
@@ -284,6 +288,221 @@ describe('appendAiCompletionEvents (Task 22 / Cluster A)', () => {
     await appendAiCompletionEvents('missing', [
       { timestamp: 1, accepted: true, lineNumber: 1, completionLength: 5 },
     ]);
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe('appendChatEvents (Task 30a / Cluster A)', () => {
+  it('appends to mb.editorBehavior.chatEvents and preserves Task 22 aiCompletionEvents sibling', async () => {
+    findUnique.mockResolvedValueOnce({
+      metadata: {
+        mb: {
+          editorBehavior: {
+            aiCompletionEvents: [{ timestamp: 1, accepted: true, lineNumber: 5, completionLength: 12 }],
+            chatEvents: [{ timestamp: 100, prompt: 'old', responseLength: 10, duration: 200 }],
+          },
+        },
+      },
+    });
+    update.mockResolvedValueOnce({});
+
+    await appendChatEvents('s1', [
+      { timestamp: 200, prompt: 'fix the inventory race', responseLength: 320, duration: 5000 },
+    ]);
+
+    const { data } = update.mock.calls[0][0];
+    const events = data.metadata.mb.editorBehavior.chatEvents;
+    expect(events).toHaveLength(2);
+    expect(events[1].prompt).toBe('fix the inventory race');
+    expect(data.metadata.mb.editorBehavior.aiCompletionEvents).toHaveLength(1);
+  });
+
+  it('dedups by (timestamp, prompt prefix) against existing events', async () => {
+    findUnique.mockResolvedValueOnce({
+      metadata: {
+        mb: {
+          editorBehavior: {
+            chatEvents: [{ timestamp: 100, prompt: 'fix the bug', responseLength: 5, duration: 50 }],
+          },
+        },
+      },
+    });
+    update.mockResolvedValueOnce({});
+
+    await appendChatEvents('s1', [
+      // duplicate (same timestamp + prefix)
+      { timestamp: 100, prompt: 'fix the bug', responseLength: 999, duration: 999 },
+      // novel
+      { timestamp: 200, prompt: 'verify the edge case', responseLength: 50, duration: 100 },
+    ]);
+
+    const { data } = update.mock.calls[0][0];
+    expect(data.metadata.mb.editorBehavior.chatEvents).toHaveLength(2);
+  });
+
+  it('no-ops on empty input without touching prisma', async () => {
+    await appendChatEvents('s1', []);
+    expect(findUnique).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe('appendDiffEvents (Task 30a / Cluster A)', () => {
+  it('appends to mb.editorBehavior.diffEvents preserving siblings', async () => {
+    findUnique.mockResolvedValueOnce({
+      metadata: {
+        mb: {
+          editorBehavior: {
+            chatEvents: [{ timestamp: 50, prompt: 'p', responseLength: 1, duration: 1 }],
+          },
+        },
+      },
+    });
+    update.mockResolvedValueOnce({});
+
+    await appendDiffEvents('s1', [
+      { timestamp: 200, accepted: true, linesAdded: 5, linesRemoved: 2 },
+      { timestamp: 300, accepted: false, linesAdded: 3, linesRemoved: 0 },
+    ]);
+
+    const { data } = update.mock.calls[0][0];
+    const events = data.metadata.mb.editorBehavior.diffEvents;
+    expect(events).toHaveLength(2);
+    expect(events[0].accepted).toBe(true);
+    expect(events[1].accepted).toBe(false);
+    expect(data.metadata.mb.editorBehavior.chatEvents).toHaveLength(1);
+  });
+
+  it('dedups by (timestamp, accepted, linesAdded, linesRemoved)', async () => {
+    findUnique.mockResolvedValueOnce({
+      metadata: {
+        mb: {
+          editorBehavior: {
+            diffEvents: [{ timestamp: 100, accepted: true, linesAdded: 5, linesRemoved: 2 }],
+          },
+        },
+      },
+    });
+    update.mockResolvedValueOnce({});
+
+    await appendDiffEvents('s1', [
+      { timestamp: 100, accepted: true, linesAdded: 5, linesRemoved: 2 }, // duplicate
+      { timestamp: 100, accepted: false, linesAdded: 5, linesRemoved: 2 }, // novel (accepted differs)
+    ]);
+
+    const { data } = update.mock.calls[0][0];
+    expect(data.metadata.mb.editorBehavior.diffEvents).toHaveLength(2);
+  });
+
+  it('no-ops on empty input without touching prisma', async () => {
+    await appendDiffEvents('s1', []);
+    expect(findUnique).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe('appendFileNavigation (Task 30a / Cluster A)', () => {
+  it('appends to mb.editorBehavior.fileNavigationHistory preserving siblings', async () => {
+    findUnique.mockResolvedValueOnce({
+      metadata: {
+        mb: {
+          editorBehavior: {
+            diffEvents: [{ timestamp: 1, accepted: true, linesAdded: 1, linesRemoved: 0 }],
+          },
+        },
+      },
+    });
+    update.mockResolvedValueOnce({});
+
+    await appendFileNavigation('s1', [
+      { timestamp: 100, filePath: 'src/a.py', action: 'open' },
+      { timestamp: 200, filePath: 'src/b.py', action: 'switch' },
+    ]);
+
+    const { data } = update.mock.calls[0][0];
+    const events = data.metadata.mb.editorBehavior.fileNavigationHistory;
+    expect(events).toHaveLength(2);
+    expect(events[0].action).toBe('open');
+    expect(events[1].filePath).toBe('src/b.py');
+    expect(data.metadata.mb.editorBehavior.diffEvents).toHaveLength(1);
+  });
+
+  it('dedups by (timestamp, filePath, action)', async () => {
+    findUnique.mockResolvedValueOnce({
+      metadata: {
+        mb: {
+          editorBehavior: {
+            fileNavigationHistory: [{ timestamp: 100, filePath: 'src/a.py', action: 'open' }],
+          },
+        },
+      },
+    });
+    update.mockResolvedValueOnce({});
+
+    await appendFileNavigation('s1', [
+      { timestamp: 100, filePath: 'src/a.py', action: 'open' }, // duplicate
+      { timestamp: 100, filePath: 'src/a.py', action: 'close' }, // novel (action differs)
+    ]);
+
+    const { data } = update.mock.calls[0][0];
+    expect(data.metadata.mb.editorBehavior.fileNavigationHistory).toHaveLength(2);
+  });
+
+  it('no-ops on empty input without touching prisma', async () => {
+    await appendFileNavigation('s1', []);
+    expect(findUnique).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe('appendEditSessions (Task 30a / Cluster A)', () => {
+  it('appends to mb.editorBehavior.editSessions preserving siblings', async () => {
+    findUnique.mockResolvedValueOnce({
+      metadata: {
+        mb: {
+          editorBehavior: {
+            chatEvents: [{ timestamp: 50, prompt: 'p', responseLength: 1, duration: 1 }],
+          },
+        },
+      },
+    });
+    update.mockResolvedValueOnce({});
+
+    await appendEditSessions('s1', [
+      { filePath: 'src/a.py', startTime: 100, endTime: 200, keystrokeCount: 30 },
+    ]);
+
+    const { data } = update.mock.calls[0][0];
+    const sessions = data.metadata.mb.editorBehavior.editSessions;
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].keystrokeCount).toBe(30);
+    expect(data.metadata.mb.editorBehavior.chatEvents).toHaveLength(1);
+  });
+
+  it('dedups by (filePath, startTime, endTime)', async () => {
+    findUnique.mockResolvedValueOnce({
+      metadata: {
+        mb: {
+          editorBehavior: {
+            editSessions: [{ filePath: 'src/a.py', startTime: 100, endTime: 200, keystrokeCount: 30 }],
+          },
+        },
+      },
+    });
+    update.mockResolvedValueOnce({});
+
+    await appendEditSessions('s1', [
+      { filePath: 'src/a.py', startTime: 100, endTime: 200, keystrokeCount: 999 }, // duplicate
+      { filePath: 'src/a.py', startTime: 300, endTime: 400, keystrokeCount: 50 }, // novel
+    ]);
+
+    const { data } = update.mock.calls[0][0];
+    expect(data.metadata.mb.editorBehavior.editSessions).toHaveLength(2);
+  });
+
+  it('no-ops on empty input without touching prisma', async () => {
+    await appendEditSessions('s1', []);
+    expect(findUnique).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
   });
 });

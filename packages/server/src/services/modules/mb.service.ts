@@ -31,6 +31,10 @@ import { logger } from '../../lib/logger.js';
 
 export type AiCompletionEvent = V5MBEditorBehavior['aiCompletionEvents'][number];
 export type TestRunEvent = V5MBEditorBehavior['testRuns'][number];
+export type ChatEvent = V5MBEditorBehavior['chatEvents'][number];
+export type DiffEvent = V5MBEditorBehavior['diffEvents'][number];
+export type FileNavEvent = V5MBEditorBehavior['fileNavigationHistory'][number];
+export type EditSessionEvent = V5MBEditorBehavior['editSessions'][number];
 
 type MBSlice = {
   planning?: V5MBPlanning;
@@ -210,6 +214,166 @@ export async function persistMbSubmission(
   void _agentExecutions;
   void _rounds;
   await writeMbSlice(sessionId, persistable);
+}
+
+/**
+ * Task 30a — append chat events into editorBehavior.chatEvents.
+ * Dedup by (timestamp, prompt prefix) so socket reconnect / re-flush doesn't
+ * double-count. Spread-merge preserves all sibling editorBehavior keys
+ * (Task 22 aiCompletionEvents, Task 23 testRuns, etc.).
+ */
+export async function appendChatEvents(
+  sessionId: string,
+  events: ChatEvent[],
+): Promise<void> {
+  if (events.length === 0) return;
+  const meta = await readSessionMeta(sessionId);
+  if (!meta) return;
+  const currentMb = (meta.mb ?? {}) as Record<string, unknown>;
+  const currentBehavior = (currentMb.editorBehavior ?? {}) as Record<string, unknown>;
+  const existing: ChatEvent[] = Array.isArray(currentBehavior.chatEvents)
+    ? (currentBehavior.chatEvents as ChatEvent[])
+    : [];
+  const seen = new Set(existing.map(chatKey));
+  const additions = events.filter((e) => {
+    const k = chatKey(e);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  if (additions.length === 0) return;
+  const nextBehavior = {
+    ...currentBehavior,
+    chatEvents: [...existing, ...additions],
+  };
+  const nextMb = { ...currentMb, editorBehavior: nextBehavior };
+  await prisma.session.update({
+    where: { id: sessionId },
+    data: { metadata: { ...meta, mb: nextMb } as unknown as Prisma.InputJsonValue },
+  });
+}
+
+function chatKey(e: ChatEvent): string {
+  return `${e.timestamp}|${(e.prompt ?? '').slice(0, 32)}`;
+}
+
+/**
+ * Task 30a — append diff events into editorBehavior.diffEvents.
+ * Dedup by (timestamp, accepted, linesAdded, linesRemoved).
+ */
+export async function appendDiffEvents(
+  sessionId: string,
+  events: DiffEvent[],
+): Promise<void> {
+  if (events.length === 0) return;
+  const meta = await readSessionMeta(sessionId);
+  if (!meta) return;
+  const currentMb = (meta.mb ?? {}) as Record<string, unknown>;
+  const currentBehavior = (currentMb.editorBehavior ?? {}) as Record<string, unknown>;
+  const existing: DiffEvent[] = Array.isArray(currentBehavior.diffEvents)
+    ? (currentBehavior.diffEvents as DiffEvent[])
+    : [];
+  const seen = new Set(existing.map(diffKey));
+  const additions = events.filter((e) => {
+    const k = diffKey(e);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  if (additions.length === 0) return;
+  const nextBehavior = {
+    ...currentBehavior,
+    diffEvents: [...existing, ...additions],
+  };
+  const nextMb = { ...currentMb, editorBehavior: nextBehavior };
+  await prisma.session.update({
+    where: { id: sessionId },
+    data: { metadata: { ...meta, mb: nextMb } as unknown as Prisma.InputJsonValue },
+  });
+}
+
+function diffKey(e: DiffEvent): string {
+  return `${e.timestamp}|${e.accepted}|${e.linesAdded}|${e.linesRemoved}`;
+}
+
+/**
+ * Task 30a — append file-navigation events into
+ * editorBehavior.fileNavigationHistory. Dedup by (timestamp, filePath, action).
+ */
+export async function appendFileNavigation(
+  sessionId: string,
+  events: FileNavEvent[],
+): Promise<void> {
+  if (events.length === 0) return;
+  const meta = await readSessionMeta(sessionId);
+  if (!meta) return;
+  const currentMb = (meta.mb ?? {}) as Record<string, unknown>;
+  const currentBehavior = (currentMb.editorBehavior ?? {}) as Record<string, unknown>;
+  const existing: FileNavEvent[] = Array.isArray(currentBehavior.fileNavigationHistory)
+    ? (currentBehavior.fileNavigationHistory as FileNavEvent[])
+    : [];
+  const seen = new Set(existing.map(fileNavKey));
+  const additions = events.filter((e) => {
+    const k = fileNavKey(e);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  if (additions.length === 0) return;
+  const nextBehavior = {
+    ...currentBehavior,
+    fileNavigationHistory: [...existing, ...additions],
+  };
+  const nextMb = { ...currentMb, editorBehavior: nextBehavior };
+  await prisma.session.update({
+    where: { id: sessionId },
+    data: { metadata: { ...meta, mb: nextMb } as unknown as Prisma.InputJsonValue },
+  });
+}
+
+function fileNavKey(e: FileNavEvent): string {
+  return `${e.timestamp}|${e.filePath}|${e.action}`;
+}
+
+/**
+ * Task 30a — append edit sessions into editorBehavior.editSessions.
+ * Dedup by (filePath, startTime, endTime). Task 30b will wire the
+ * client-side `edit_session_completed` emit; until then this method is
+ * exercised by mocked events in the Pattern H 7th gate integration test.
+ */
+export async function appendEditSessions(
+  sessionId: string,
+  sessions: EditSessionEvent[],
+): Promise<void> {
+  if (sessions.length === 0) return;
+  const meta = await readSessionMeta(sessionId);
+  if (!meta) return;
+  const currentMb = (meta.mb ?? {}) as Record<string, unknown>;
+  const currentBehavior = (currentMb.editorBehavior ?? {}) as Record<string, unknown>;
+  const existing: EditSessionEvent[] = Array.isArray(currentBehavior.editSessions)
+    ? (currentBehavior.editSessions as EditSessionEvent[])
+    : [];
+  const seen = new Set(existing.map(editSessionKey));
+  const additions = sessions.filter((s) => {
+    const k = editSessionKey(s);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  if (additions.length === 0) return;
+  const nextBehavior = {
+    ...currentBehavior,
+    editSessions: [...existing, ...additions],
+  };
+  const nextMb = { ...currentMb, editorBehavior: nextBehavior };
+  await prisma.session.update({
+    where: { id: sessionId },
+    data: { metadata: { ...meta, mb: nextMb } as unknown as Prisma.InputJsonValue },
+  });
+}
+
+function editSessionKey(e: EditSessionEvent): string {
+  return `${e.filePath}|${e.startTime}|${e.endTime}`;
 }
 
 /** Parse pytest "N passed, M failed" summary. Returns passed/(passed+failed) in [0,1]. */
