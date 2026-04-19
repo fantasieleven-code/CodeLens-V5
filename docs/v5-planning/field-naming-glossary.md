@@ -264,8 +264,8 @@ Frontend 同 sprint 子任务加 timeout guard 模板(复用 PR #58)。
 
 | Event name(canonical) | Direction | Payload | 消费方 | 备注 |
 |----------------------|-----------|---------|--------|------|
-| `self-assess:submit` | client → server | `V5SelfAssessSubmission` | **Task 24 新建 server handler** | **V4 legacy 命名保留,不改为 v5:se:submit**(Frontend PR #58 已 emit 用此名,333 测试绿,改破坏)。**Pattern C defense 教训内化**:Claude 不按 "v5:" convention 推断,follow codebase 实际 |
-| `self-assess:submit:response` | server → client | `{ success: true }` | SelfAssessPage onSubmit ack(Frontend PR #58 消费 → clearTimeouts)| Task 24 定义 shape;**必须 <8s 返回**,否则触发 PR #58 timeout guard toast |
+| `self-assess:submit` | client → server | `{ sessionId, selfConfidence (0-100), selfIdentifiedRisk?, responseTimeMs }` (V4-legacy field set; ack `(ok: boolean) => void`) | Task 24 `registerSelfAssessHandlers` (`packages/server/src/socket/self-assess-handlers.ts`) → `persistSelfAssess` 写 `metadata.selfAssess.{confidence, reasoning}`(V4→V5 normalize)→ MODULE_SUBMITTED;sMetaCognition 解锁 | **V4 legacy 命名保留**,不改为 v5:se:submit(Frontend PR #58 已 emit 用此名,改破坏)。**Pattern C #7 自纠**:Task 24 brief 假设 Frontend emit V5SelfAssessSubmission,实际 Frontend 是 dual-shape bridge(local store V5,socket emit V4),Backend pre-verify 抓到 — server 加 V4→V5 normalize map(selfConfidence/100 → confidence,selfIdentifiedRisk → reasoning,responseTimeMs drop,reviewedDecisions undefined)。`sessionId` 是 Task 24 Option C 加的(envelope 顶层,server 无 socket-level 中间件,Task 15 owner)。**Dual-shape bridge 是 V5.0.5 cleanup item**:Frontend 应直接 emit V5SelfAssessSubmission,server 撤销 normalize 层 |
+| `self-assess:submit` ack | server → client (callback) | `(ok: boolean) => void` | SelfAssessPage L97-122 timeout guard 消费(settled flag + 8s setTimeout fallback) | Task 24 实装。**ack signature lock**:`(ok: boolean)` 而非 `{ success: boolean }`,因 PR #58 测试 L175,189 hard-assert boolean。**必须 <8s 返回**(`persistSelfAssess` + `eventBus.emit` 正常 <100ms,远在 timeout 内),否则 SelfAssessPage 显示 toast |
 
 ---
 
@@ -347,3 +347,17 @@ Frontend 同 sprint 子任务加 timeout guard 模板(复用 PR #58)。
       确认新写不 spread-merge 整个 submission(否则 silent 清空 Task 22 sibling array)。
       Task 23 `v5:mb:submit` 因此 STRIP `editorBehavior` + `agentExecutions` + `rounds` 三键再 persist;
       集成测试 `mb-cluster-b-pipeline.test.ts` case (ii) 是该 defense 的回归门
+- [x] Pattern C 第 7 次命中(Task 24 sweep)dual-shape bridge 暴露:
+      brief 假设 `self-assess:submit` payload = `V5SelfAssessSubmission`,但 Backend pre-verify
+      grep `SelfAssessPage.tsx:104-122` + `ws.ts:43-46` 实际是 V4-legacy 字段集
+      (`selfConfidence` 0-100 / `selfIdentifiedRisk` / `responseTimeMs`),且 Frontend 在 local
+      store 写 V5 shape(`confidence` / `reasoning`)、socket emit 写 V4 shape — 这是 PR #58
+      留下的 dual-shape bridge(Backend Cluster D vacuum 期间过渡)。Task 24 `registerSelfAssessHandlers`
+      在 server 加 V4→V5 normalize 层 + Frontend payload 加 `sessionId` 一行(Option C tactical
+      fix);dual-shape 解除是 V5.0.5 backlog。集成测试 `self-assess-pipeline.test.ts` case (i) 是
+      normalize 回归门、case (ii) 是 cross-Task state preservation 门(Task 22 aiCompletionEvents
+      + Task 23 finalTestPassRate / finalFiles 都不被 SE 写覆盖)
+- [x] Pattern H v2.2 第 3 个 gate 实例(Task 24):非 MB-namespaced writer 也必须有 cross-Task
+      preservation assertion。Pattern library 累积:Cluster A ingest(Task 22)/ Cluster B
+      persistToMetadata(Task 23)/ Cluster D dual-shape normalize(Task 24)三个独立 writer 都
+      proven 不互相 clobber。Task 25-27 Cluster C P0/MA/MD submit handlers 直接复用此 pattern
