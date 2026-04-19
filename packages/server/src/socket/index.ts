@@ -13,6 +13,7 @@
 import type { Server as SocketIOServer } from 'socket.io';
 
 import { logger } from '../lib/logger.js';
+import { registerBehaviorHandlers } from './behavior-handlers.js';
 import { registerMBHandlers } from './mb-handlers.js';
 
 export function registerSocketHandlers(io: SocketIOServer): void {
@@ -20,6 +21,7 @@ export function registerSocketHandlers(io: SocketIOServer): void {
     logger.info('[socket] connected', { socketId: socket.id });
 
     registerMBHandlers(io, socket);
+    registerBehaviorHandlers(io, socket);
 
     socket.on('disconnect', (reason) => {
       logger.info('[socket] disconnected', { socketId: socket.id, reason });

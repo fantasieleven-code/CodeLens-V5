@@ -8,13 +8,21 @@
  * appendVisibilityEvent tracks Round 2 Part 3 调整 4 tab visibility transitions
  * (v5-design-clarifications.md L550-588) into editorBehavior.documentVisibilityEvents
  * so backend can later compute visible-time slices for sDecisionLatencyQuality.
+ *
+ * appendAiCompletionEvents (Task 22 / Cluster A) ingests behavior:batch-derived
+ * inline-completion records into editorBehavior.aiCompletionEvents so
+ * sDecisionLatencyQuality + sAiCompletionAcceptRate (and partial reads from
+ * sBlockSelectivity / sChatVsDirectRatio / sModifyQuality / sVerifyDiscipline)
+ * can move from null → score.
  */
 
 import type { Prisma } from '@prisma/client';
-import type { V5MBAudit, V5MBPlanning, V5MBStandards } from '@codelens-v5/shared';
+import type { V5MBAudit, V5MBEditorBehavior, V5MBPlanning, V5MBStandards } from '@codelens-v5/shared';
 
 import { prisma } from '../../config/db.js';
 import { logger } from '../../lib/logger.js';
+
+export type AiCompletionEvent = V5MBEditorBehavior['aiCompletionEvents'][number];
 
 type MBSlice = {
   planning?: V5MBPlanning;
@@ -82,6 +90,49 @@ export async function appendVisibilityEvent(
     where: { id: sessionId },
     data: { metadata: { ...meta, mb: nextMb } as unknown as Prisma.InputJsonValue },
   });
+}
+
+/**
+ * Append behavior:batch-derived inline completion events into
+ * metadata.mb.editorBehavior.aiCompletionEvents. Dedups against
+ * existing entries by (lineNumber, shownAt, respondedAt) tuple so socket
+ * reconnect / re-flush doesn't double-count the same user interaction.
+ *
+ * Empty input → no DB write (cheap idempotent no-op).
+ */
+export async function appendAiCompletionEvents(
+  sessionId: string,
+  events: AiCompletionEvent[],
+): Promise<void> {
+  if (events.length === 0) return;
+  const meta = await readSessionMeta(sessionId);
+  if (!meta) return;
+  const currentMb = (meta.mb ?? {}) as Record<string, unknown>;
+  const currentBehavior = (currentMb.editorBehavior ?? {}) as Record<string, unknown>;
+  const currentEvents: AiCompletionEvent[] = Array.isArray(currentBehavior.aiCompletionEvents)
+    ? (currentBehavior.aiCompletionEvents as AiCompletionEvent[])
+    : [];
+  const seen = new Set(currentEvents.map(dedupKey));
+  const additions = events.filter((e) => {
+    const k = dedupKey(e);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  if (additions.length === 0) return;
+  const nextBehavior = {
+    ...currentBehavior,
+    aiCompletionEvents: [...currentEvents, ...additions],
+  };
+  const nextMb = { ...currentMb, editorBehavior: nextBehavior };
+  await prisma.session.update({
+    where: { id: sessionId },
+    data: { metadata: { ...meta, mb: nextMb } as unknown as Prisma.InputJsonValue },
+  });
+}
+
+function dedupKey(e: AiCompletionEvent): string {
+  return `${e.lineNumber}|${e.shownAt ?? 'x'}|${e.respondedAt ?? 'x'}`;
 }
 
 /** Parse pytest "N passed, M failed" summary. Returns passed/(passed+failed) in [0,1]. */

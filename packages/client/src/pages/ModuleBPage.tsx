@@ -82,7 +82,7 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
   // a string field — the server-side handler ignores unknown sessionIds anyway.
   const sessionId = sessionIdFromStore ?? 'mb-pending';
 
-  const tracker = useBehaviorTracker('mb');
+  const tracker = useBehaviorTracker(sessionId, 'mb');
   // Children expect a stable `track` reference; pull the same one tracker uses.
   const trackerForChildren = useMemo(() => ({ track: tracker.track }), [tracker.track]);
 

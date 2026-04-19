@@ -24,7 +24,20 @@ export interface ClientToServerEvents {
     data: { verificationId: string; answer: string; durationSeconds: number },
     ack: (ok: boolean) => void,
   ) => void;
+  /**
+   * High-volume telemetry batch from useBehaviorTracker. Server dispatches by
+   * event.type and persists into session.metadata.mb.editorBehavior.* — see
+   * packages/server/src/socket/behavior-handlers.ts (Task 22).
+   *
+   * sessionId is in the envelope (not per-event) because (a) every batch
+   * belongs to exactly one session and (b) the server has no socket-level
+   * session middleware (no io.use binding), so the client must pass it.
+   * Pattern C #5: keep the legacy event name `behavior:batch` (no `v5:mb:`
+   * prefix) because client + server already use it; renaming would touch
+   * 4 modules with no production benefit.
+   */
   'behavior:batch': (data: {
+    sessionId: string;
     events: Array<{ type: string; timestamp: string; payload: Record<string, unknown> }>;
   }) => void;
   'self-assess:submit': (

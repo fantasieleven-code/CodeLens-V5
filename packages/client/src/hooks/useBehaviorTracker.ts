@@ -17,8 +17,10 @@
  * warning rather than risking server-side metadata bloat (the server also
  * enforces the 50KB cap and will drop oversized payloads regardless).
  *
- * The hook is module-scoped: pass the V5ModuleKey on creation so the hook
- * knows which module to attribute events to.
+ * The hook is module-scoped: pass sessionId + V5ModuleKey on creation so the
+ * hook can route batches to the right session. sessionId is required because
+ * the server has no socket-level session middleware (no io.use binding) — the
+ * client carries it in the envelope (Task 22, Option β).
  */
 
 import { useCallback, useEffect, useRef } from 'react';
@@ -116,10 +118,15 @@ function flattenBuffer(module: V5ModuleKey, chunk: BehaviorBuffer): Array<{
  * Recursively split-and-emit a buffer chunk so each socket frame stays
  * under PAYLOAD_LIMIT_BYTES. Returns nothing — emits inline.
  */
-function emitChunk(socket: ReturnType<typeof getSocket>, module: V5ModuleKey, chunk: BehaviorBuffer): void {
+function emitChunk(
+  socket: ReturnType<typeof getSocket>,
+  sessionId: string,
+  module: V5ModuleKey,
+  chunk: BehaviorBuffer,
+): void {
   const sz = JSON.stringify(chunk).length;
   if (sz <= PAYLOAD_LIMIT_BYTES) {
-    socket.emit('behavior:batch', { events: flattenBuffer(module, chunk) });
+    socket.emit('behavior:batch', { sessionId, events: flattenBuffer(module, chunk) });
     return;
   }
   const keys = Object.keys(chunk);
@@ -128,8 +135,8 @@ function emitChunk(socket: ReturnType<typeof getSocket>, module: V5ModuleKey, ch
     const val = chunk[key];
     if (Array.isArray(val) && val.length > 1) {
       const mid = Math.floor(val.length / 2);
-      emitChunk(socket, module, { [key]: val.slice(0, mid) });
-      emitChunk(socket, module, { [key]: val.slice(mid) });
+      emitChunk(socket, sessionId, module, { [key]: val.slice(0, mid) });
+      emitChunk(socket, sessionId, module, { [key]: val.slice(mid) });
     } else {
       // Singleton scalar/object that can't be split — drop and warn.
       // eslint-disable-next-line no-console
@@ -149,11 +156,11 @@ function emitChunk(socket: ReturnType<typeof getSocket>, module: V5ModuleKey, ch
   keys.slice(mid).forEach((k) => {
     b[k] = chunk[k];
   });
-  emitChunk(socket, module, a);
-  emitChunk(socket, module, b);
+  emitChunk(socket, sessionId, module, a);
+  emitChunk(socket, sessionId, module, b);
 }
 
-export function useBehaviorTracker(module: V5ModuleKey): UseBehaviorTrackerReturn {
+export function useBehaviorTracker(sessionId: string, module: V5ModuleKey): UseBehaviorTrackerReturn {
   // useRef so accumulating events never causes re-renders. Buffers are
   // recreated on each flush so we never carry stale state between modules.
   const bufferRef = useRef<BehaviorBuffer>({});
@@ -216,9 +223,9 @@ export function useBehaviorTracker(module: V5ModuleKey): UseBehaviorTrackerRetur
       if (Object.keys(bufferRef.current).length === 0) return;
       const drained = bufferRef.current;
       bufferRef.current = {};
-      emitChunk(getSocket(), module, drained);
+      emitChunk(getSocket(), sessionId, module, drained);
     },
-    [module],
+    [sessionId, module],
   );
 
   useEffect(() => {
