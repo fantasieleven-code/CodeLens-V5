@@ -790,3 +790,76 @@ Pattern C (命名冲突 / 语义歧义) 第 8 次命中。两实体 close-naming
 **减歧义手段**:Commit 6 glossary 新增 "Naming Ambiguity · Candidate vs CandidateProfile" section · 含决策表 + rule of thumb("HR-facing identity 放 Candidate · self-reported assessment context 放 Session.candidateProfile") + two-entity rationale。Admin API 读路径两者对称:`GET /admin/sessions/:id` (Candidate via include) vs `GET /admin/sessions/:id/profile` (CandidateProfile flat)。
 
 **Pattern C cumulative**:从 `submissions.*` dual-shape(#103)→ `editorBehavior` vs `fileSnapshot`(#082 trace)→ `selfAssess.confidence` vs `sCalibration` 等 · 至本次 8 次。V5.0.5 若做 docs sweep · Pattern C entry 应 consolidate 到 glossary 分级索引 · 不再散在 observations。
+
+
+---
+
+### #124 — `meta-pattern` Pattern H 第 4 次 · Backend/Frontend brief auth-model incompatibility caught by Frontend Round 2
+**trace**: Task B-A12 auth-fallback patch · Frontend PR #77 Round 2 drift check · Commit 1 middleware + 4 tests
+
+Pattern H (cross-task drift defense) 第 4 次命中 · 性质与前三次不同:前三次是**单向 Backend-first → Frontend grep 落差**,本次是**双向 brief assumption 不兼容**。Backend B-A12 brief Phase 1 Q2 明示 `requireCandidate` 需 JWT · Frontend PR #77 brief Round 1 假设 body-token dispatch 模型 · 两 brief 各自 self-consistent 但 joined 时 Frontend 每次调用 401。
+
+Catch 来自 Frontend Round 2 Pattern H grep · 8 项 drift 报告 · 其中 critical #7 即此。Frontend 正确 **stop-for-clarification** · 未 silent amend 以匹配当时的 Backend contract(若 silent amend,可能退化为 body 无 JWT 的不安全模型)。
+
+**Defense 升级**:Backend Commit 1 `requireCandidate` 扩 body-token fallback path · Commit 0 加 `Session.candidateToken String? @unique` · Commit 2 admin session-create mint · 链路闭合。Frontend 下轮 Round 3 将 re-grep 本 PR 的 middleware + zod 契约。
+
+**Cumulative gate 7 → 8**:Pattern H 的 "cross-brief assumption verify" 成为 planning Claude 侧的新子-gate · 见 #126 规则候选。
+
+---
+
+### #125 — `design-insight` V5.0 `Session.candidateToken` Option (a) ratified · 三视角一致 Session-scoped clean
+**trace**: Phase 1 pre-verify Q1 · Session schema 无 `candidateSelfViewToken` · 5 option matrix Steve 裁决 (a)
+
+Phase 1 Q1 report 发现 Session schema 无任何候选人 token 字段 · `Candidate.token` 是 HR-mint 长期凭证(Person-scoped · 跨 session 复用)· 若复用做 auth-fallback → **cross-session replay risk**(一个 token 可访问该 candidate 全部 session)。
+
+5 option 评估:
+| # | Path                               | Scope       | Security                                    | Effort |
+|---|-------------------------------------|-------------|---------------------------------------------|--------|
+| a | 加 `Session.candidateToken String? @unique` | +2 schema + 1 migration | Session-scoped · add-nullable-only          | +0.1d  |
+| b | Reuse `Candidate.token`            | 0           | Cross-session replay                        | 0d     |
+| c | 用 `Session.id` 作 opaque token     | 0           | cuid predictable · 日志泄露风险              | 0d     |
+| d | `Candidate.token` + body.sessionId 双校验 | 0       | de-facto Session-scoped · 防御堆叠          | 0d     |
+| e | HMAC(Session.id, secret) 衍生 token | 0           | Revocable via secret rotation · 复杂度增加   | 0d     |
+
+**三视角一致 (a)**:
+- Karpathy · 唯一 Session-scoped clean · (b) 安全降级不接受 · (c) predictable · (d) 防御堆叠无效 · (e) 复杂度 > 收益
+- Gemini · add-nullable-only 继承 Pattern H sub-gate (#122) · 0 break risk
+- Claude Code lead · +0.1d 在 0.5d budget · architectural 清爽 · F-A12 / A10-lite 复用此字段
+
+**A10-lite 决策 defer V5.0.5**:是否 `candidateSelfViewToken` 独立字段(ethics floor)或复用 `candidateToken` · 暂不 decide 今晚。
+
+**Pattern H sub-gate 继承**:Commit 0 migration 与 B-A12 Commit 2 migration 结构同构(ALTER TABLE ADD COLUMN NULL · 无 backfill · 无 NOT NULL) · safe-by-construction 模板可重用。
+
+---
+
+### #126 — `meta-pattern` planning-Claude-side · brief 间 cross-reference verify 成新子-gate
+**trace**: Root cause #124 · Backend B-A12 brief Q2 明示 JWT · Frontend Consent brief Round 1 假设 body-token · planning Claude 未 cross-reference
+
+Pattern H root cause 归因于 **planning Claude 在下发 Backend brief 与 Frontend brief 时未做 cross-reference verify** · 导致两 brief 各自 self-consistent 但 joined incompatible。单 brief 级 pre-verify(Phase 1 Q1-Q4)只能在自己的 surface 上找 gap · 无法发现跨 task 假设冲突。
+
+**规则候选(checklist v2.5 提案)**:
+1. planning Claude 下发 brief 前 grep 所有 open-branch / in-flight PR 的 brief · 对比 I/O contract(endpoint shape · auth model · error envelope · field names)
+2. 冲突 → 先对齐主 brief · 不分头下发
+3. 若已分头下发 · planning Claude 主动 kick cross-brief diff 作为 Round 2 task · 不等 executor Pattern H grep catch
+
+**Cost-benefit**:+5-10min planning lead time 换 1-2h Round 2 catch + patch PR 工期。今晚 Pattern H catch 到位 ·但 patch PR(本 PR)是 0.5d fresh commitment · 本可避免。
+
+**Scope**:此规则候选适用所有 Backend/Frontend parallel-track · 非仅 auth;也适用 multi-Backend cluster(cluster A 曾经单向 drift · 若 cluster A/B parallel 则需双向 cross-reference)。
+
+---
+
+### #127 — `cross-task-gap` V5.0.5 backlog · middleware envelope consistency + admin error shape Frontend dependency
+**trace**: Q2 Phase 1 finding · `requireCandidate` / `requireAdmin` / `requireOrg` / `requireOrgOwner` 四 helper 全部用 flat `{ error: string }` · 本 PR 仅改 `requireCandidate`
+
+B-A12 auth-fallback Phase 1 Q2 发现 middleware 与 errorHandler **不一致**:errorHandler 经 AppError 转 nested `{ error: { code, message, details? } }`(符合 drift #6 Frontend 期望) · 但 middleware 四 helper 自己 `res.status().json({ error: string })` flat shape · 不经 errorHandler。
+
+**本 PR scope fence**:只改 `requireCandidate`(Frontend F-A12 + Consent 调用路径)· 不 touch 其他 3。理由:
+- `requireAdmin` 改会 break Frontend `AdminGuard`(PR #75 已 merge · production pattern · flat error shape dependency)
+- Task 15b admin API 已稳定 · unified envelope 变更属 breaking change · 应 Frontend 准备好 remap 层再做
+
+**V5.0.5 housekeeping 项候选**:
+1. `middleware envelope consistency` · 4 helper 统一改 `next(AppError)` 走 errorHandler · Frontend 同步 remap 层
+2. `A10-lite candidateSelfViewToken` · 决定独立字段 or 复用本 PR 的 `candidateToken`(ethics floor vs 字段简化 tradeoff)
+3. `admin error shape Frontend remap` · 独立 Task · 与 (1) 配对
+
+**Backlog 记录**:`cross-task-shared-extension-backlog.md` 新增 `## V5.0.5 Housekeeping` section · 上述 3 项 enumerated。

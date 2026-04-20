@@ -140,6 +140,13 @@ export interface V5AdminSessionCreateRequest {
 export interface V5AdminSessionCreateResponse {
   session: V5AdminSession;
   shareableLink: string;
+  /**
+   * Opaque Session-scoped token minted at create time. Consumed by the
+   * requireCandidate middleware body-token fallback when the candidate has
+   * no JWT in the Authorization header. Admin embeds this in the shareable
+   * link; never returned by the list or get endpoints.
+   */
+  candidateToken: string;
 }
 
 // ── /admin/sessions/:sessionId/report ────────────────────────────────

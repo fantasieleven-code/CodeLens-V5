@@ -168,6 +168,10 @@ describe('POST /admin/sessions/create', () => {
     expect(sessionCreate).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ orgId: 'org-1' }) }),
     );
+    // B-A12 auth-fallback · candidateToken minted + returned + persisted.
+    expect(payload.candidateToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const createArgs = sessionCreate.mock.calls[0][0] as { data: { candidateToken: string } };
+    expect(createArgs.data.candidateToken).toBe(payload.candidateToken);
   });
 
   it('refuses when orgId missing (auth guard)', async () => {

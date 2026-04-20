@@ -1,6 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
+import { prisma } from '../config/db.js';
+import { AuthenticationError, AuthorizationError } from './errorHandler.js';
 
 export interface AuthPayload {
   sub: string;
@@ -34,29 +36,52 @@ function extractToken(req: Request): string | null {
   return null;
 }
 
-export function requireCandidate(req: Request, res: Response, next: NextFunction) {
-  const token = extractToken(req);
-  if (!token) {
-    res.status(401).json({ error: 'Authentication required' });
-    return;
+export async function requireCandidate(req: Request, _res: Response, next: NextFunction) {
+  const headerToken = extractToken(req);
+
+  // Path A — Authorization: Bearer header present (original flow).
+  if (headerToken) {
+    try {
+      const payload = jwt.verify(headerToken, env.JWT_SECRET) as AuthPayload;
+      if (payload.role !== 'candidate') {
+        return next(new AuthorizationError('Candidate access required'));
+      }
+      // Session ownership check: prevent horizontal privilege escalation.
+      const sessionIdParam = req.params.id || req.params.sessionId;
+      if (sessionIdParam && payload.sessionId && sessionIdParam !== payload.sessionId) {
+        return next(new AuthorizationError('Access denied: session mismatch'));
+      }
+      req.auth = payload;
+      return next();
+    } catch {
+      return next(new AuthenticationError('Invalid or expired token'));
+    }
+  }
+
+  // Path B — no header · body-token fallback via Session.candidateToken.
+  const bodyToken =
+    typeof req.body?.sessionToken === 'string' && req.body.sessionToken.length > 0
+      ? req.body.sessionToken
+      : null;
+  if (!bodyToken) {
+    return next(new AuthenticationError('Authentication required'));
   }
   try {
-    const payload = jwt.verify(token, env.JWT_SECRET) as AuthPayload;
-    if (payload.role !== 'candidate') {
-      res.status(403).json({ error: 'Candidate access required' });
-      return;
+    const session = await prisma.session.findFirst({
+      where: { candidateToken: bodyToken },
+      select: { id: true },
+    });
+    if (!session) {
+      return next(new AuthenticationError('Invalid or expired token'));
     }
-    // Session ownership check: prevent horizontal privilege escalation
-    // A candidate's token is scoped to their specific session
     const sessionIdParam = req.params.id || req.params.sessionId;
-    if (sessionIdParam && payload.sessionId && sessionIdParam !== payload.sessionId) {
-      res.status(403).json({ error: 'Access denied: session mismatch' });
-      return;
+    if (sessionIdParam && sessionIdParam !== session.id) {
+      return next(new AuthorizationError('Access denied: session mismatch'));
     }
-    req.auth = payload;
-    next();
-  } catch {
-    res.status(401).json({ error: 'Invalid or expired token' });
+    req.auth = { sub: session.id, role: 'candidate', sessionId: session.id };
+    return next();
+  } catch (err) {
+    return next(err);
   }
 }
 

@@ -63,6 +63,11 @@ model Session {
   candidateProfile Json?
   // Task B-A12: timestamp at which the candidate accepted the data-use consent.
   consentAcceptedAt DateTime?
+  // Task B-A12 auth-fallback: opaque Session-scoped token consumed by requireCandidate
+  // body-token fallback (when the candidate has no JWT in Authorization header). Minted
+  // by admin POST /sessions/create. Nullable so pre-patch sessions roll forward; @unique
+  // so lookup by token is O(log n) and a single token cannot be reused across sessions.
+  candidateToken    String?   @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

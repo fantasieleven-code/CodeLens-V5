@@ -167,6 +167,33 @@ describe('CandidateProfileSubmitRequestSchema', () => {
       );
     }
   });
+
+  it('accepts optional sessionToken alongside profile/consent (auth-fallback)', () => {
+    const withToken = CandidateProfileSubmitRequestSchema.safeParse({
+      profile: validProfile,
+      sessionToken: 'opaque-43-char-token',
+    });
+    expect(withToken.success).toBe(true);
+
+    const consentPlusToken = CandidateProfileSubmitRequestSchema.safeParse({
+      consentAccepted: true,
+      sessionToken: 'opaque-token',
+    });
+    expect(consentPlusToken.success).toBe(true);
+
+    // sessionToken alone (no profile / no consent) still fails refine
+    const tokenOnly = CandidateProfileSubmitRequestSchema.safeParse({
+      sessionToken: 'opaque-token',
+    });
+    expect(tokenOnly.success).toBe(false);
+
+    // empty-string token rejected by min(1)
+    const emptyToken = CandidateProfileSubmitRequestSchema.safeParse({
+      profile: validProfile,
+      sessionToken: '',
+    });
+    expect(emptyToken.success).toBe(false);
+  });
 });
 
 describe('CandidateProfileSubmitRequest type-level shape', () => {

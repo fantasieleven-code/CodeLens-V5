@@ -134,6 +134,12 @@ export const CandidateProfileSubmitRequestSchema = z
   .object({
     profile: CandidateProfileSchema.optional(),
     consentAccepted: z.boolean().optional(),
+    /**
+     * Auth-fallback token consumed by requireCandidate middleware when no JWT
+     * is present in the Authorization header. Frontend callers without a JWT
+     * include this in the body; handlers can ignore it (middleware consumes).
+     */
+    sessionToken: z.string().min(1).optional(),
   })
   .refine(
     (data) => data.profile !== undefined || data.consentAccepted !== undefined,
