@@ -149,6 +149,63 @@ describe('SignalRegistryImpl.computeAll — pure-rule signals', () => {
   });
 });
 
+describe('SignalRegistryImpl.computeAll — excludeIds option (Task A1)', () => {
+  function seed(reg: SignalRegistryImpl): void {
+    reg.register({
+      id: 'sA',
+      dimension: V5Dimension.TECHNICAL_JUDGMENT,
+      moduleSource: 'MA',
+      isLLMWhitelist: false,
+      compute: async () => ok(10, 'sA@v1'),
+    });
+    reg.register({
+      id: 'sB',
+      dimension: V5Dimension.CODE_QUALITY,
+      moduleSource: 'MA',
+      isLLMWhitelist: false,
+      compute: async () => ok(20, 'sB@v1'),
+    });
+    reg.register({
+      id: 'sC',
+      dimension: V5Dimension.METACOGNITION,
+      moduleSource: 'MA',
+      isLLMWhitelist: false,
+      compute: async () => ok(30, 'sC@v1'),
+    });
+  }
+
+  it('runs every registered signal when options is undefined (parity with single-arg)', async () => {
+    const reg = new SignalRegistryImpl();
+    seed(reg);
+    const results = await reg.computeAll(baseInput(['moduleA']));
+    expect(Object.keys(results).sort()).toEqual(['sA', 'sB', 'sC']);
+    expect(results.sA.value).toBe(10);
+    expect(results.sB.value).toBe(20);
+    expect(results.sC.value).toBe(30);
+  });
+
+  it('skips ids listed in excludeIds (no compute, no key in results)', async () => {
+    const reg = new SignalRegistryImpl();
+    seed(reg);
+    const results = await reg.computeAll(baseInput(['moduleA']), { excludeIds: ['sB'] });
+    expect(results.sB).toBeUndefined();
+    expect(Object.keys(results).sort()).toEqual(['sA', 'sC']);
+    expect(results.sA.value).toBe(10);
+    expect(results.sC.value).toBe(30);
+  });
+
+  it('silently ignores unknown ids in excludeIds (aligned with participatingModules skip)', async () => {
+    const reg = new SignalRegistryImpl();
+    seed(reg);
+    const results = await reg.computeAll(baseInput(['moduleA']), {
+      excludeIds: ['never-registered', 'also-unknown'],
+    });
+    expect(Object.keys(results).sort()).toEqual(['sA', 'sB', 'sC']);
+    // No throw; every registered signal still ran.
+    expect(results.sA.value).toBe(10);
+  });
+});
+
 describe('SignalRegistryImpl.computeAll — LLM whitelist timeout', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
