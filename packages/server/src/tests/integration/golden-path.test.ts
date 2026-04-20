@@ -82,9 +82,9 @@ describe('Golden Path — scoreSession end-to-end', () => {
       expect(result.confidence).toMatch(/^(high|medium|low)$/);
       expect(result.reasoning).toBeTruthy();
       expect(result.boundaryAnalysis).toBeDefined();
-      // All 47 signals must show up in the output map (participating ones with a
+      // All 48 signals must show up in the output map (participating ones with a
       // value, non-participating ones as null/skipped).
-      expect(Object.keys(result.signals).length).toBe(47);
+      expect(Object.keys(result.signals).length).toBe(48);
     });
 
     it(`${name}: composite falls in target band ${expectation.compositeRange[0]}-${expectation.compositeRange[1]}`, async () => {
@@ -100,6 +100,19 @@ describe('Golden Path — scoreSession end-to-end', () => {
       const result = results.get(name) ?? (await scoreSession(fixture));
       results.set(name, result);
       expect(expectation.grades).toContain(result.grade);
+    });
+
+    it(`${name}: sCalibration falls in target band ${expectation.sCalibrationRange[0]}-${expectation.sCalibrationRange[1]}`, async () => {
+      const result = results.get(name) ?? (await scoreSession(fixture));
+      results.set(name, result);
+
+      const sc = result.signals.sCalibration;
+      expect(sc, `${name}: sCalibration present`).toBeDefined();
+      expect(sc?.value, `${name}: sCalibration numeric`).toEqual(expect.any(Number));
+
+      const [lo, hi] = expectation.sCalibrationRange;
+      expect(sc?.value).toBeGreaterThanOrEqual(lo);
+      expect(sc?.value).toBeLessThanOrEqual(hi);
     });
 
     it(`${name}: every scored dimension is in 0-100 and all non-SD dimensions have a score`, async () => {

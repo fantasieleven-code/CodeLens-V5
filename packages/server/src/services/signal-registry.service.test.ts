@@ -149,6 +149,63 @@ describe('SignalRegistryImpl.computeAll — pure-rule signals', () => {
   });
 });
 
+describe('SignalRegistryImpl.computeAll — excludeIds option (Task A1)', () => {
+  function seed(reg: SignalRegistryImpl): void {
+    reg.register({
+      id: 'sA',
+      dimension: V5Dimension.TECHNICAL_JUDGMENT,
+      moduleSource: 'MA',
+      isLLMWhitelist: false,
+      compute: async () => ok(10, 'sA@v1'),
+    });
+    reg.register({
+      id: 'sB',
+      dimension: V5Dimension.CODE_QUALITY,
+      moduleSource: 'MA',
+      isLLMWhitelist: false,
+      compute: async () => ok(20, 'sB@v1'),
+    });
+    reg.register({
+      id: 'sC',
+      dimension: V5Dimension.METACOGNITION,
+      moduleSource: 'MA',
+      isLLMWhitelist: false,
+      compute: async () => ok(30, 'sC@v1'),
+    });
+  }
+
+  it('runs every registered signal when options is undefined (parity with single-arg)', async () => {
+    const reg = new SignalRegistryImpl();
+    seed(reg);
+    const results = await reg.computeAll(baseInput(['moduleA']));
+    expect(Object.keys(results).sort()).toEqual(['sA', 'sB', 'sC']);
+    expect(results.sA.value).toBe(10);
+    expect(results.sB.value).toBe(20);
+    expect(results.sC.value).toBe(30);
+  });
+
+  it('skips ids listed in excludeIds (no compute, no key in results)', async () => {
+    const reg = new SignalRegistryImpl();
+    seed(reg);
+    const results = await reg.computeAll(baseInput(['moduleA']), { excludeIds: ['sB'] });
+    expect(results.sB).toBeUndefined();
+    expect(Object.keys(results).sort()).toEqual(['sA', 'sC']);
+    expect(results.sA.value).toBe(10);
+    expect(results.sC.value).toBe(30);
+  });
+
+  it('silently ignores unknown ids in excludeIds (aligned with participatingModules skip)', async () => {
+    const reg = new SignalRegistryImpl();
+    seed(reg);
+    const results = await reg.computeAll(baseInput(['moduleA']), {
+      excludeIds: ['never-registered', 'also-unknown'],
+    });
+    expect(Object.keys(results).sort()).toEqual(['sA', 'sB', 'sC']);
+    // No throw; every registered signal still ran.
+    expect(results.sA.value).toBe(10);
+  });
+});
+
 describe('SignalRegistryImpl.computeAll — LLM whitelist timeout', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
@@ -370,18 +427,19 @@ describe('SignalRegistryImpl — Langfuse tracing', () => {
 });
 
 describe('registerAllSignals scaffold', () => {
-  it('exposes EXPECTED_SIGNAL_COUNT = 47 (Round 3 Part 2)', () => {
-    expect(EXPECTED_SIGNAL_COUNT).toBe(47);
+  it('exposes EXPECTED_SIGNAL_COUNT = 48 (Round 3 Part 2 + Task A1 sCalibration)', () => {
+    expect(EXPECTED_SIGNAL_COUNT).toBe(48);
   });
 
-  it('is callable without throwing on a fresh registry (Task 13e closes at 47)', () => {
+  it('is callable without throwing on a fresh registry (Task A1 closes at 48)', () => {
     const reg = new SignalRegistryImpl();
     expect(() => registerAllSignals(reg)).not.toThrow();
-    // Task 11 Step 4G registered sBeliefUpdateMagnitude (1/47); Task 13a added
-    // 5 P0 signals (6/47); Task 13b added 10 MA signals (16/47); Task 13c added
-    // 23 MB signals (39/47); Task 13d added 4 MD + 1 SE signals (44/47); Task
-    // 13e adds the remaining 3 MC signals, matching EXPECTED_SIGNAL_COUNT.
-    expect(reg.getSignalCount()).toBe(47);
+    // Task 11 Step 4G registered sBeliefUpdateMagnitude (1/48); Task 13a added
+    // 5 P0 signals (6/48); Task 13b added 10 MA signals (16/48); Task 13c added
+    // 23 MB signals (39/48); Task 13d added 4 MD + 1 SE signals (44/48); Task
+    // 13e added the remaining 3 MC signals (47/48); Task A1 adds sCalibration
+    // (SE · metacognition · first meta-signal · 48/48).
+    expect(reg.getSignalCount()).toBe(48);
   });
 
   it('registers sBeliefUpdateMagnitude on the metacognition dimension (Task 11)', () => {

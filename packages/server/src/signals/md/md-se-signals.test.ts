@@ -566,10 +566,10 @@ describe('registerAllSignals — Task 13d MD + SE registration', () => {
     };
   }
 
-  it('registers 4 MC + 5 P0 + 10 MA + 23 MB + 4 MD + 1 SE = 47 signals (Task 13e closed)', () => {
+  it('registers 4 MC + 5 P0 + 10 MA + 23 MB + 4 MD + 2 SE = 48 signals (Task A1 adds sCalibration)', () => {
     const r = makeRegistry();
     registerAllSignals(r.registry);
-    expect(r.count).toBe(47);
+    expect(r.count).toBe(48);
     for (const id of [
       'sConstraintIdentification',
       'sDesignDecomposition',
@@ -581,7 +581,7 @@ describe('registerAllSignals — Task 13d MD + SE registration', () => {
     }
   });
 
-  it('EXPECTED_SIGNAL_COUNT contract (47) unchanged', () => {
-    expect(EXPECTED_SIGNAL_COUNT).toBe(47);
+  it('EXPECTED_SIGNAL_COUNT contract (48) · Task A1 raised from 47 → 48', () => {
+    expect(EXPECTED_SIGNAL_COUNT).toBe(48);
   });
 });

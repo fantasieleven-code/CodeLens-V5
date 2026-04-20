@@ -368,3 +368,52 @@
       preservation assertion。Pattern library 累积:Cluster A ingest(Task 22)/ Cluster B
       persistToMetadata(Task 23)/ Cluster D dual-shape normalize(Task 24)三个独立 writer 都
       proven 不互相 clobber。Task 25-27 Cluster C P0/MA/MD submit handlers 直接复用此 pattern
+
+---
+
+## Fixture Design Notes(2026-04-20 Task A1 加入)
+
+> **Background**:Task A1 引入 `sCalibration`(V5.0 Metacognition 7th signal · first
+> meta-signal)后,4 个 Golden Path archetype fixture 的 `selfAssess.confidence`
+> 值获得显式 psychometric 意义 — 它不再只是填 "合理" 数值,而是塑造
+> archetype 的 Dunning-Kruger narrative。本小节为 fixture maintainer 记录原则。
+
+### 设计原则
+
+1. **confidence 是 psychometric 叙事,不是分数填空**。每个 archetype 的
+   `selfAssess.confidence` 值应呼应该 archetype 的 meta-cognition 画像:
+
+| Archetype | confidence | 实际 composite | gap | sCalibration | 画像 |
+|-----------|------------|----------------|-----|--------------|------|
+| Liam      | 0.78       | 89.61          | 11.8 | 0.849       | 高水平 · 略低估(谦虚 / 不炫) |
+| Steve     | 0.65       | 81.44          | 16.2 | 0.750       | 扎实 · 中度低估(有数据意识) |
+| Emma      | 0.55       | 58.78          | 3.2  | 1.000       | 自知 · 完美校准(中段选手典型) |
+| Max       | **0.90**   | 18.40          | 71.3 | **0.000**   | **Dunning-Kruger anchor**(初学者高估) |
+
+2. **Max 的 0.90 confidence 是 Dunning-Kruger psychometric anchor,不是随意填值**。
+   observation #057 曾讨论过 Max 0.40 retroactive override 方案,但经心理学文献
+   (Kruger & Dunning 1999)证实:真实 D 级选手**不会**自评 0.40 —— 他们的
+   缺陷恰恰是**不知道自己不知道**,所以自评偏高。0.90 保留是为 sCalibration = 0
+   提供"perfect DK anchor"—— fixture 若将来被改成 0.40,sCalibration 会
+   upward-drift 到 ~0.5,narrative 整个塌掉(Max 不再是 DK 典型,变成"谦虚的 D",
+   违反 archetype 设计意图)。
+
+3. **narrative-first 原则**:fixture `confidence` / `selfAssess.reasoning` /
+   submission 质量**联合**决定 archetype 的可识别性。任何 fixture tuning 必须
+   先对齐 narrative(Liam 谦虚 · Steve 扎实 · Emma 自知 · Max DK),再调数字。
+   psychometric narrative > 数值 calibration 精度。
+
+### sCalibration 预期区间(V5.0 Task A1 baseline)
+
+见 `packages/server/src/tests/fixtures/golden-path/expectations.ts::FIXTURE_EXPECTATIONS`
+的 `sCalibrationRange` 字段(Liam [0.75, 0.95] · Steve [0.65, 0.85] · Emma
+[0.95, 1.0] · Max [0.0, 0.1])。band 比 composite 略窄因为 sCalibration 的
+gap 公式敏感度高于 composite 的 6-dim 加权均值。
+
+### V5.1 fixture tuning 候选(非紧急)
+
+- Golden Path 4 archetype 没有一个触发 "direction=undefined"(perfect
+  calibration gap=0)分支 · Emma 最近(gap=3.2)但仍 underconfident ·
+  V5.1 可调一个 fixture 的 confidence 使其 gap≤5 且与 composite 完全
+  equal,覆盖 direction-annotation 的 undefined 分支(当前仅 sCalibration
+  unit test case "perfect calibration" 覆盖)

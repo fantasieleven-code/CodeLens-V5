@@ -64,7 +64,7 @@ vi.mock('../services/auth.service.js', () => ({
   signShareToken: vi.fn(() => 'mock-share-token'),
 }));
 
-// signals/index.js imports 47 signal modules which pull env etc. The admin
+// signals/index.js imports 48 signal modules which pull env etc. The admin
 // registry is only exercised in the report endpoint test; stub the heavy
 // registerAllSignals so unrelated tests don't pay the module-load cost.
 vi.mock('../signals/index.js', () => ({

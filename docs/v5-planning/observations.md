@@ -580,3 +580,100 @@ Task 15a Backend agent 自加了 `hydrator.test.ts` 里 malformed `metadata.subm
 1. **Admin lifecycle actions investigation**(HR onboarding 反馈驱动)· 候选 endpoints:`DELETE /admin/sessions/:id` · `PATCH /admin/sessions/:id` status · `POST /admin/sessions/:id/revoke` · `POST /admin/candidates` list。Task 15b canonical 7 endpoint 未覆盖 admin-side lifecycle mutation · HR 需主动 revoke / close 未完成 session。
 2. **`field-naming-glossary.md` 新增 "Naming Ambiguity Resolutions" section**(#103 衍生)· `submissions.*` 双层语义首条 entry · 其他 double-meaning 字段(如 `metadata.mb` vs `SignalInput.mb.*` · `createdAt` Session vs ExamInstance 两套 semantics)集中归档 · 目标 new agent 读 glossary 时 0 ambiguity。
 
+---
+
+## Day 4 (2026-04-20, Task A1 sCalibration — V5.0 Metacognition 7th signal · first meta-signal)
+
+### #108 — `meta-pattern` Pattern F 第 19 次:Task A1 Phase 1 pre-verify grep under-scoped
+**trace**: Task A1 Phase 1 · §E Stop #NEW (pre-Commit 1)
+
+Phase 1 pre-verify 初次 grep "47" 仅覆盖 6 个 test sites(signals 目录 + 紧邻 service 测试)· Steve 明示后扩大 grep 到 server 全域发现 **14 个 test sites** · 差 8 个 test 会在 Commit 3 atomic 47→48 切换时被漏。Backend §E stop + Option (a) ratify 扩大 Commit 1 scope 到所有 14 sites。
+
+**Pattern F 第 19 次累计**(13 + Frontend #14/#15 + Task 15b #16 + Task A1 #17 scale-normalization + #18 scale-normalization followthrough + 本次 #19)。
+
+**Defense validation**:§E stop-for-clarification 在 Phase 1(brief 阶段)而非 Commit 时触发 · 避免 14 sites 里 8 处 silent RED 漏过 squash 阶段 · "grep 不止窗口口径 · 必须 repo-wide" 写入 Rule 13 Phase 1 checklist(Task A1 Commit 6 已提议 V5.0.5)。
+
+### #109 — `meta-pattern` Pattern F 第 20 次:brief-side "intermediate green" 假设未 verify · Backend self-catch
+**trace**: Task A1 Phase 2 · §E Stop (pre-Commit 1 re-verify)
+
+Option (a) ratify 后 Backend 开始 implement:把 14 test sites 47→48 bump 放进 **Commit 1**(shared types + test bumps)· 但 Commit 1 HEAD 此刻 `registerAllSignals()` 仍返回 47(sCalibration 在 Commit 3 才 register)· **9 个 count assertion 在 Commit 1 HEAD 会 RED** · bisect 不 clean。Backend re-verify 自 catch · §E stop + Option (a1) ratify 把 Commit 1 shrink 到 "shared types ONLY" · 14 test sites 全部推到 Commit 3 atomic bump · 每 intermediate HEAD 可 pull-main 跑 CI 0 RED。
+
+**Pattern F 第 20 次累计**。**Self-catch** · 非 Steve catch · 与 #095 Task 30 Phase 1 三连 self-catch 同类。
+
+**Defense insight**:Option ratify 后 Backend implement 前**再跑一次 HEAD-level dry-run mental model**(每 commit HEAD 跑哪些 test · 哪些会 RED)。V5.0.5 Rule 13 Phase 2 checklist 候选:"Commit plan 含 atomic-split · 每 intermediate HEAD 必验证 green"。
+
+### #110 — `design-insight` 两-pass orchestrator seam · computeMetaSignals · Gemini guardrail ≤3 meta-signal
+**trace**: Task A1 Commit 2 · scoring-orchestrator.service.ts
+
+V5.0 至 V5.0.x 的 signal compute 均为 **single-pass** — 所有 signal 同时接 `SignalInput` 计算后合并。Task A1 引入 **meta-signal**(sCalibration 需读其他 47 signal 的 partialComposite 作为 gap 基准)· 必须双-pass:
+
+1. **Pass 1** — `registry.computeAll(input, { excludeIds: META_SIGNAL_IDS })` 跑 47 个 ordinary signal · 得 pass1Dimensions + partialComposite
+2. **Pass 2** — `computeMetaSignals(registry, input, partialComposite)` 跑 meta-signal · merge 进 signals 后 recompute dimensions/composite
+
+**Gemini guardrail**:`META_SIGNAL_IDS = ['sCalibration'] as const` hard cap ≤3 meta-signal · **防二阶 meta**(meta-signal 读 partialComposite 但 partialComposite 里不含 meta · 若新 meta 又读 meta 的 partialComposite 会需要 3-pass)。V5.1 A7/A8 (potentialJunior / potentialMid) 候选 meta-signal 也必须在此 cap 内 · 超则重新 re-design seam。
+
+**seam 复用价值**:V5.1 A7/A8 只需:
+- 新 signal 文件写 `compute(input, partialComposite?)` 签名
+- signals/index.ts register
+- `META_SIGNAL_IDS` 加 id
+零改 orchestrator / registry / shared types。**pattern 稳**。
+
+### #111 — `design-insight` #057 Max 0.40 retroactive override rejected by Dunning-Kruger psychometric · fixture narrative-first 原则
+**trace**: Task A1 fixture integrity review · (原 #057 narrative drift · 本 observation 定稿)
+
+早期 fixture draft 曾建议把 Max `selfAssess.confidence` 从 0.90 下调至 0.40("更贴合 D 级候选实际" · 直觉-first)。Task A1 psychometric 审计 reject 此 override:真实 D 级候选**不会**自评 0.40 · **Dunning-Kruger effect**(Kruger & Dunning 1999)恰恰是**不知道自己不知道** · 自评**偏高**(0.85-0.95 典型)。Max 0.90 保留给 sCalibration = 0 提供 "perfect DK psychometric anchor"。
+
+若 Max 改 0.40:
+- sCalibration upward-drift 到 ~0.5(gap 从 71.3 变 22)
+- Max 的 narrative 从 "DK 典型 initial archetype" → "谦虚的 D"(违 archetype 设计意图)
+- Golden Path psychometric coverage 出现空洞(无 fixture cover "overconfident + low-skill")
+
+**design 原则入库**:**fixture narrative-first** · psychometric narrative 高于数值 calibration 精度 · tune confidence 前必须先对齐 archetype 画像。`field-naming-glossary.md` "Fixture Design Notes" section 是 single source(Task A1 Commit 6 加入)。
+
+### #112 — `defense-mechanism` Stop-for-clarification 3.0 perfect · Task A1 Phase 1-3 共 4 stop · 0 silent push
+**trace**: Task A1 全程 · Phase 1 #19 / Phase 2 #20 / Commit 4 §E #6 / (潜在 Commit 6 TBD)
+
+Task A1 全程触发 4 次 §E stop:
+1. Phase 1 grep under-scoped(#108 Pattern F #19)
+2. Phase 2 intermediate green 假设未 verify(#109 Pattern F #20)
+3. Commit 4 composite drift 0.62 > 0.5(#113 threshold revision)
+4. [latent] 任何 Commit 5-6 再 escalate
+
+**Pattern**:每 stop 都是 **"实际观测与 brief 假设 diverge"** 触发 · 没有一次 silent push forward。stop-for-clarification 已从 V5.0.0 formalize 迭代到 3.0 perfect state:
+- 1.0 (V4 → V5.0.0):stop 后 Steve 必须 choose option A-C
+- 2.0 (V5.0.0-V5.0.x):stop report 含 cost-decomposed options + 推荐 default
+- 3.0 (V5.0.5-Task A1):**3-perspective ratify**(Karpathy / Gemini / Claude Code 负责人)· stop report 含 "ratify 理由每角度 2-3 句" · decision audit trail 完整
+
+**Defense library status**:Task A1 是 3.0 pattern 第一次 4 连 stop · 全部 1 round 成功 ratify · 0 silent push · 0 re-stop。**pattern 稳**。
+
+### #113 — `meta-pattern` §E #6 stop trigger "0.5 literal" miscalibrated · 语义 revise 为 "无法 decompose"
+**trace**: Task A1 Commit 4 · Option (b) ratify
+
+Commit 3 green-light 给出 §E #6 trigger = "composite drift > 0.5"。Commit 4 Golden Path 探针发现 Emma composite drift +0.62 > 0.5 · Backend §E stop。3-perspective ratify(Karpathy/Gemini/Claude Code 负责人)2.5/3 Option (b) 接受 drift:
+
+- **Karpathy**:signal 正确工作 · Emma calibration=1.0 reward 正确 · +0.62 是 **feature not bug**
+- **Gemini**:fixture 是 "已 calibrated baseline" · signal 变更必然 drift · 可 decompose 的 drift 应通过 expectations update 接受 · 历史 #052/#061/#066 同 pattern
+- **Claude Code 负责人**:§E #6 原阈值 "0.5 literal" miscalibrated · trigger 本意是 "weight 配错 / 公式错" 未发生 · 阈值应 revise 为 **"无法 decompose"**
+
+**Trigger 语义修订入库**:§E #6 future 应用 · drift 必须**先尝试 decompose**(哪 signal 带来多少 shift · 是否预期 · 是否 fit existing band) · decomposable + fit band + narrative preserved = accept update · 仅 non-decomposable / band-breaking / narrative-break 才是 hard stop。
+
+**V5.0.5 checklist rule 10 extension 候选**:stop-trigger 语义不应 literal-threshold(易 under/over-sensitive)· 应 behavioral-semantic(drift 是否 decomposable / narrative 是否 preserved)。
+
+### #114 — `cross-task-gap` V5.1 backlog · Golden Path fixture 未覆盖 "direction=undefined perfect calibration" case
+**trace**: Task A1 Commit 4 · sCalibration direction annotation coverage audit
+
+sCalibration 输出 `SignalEvidence.direction ∈ {'overconfident', 'underconfident', undefined}`(undefined = gap 0 · 完美校准)。Golden Path 4 archetype 探针结果:
+
+| Archetype | gap | direction |
+|-----------|-----|-----------|
+| Liam      | 11.8 | underconfident |
+| Steve     | 16.2 | underconfident |
+| Emma      | 3.2  | underconfident(within tolerance 但非 0) |
+| Max       | 71.3 | overconfident |
+
+**覆盖空洞**:没有一个 archetype 触发 `direction=undefined`(gap=0 · 完美校准)· Emma 最近但仍 underconfident。当前 `direction=undefined` 分支仅由 sCalibration 单元测试 case "perfect calibration" 覆盖 · integration 层零覆盖。
+
+**V5.1 backlog(不紧急)**:下一次 Golden Path fixture re-calibration 时 tune 一 fixture 的 `selfAssess.confidence` 使其 `gap ≤ 5` 且 `self*100 === partialComposite`(推荐 tune Emma · 她已是 direction=undefined 最近候选)。V5.1 A7/A8 meta-signal 若复用 direction 字段 · 须先补此 fixture coverage 否则 integration 层永远不过 undefined 分支。
+
+**V5.0.5 不必行动**:Task A1 unit test 已锁定 undefined 分支 · production scoring 不受影响。
+

@@ -1,13 +1,13 @@
 /**
  * V5.0 signal catalog gate — Task 13e.
  *
- * This file is the cross-cutting CI contract that all 47 `SignalDefinition`s
+ * This file is the cross-cutting CI contract that all 48 `SignalDefinition`s
  * must satisfy before Task 13e can merge. It asserts the 5 invariants from
  * Round 2 Part 7 and the 1 additional evidence-shape invariant from Round 3
- * 重构 1:
+ * 重构 1 (Task A1 raised the contract from 47 → 48 by adding sCalibration):
  *
- *   1. Total count = `EXPECTED_SIGNAL_COUNT` (47).
- *   2. Dimension breakdown — TJ=9, AE=14, CQ=12, Comm=3, Meta=6, SD=3.
+ *   1. Total count = `EXPECTED_SIGNAL_COUNT` (48).
+ *   2. Dimension breakdown — TJ=9, AE=14, CQ=12, Comm=3, Meta=7, SD=3.
  *   3. `isLLMWhitelist === true` signals = exactly 3, namely
  *      `sDesignDecomposition` / `sTradeoffArticulation` /
  *      `sAiOrchestrationQuality` (all MD).
@@ -101,11 +101,11 @@ function assertResultShape(result: SignalResult, signalId: string): void {
 // ────────────────────── 1. Total count ──────────────────────
 
 describe('V5.0 gate — total signal count', () => {
-  it(`EXPECTED_SIGNAL_COUNT === 47`, () => {
-    expect(EXPECTED_SIGNAL_COUNT).toBe(47);
+  it(`EXPECTED_SIGNAL_COUNT === 48`, () => {
+    expect(EXPECTED_SIGNAL_COUNT).toBe(48);
   });
 
-  it('registerAllSignals registers exactly 47 signals', () => {
+  it('registerAllSignals registers exactly 48 signals', () => {
     const registry = buildRegistry();
     expect(registry.getSignalCount()).toBe(EXPECTED_SIGNAL_COUNT);
   });
@@ -125,7 +125,7 @@ describe('V5.0 gate — dimension breakdown', () => {
     [V5Dimension.AI_ENGINEERING]: 14,
     [V5Dimension.CODE_QUALITY]: 12,
     [V5Dimension.COMMUNICATION]: 3,
-    [V5Dimension.METACOGNITION]: 6,
+    [V5Dimension.METACOGNITION]: 7,
     [V5Dimension.SYSTEM_DESIGN]: 3,
   };
 
@@ -137,7 +137,7 @@ describe('V5.0 gate — dimension breakdown', () => {
     });
   }
 
-  it('dimension counts sum to 47', () => {
+  it('dimension counts sum to 48', () => {
     const sum = Object.values(EXPECTED).reduce((a, b) => a + b, 0);
     expect(sum).toBe(EXPECTED_SIGNAL_COUNT);
   });
@@ -252,7 +252,7 @@ describe('V5.0 gate — SignalResult shape contract', () => {
    * avoid provider-mocking in the gate file (per-signal suites cover the
    * live-LLM path).
    */
-  it('all 47 signals return well-formed SignalResult on empty input', async () => {
+  it('all 48 signals return well-formed SignalResult on empty input', async () => {
     const registry = buildRegistry();
     const input = emptyInput();
     const signals: SignalDefinition[] = registry.listSignals();

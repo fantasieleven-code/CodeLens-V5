@@ -46,7 +46,7 @@ export interface ProbeDecision {
 /**
  * Lightweight signal snapshot — same shape as V4, expanded for V5 signals
  * actually used in contradiction / boundary rules. Any V5 signal not keyed
- * here is irrelevant for probe decisions; registration of the full 47 id
+ * here is irrelevant for probe decisions; registration of the full 48 id
  * set lives in `signals/index.ts`.
  */
 export interface SignalSnapshot {
@@ -103,6 +103,7 @@ export interface SignalSnapshot {
   sTechProfile?: number;
   sReflectionDepth?: number;
   sBeliefUpdateMagnitude?: number;
+  sCalibration?: number;
 
   // System design (MD)
   sDesignDecomposition?: number;
@@ -117,7 +118,7 @@ export interface DimensionScore {
   signalIds: (keyof SignalSnapshot)[];
 }
 
-// ─── V5 six-dimension → 47 signal map ────────────────────────────────────
+// ─── V5 six-dimension → 48 signal map (Task A1 adds sCalibration) ───────
 
 export const V5_DIMENSION_SIGNALS: Record<
   string,
@@ -186,6 +187,7 @@ export const V5_DIMENSION_SIGNALS: Record<
       'sTechProfile',
       'sReflectionDepth',
       'sBeliefUpdateMagnitude',
+      'sCalibration',
     ],
   },
   systemDesign: {

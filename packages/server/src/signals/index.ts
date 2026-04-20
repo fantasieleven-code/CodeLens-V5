@@ -1,15 +1,18 @@
 /**
  * V5 Signal registration entry point.
  *
- * Task 8 provides this scaffold; Tasks 11 / 13a / 13b / 13c-e fill in the 47
- * `SignalDefinition` imports and `registry.register(def)` calls. The split
+ * Task 8 provides this scaffold; Tasks 11 / 13a / 13b / 13c-e filled in the
+ * first 47 `SignalDefinition` imports and `registry.register(def)` calls.
+ * Task A1 adds the 48th (`sCalibration` · first meta-signal). The split
  * keeps the framework independently verifiable before each signal batch
  * lands.
  *
  * Round 3 Part 2 raised the V5.0 signal catalog from 43 → 47
  * (40 pure-rule + 3 MD LLM-whitelist + 4 新增 sAiClaim / sPrinciple /
- * sBelief / sDecisionLatency). `EXPECTED_SIGNAL_COUNT` is the contract
- * Task 13 + Part 7 CI must satisfy once all 47 land:
+ * sBelief / sDecisionLatency). Task A1 brought it to 48 by adding
+ * sCalibration (SE · metacognition · partialComposite consumer via the
+ * orchestrator two-pass seam). `EXPECTED_SIGNAL_COUNT` is the contract
+ * CI must satisfy:
  *   assert(signalRegistry.getSignalCount() === EXPECTED_SIGNAL_COUNT).
  */
 
@@ -63,10 +66,11 @@ import { sConstraintIdentification } from './md/s-constraint-identification.js';
 import { sDesignDecomposition } from './md/s-design-decomposition.js';
 import { sTradeoffArticulation } from './md/s-tradeoff-articulation.js';
 import { sAiOrchestrationQuality } from './md/s-ai-orchestration-quality.js';
-// SE (Task 13d) — 1 signal
+// SE (Task 13d + Task A1) — 2 signals
 import { sMetaCognition } from './se/s-meta-cognition.js';
+import { sCalibration } from './se/s-calibration.js';
 
-export const EXPECTED_SIGNAL_COUNT = 47;
+export const EXPECTED_SIGNAL_COUNT = 48;
 
 /**
  * Register all V5 signals on the given registry.
@@ -74,10 +78,12 @@ export const EXPECTED_SIGNAL_COUNT = 47;
  * Task 11 wired sBeliefUpdateMagnitude (MC). Task 13a adds the 5 P0 signals.
  * Task 13b adds the 10 MA signals. Task 13c adds the 23 MB signals. Task 13d
  * adds the 4 MD signals (3 LLM whitelist + 1 pure rule) and 1 SE signal.
- * Task 13e closes the system with the 3 remaining MC signals
+ * Task 13e closed the system with the 3 remaining MC signals
  * (sBoundaryAwareness / sCommunicationClarity / sReflectionDepth) bringing
- * the total to `EXPECTED_SIGNAL_COUNT = 47`. `signals/__tests__/
- * registry-assertions.test.ts` enforces the full catalog contract in CI.
+ * the total to 47. Task A1 adds `sCalibration` (SE · metacognition · first
+ * meta-signal · two-pass consumer) → `EXPECTED_SIGNAL_COUNT = 48`.
+ * `signals/__tests__/registry-assertions.test.ts` enforces the full catalog
+ * contract in CI.
  */
 export function registerAllSignals(registry: SignalRegistry): void {
   // MC (Task 11 + Task 13e)
@@ -137,9 +143,10 @@ export function registerAllSignals(registry: SignalRegistry): void {
   registry.register(sDesignDecomposition);
   registry.register(sTradeoffArticulation);
   registry.register(sAiOrchestrationQuality);
-  // SE (Task 13d)
+  // SE (Task 13d + Task A1)
   registry.register(sMetaCognition);
+  registry.register(sCalibration);
   logger.debug(
-    'registerAllSignals: registered 47/47 (4 MC + 5 P0 + 10 MA + 23 MB + 4 MD + 1 SE) — V5.0 signal system closed',
+    'registerAllSignals: registered 48/48 (4 MC + 5 P0 + 10 MA + 23 MB + 4 MD + 2 SE) — V5.0 + A1 closed',
   );
 }
