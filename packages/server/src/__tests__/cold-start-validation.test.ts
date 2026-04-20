@@ -29,6 +29,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PrismaClient } from '@prisma/client';
 import type { V5ScoringResult, SuiteId } from '@codelens-v5/shared';
 import { V5_DIMENSIONS } from '@codelens-v5/shared';
+import type { LLMGradeRequest } from '../signals/md/llm-helper.js';
 
 vi.mock('../lib/langfuse.js', () => ({
   getLangfuse: async () => ({
@@ -65,12 +66,10 @@ vi.mock('../services/model/index.js', () => ({
 // a valid SignalResult and never hits the fallback branch, which keeps
 // ≥46 non-null signals achievable without coupling to LLM provider wiring.
 vi.mock('../signals/md/llm-helper.js', async () => {
-  const actual = await vi.importActual<typeof import('../signals/md/llm-helper.js')>(
-    '../signals/md/llm-helper.js',
-  );
+  const actual = await vi.importActual('../signals/md/llm-helper.js');
   return {
     ...actual,
-    gradeWithLLM: vi.fn(async (req) => ({
+    gradeWithLLM: vi.fn(async (req: LLMGradeRequest) => ({
       value: 0.7,
       evidence: [
         {
@@ -88,7 +87,7 @@ vi.mock('../signals/md/llm-helper.js', async () => {
 
 import { __resetDefaultRegistryForTests } from '../services/scoring-orchestrator.service.js';
 import { ScoringHydratorService } from '../services/scoring-hydrator.service.js';
-import { ExamDataService } from '../services/exam-data.service.js';
+import type { ExamDataService } from '../services/exam-data.service.js';
 
 // ────────────────────── synthetic fixture ──────────────────────
 

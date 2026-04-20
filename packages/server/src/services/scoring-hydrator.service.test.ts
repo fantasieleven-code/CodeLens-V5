@@ -36,7 +36,7 @@ import {
   HydratorSessionNotFoundError,
   ScoringHydratorService,
 } from './scoring-hydrator.service.js';
-import { ExamDataService } from './exam-data.service.js';
+import type { ExamDataService } from './exam-data.service.js';
 
 // ───────────── helpers ─────────────
 
