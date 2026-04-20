@@ -34,6 +34,7 @@ import type { SignalDefinition, SignalResults } from './v5-signals.js';
 import type { V5ModuleKey } from '../constants/module-keys.js';
 import type { V5Submissions } from './v5-submissions.js';
 import type { CursorBehaviorLabel } from './v5-scoring.js';
+import type { CandidateProfile } from './candidate-profile.js';
 
 // ── /admin/stats/overview ────────────────────────────────────────────
 
@@ -176,6 +177,21 @@ export interface V5AdminSessionReport {
  * Frontend `SignalViewMeta` alias.
  */
 export type V5AdminSignalViewMeta = Omit<SignalDefinition, 'compute' | 'fallback'>;
+
+// ── /admin/sessions/:sessionId/profile ───────────────────────────────
+
+/**
+ * Task B-A12 — read-side for the candidate pre-exam profile. Consumed by
+ * the Frontend Admin report header to surface the candidate's self-reported
+ * context (role, tech stack, AI-tool experience) alongside the scoring
+ * payload. `consentAcceptedAt` is ISO-8601; `null` means the candidate has
+ * not accepted the data-use consent.
+ */
+export interface V5AdminSessionProfile {
+  sessionId: string;
+  candidateProfile: CandidateProfile | null;
+  consentAcceptedAt: string | null;
+}
 
 // ── Generic pagination envelope ─────────────────────────────────────
 

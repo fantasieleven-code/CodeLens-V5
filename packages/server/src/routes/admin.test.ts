@@ -84,6 +84,7 @@ import {
   listAdminSessions,
   getAdminSession,
   getAdminSessionReport,
+  getAdminSessionProfile,
   listAdminExamInstances,
   listAdminSuites,
   getAdminStatsOverview,
@@ -356,6 +357,59 @@ describe('GET /admin/sessions/:sessionId/report', () => {
     expect(payload.signalDefinitions).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: 'sMock' })]),
     );
+  });
+});
+
+// ────────────────────────── endpoint 8: session profile (Task B-A12) ──────────────────────────
+
+describe('GET /admin/sessions/:sessionId/profile', () => {
+  const mockProfile = {
+    yearsOfExperience: 5,
+    currentRole: 'backend' as const,
+    primaryTechStack: ['go', 'postgres'],
+    companySize: 'medium' as const,
+    aiToolYears: 1 as const,
+    primaryAiTool: 'cursor' as const,
+    dailyAiUsageHours: '1_3' as const,
+  };
+
+  it('returns candidate profile + consentAcceptedAt when session matches orgId', async () => {
+    sessionFindUnique.mockResolvedValue({
+      id: 'sess-1',
+      orgId: 'org-1',
+      candidateProfile: mockProfile,
+      consentAcceptedAt: new Date('2026-04-20T10:15:00.000Z'),
+    });
+    const req = makeReq({ params: { sessionId: 'sess-1' } });
+    const { res, json } = makeRes();
+    await getAdminSessionProfile(req, res, makeNext());
+    const payload = json.mock.calls[0]![0];
+    expect(payload.sessionId).toBe('sess-1');
+    expect(payload.candidateProfile).toEqual(mockProfile);
+    expect(payload.consentAcceptedAt).toBe('2026-04-20T10:15:00.000Z');
+  });
+
+  it('404s when session missing', async () => {
+    sessionFindUnique.mockResolvedValue(null);
+    const req = makeReq({ params: { sessionId: 'sess-missing' } });
+    const next = makeNext();
+    await getAdminSessionProfile(req, makeRes().res, next);
+    const err = (next as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(err.statusCode).toBe(404);
+  });
+
+  it('403s when session belongs to a different org', async () => {
+    sessionFindUnique.mockResolvedValue({
+      id: 'sess-1',
+      orgId: 'org-OTHER',
+      candidateProfile: null,
+      consentAcceptedAt: null,
+    });
+    const req = makeReq({ params: { sessionId: 'sess-1' } });
+    const next = makeNext();
+    await getAdminSessionProfile(req, makeRes().res, next);
+    const err = (next as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(err.statusCode).toBe(403);
   });
 });
 

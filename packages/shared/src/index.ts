@@ -22,4 +22,5 @@ export * from './types/v5-capability-profile.js';
 export * from './types/v5-model-provider.js';
 export * from './types/v5-scoring.js';
 export * from './types/v5-admin-api.js';
+export * from './types/candidate-profile.js';
 export * from './constants/index.js';

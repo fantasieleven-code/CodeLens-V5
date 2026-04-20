@@ -1,9 +1,11 @@
 /**
- * Admin API routes — Task 15b Deliverable §2.
+ * Admin API routes — Task 15b Deliverable §2 (+ Task B-A12 profile read).
  *
- * 7 endpoints matching `V5Admin*` canonical contract in
+ * 8 endpoints matching `V5Admin*` canonical contract in
  * `packages/shared/src/types/v5-admin-api.ts`. All endpoints are mounted
  * under `requireAdmin` (injects `req.orgId`) at `/api/admin/*` in index.ts.
+ * Endpoint 8 (`GET /admin/sessions/:sessionId/profile`) is Task B-A12's
+ * admin-side read of `candidateProfile` + `consentAcceptedAt`.
  *
  * Scope conventions:
  *   - orgId scope: every Prisma query filters by `req.orgId` (MEMBER single-
@@ -25,6 +27,7 @@ import type {
   V5AdminSessionCreateRequest,
   V5AdminSessionCreateResponse,
   V5AdminSessionReport,
+  V5AdminSessionProfile,
   V5AdminExamInstance,
   V5AdminSuite,
   V5AdminStatsOverview,
@@ -35,6 +38,7 @@ import type {
   V5ModuleType,
   V5ModuleKey,
   BusinessScenario,
+  CandidateProfile,
   SignalDefinition,
   SignalRegistry,
 } from '@codelens-v5/shared';
@@ -392,6 +396,41 @@ export async function getAdminSessionReport(
   }
 }
 
+/** GET /admin/sessions/:sessionId/profile — endpoint 8 (Task B-A12). */
+export async function getAdminSessionProfile(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const orgId = requireOrgScope(req);
+    const row = await prisma.session.findUnique({
+      where: { id: req.params.sessionId },
+      select: {
+        id: true,
+        orgId: true,
+        candidateProfile: true,
+        consentAcceptedAt: true,
+      },
+    });
+    if (!row) throw new NotFoundError('Session not found');
+    if (row.orgId !== orgId) {
+      throw new AuthorizationError('Session belongs to a different org');
+    }
+    const response: V5AdminSessionProfile = {
+      sessionId: row.id,
+      candidateProfile:
+        (row.candidateProfile ?? null) as CandidateProfile | null,
+      consentAcceptedAt: row.consentAcceptedAt
+        ? row.consentAcceptedAt.toISOString()
+        : null,
+    };
+    res.json(response);
+  } catch (err) {
+    next(err);
+  }
+}
+
 /** GET /admin/exam-instances — endpoint 5. */
 export async function listAdminExamInstances(
   req: Request,
@@ -539,8 +578,9 @@ adminRouter.post('/sessions/create', createAdminSession);
 adminRouter.get('/sessions', listAdminSessions);
 adminRouter.get('/sessions/:sessionId', getAdminSession);
 adminRouter.get('/sessions/:sessionId/report', getAdminSessionReport);
+adminRouter.get('/sessions/:sessionId/profile', getAdminSessionProfile);
 adminRouter.get('/exam-instances', listAdminExamInstances);
 adminRouter.get('/suites', listAdminSuites);
 adminRouter.get('/stats/overview', getAdminStatsOverview);
 
-logger.debug('[admin] routes wired (7 endpoints)');
+logger.debug('[admin] routes wired (8 endpoints)');
