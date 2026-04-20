@@ -82,9 +82,9 @@ describe('Golden Path — scoreSession end-to-end', () => {
       expect(result.confidence).toMatch(/^(high|medium|low)$/);
       expect(result.reasoning).toBeTruthy();
       expect(result.boundaryAnalysis).toBeDefined();
-      // All 47 signals must show up in the output map (participating ones with a
+      // All 48 signals must show up in the output map (participating ones with a
       // value, non-participating ones as null/skipped).
-      expect(Object.keys(result.signals).length).toBe(47);
+      expect(Object.keys(result.signals).length).toBe(48);
     });
 
     it(`${name}: composite falls in target band ${expectation.compositeRange[0]}-${expectation.compositeRange[1]}`, async () => {

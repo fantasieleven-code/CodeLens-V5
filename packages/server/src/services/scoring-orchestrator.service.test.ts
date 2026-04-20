@@ -226,7 +226,7 @@ describe('scoreSession — wiring', () => {
 });
 
 describe('scoreSession — default registry lazy init', () => {
-  it('loads the 47-signal registry on first call when none is injected', async () => {
+  it('loads the 48-signal registry on first call when none is injected', async () => {
     const input: ScoreSessionInput = {
       sessionId: 'lazy-init-test',
       suiteId: 'full_stack',
@@ -240,8 +240,8 @@ describe('scoreSession — default registry lazy init', () => {
     const result = await scoreSession(input);
     expect(result).toBeDefined();
     expect(result.grade).toBeTruthy();
-    // Lazy init must have populated the registry with all 47 signals.
-    expect(Object.keys(result.signals).length).toBe(47);
+    // Lazy init must have populated the registry with all 48 signals.
+    expect(Object.keys(result.signals).length).toBe(48);
   });
 
   it('caches the registry across calls', async () => {

@@ -1,5 +1,5 @@
 /**
- * SignalRegistry — framework for 47 V5 signals.
+ * SignalRegistry — framework for 48 V5 signals (Task A1 raised 47 → 48).
  *
  * Task 4 introduced the framework + Round 3 Part 1 重构 1 return shape
  * (SignalResult with evidence[] / algorithmVersion). Task 8 extends it with:

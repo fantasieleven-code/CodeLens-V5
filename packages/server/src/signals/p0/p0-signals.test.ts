@@ -399,10 +399,10 @@ describe('registerAllSignals — Task 13a P0 registration', () => {
     return { get count() { return count; }, ids, registry };
   }
 
-  it('registers 4 MC + 5 P0 + 10 MA + 23 MB + 4 MD + 1 SE = 47 signals (Task 13e closes the catalog)', () => {
+  it('registers 4 MC + 5 P0 + 10 MA + 23 MB + 4 MD + 2 SE = 48 signals (Task A1 adds sCalibration)', () => {
     const r = makeRegistry();
     registerAllSignals(r.registry);
-    expect(r.count).toBe(47);
+    expect(r.count).toBe(48);
     for (const id of [
       'sBeliefUpdateMagnitude',
       'sBaselineReading',
@@ -426,7 +426,7 @@ describe('registerAllSignals — Task 13a P0 registration', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('EXPECTED_SIGNAL_COUNT contract (47) unchanged', () => {
-    expect(EXPECTED_SIGNAL_COUNT).toBe(47);
+  it('EXPECTED_SIGNAL_COUNT contract (48) after Task A1 sCalibration', () => {
+    expect(EXPECTED_SIGNAL_COUNT).toBe(48);
   });
 });

@@ -427,18 +427,19 @@ describe('SignalRegistryImpl — Langfuse tracing', () => {
 });
 
 describe('registerAllSignals scaffold', () => {
-  it('exposes EXPECTED_SIGNAL_COUNT = 47 (Round 3 Part 2)', () => {
-    expect(EXPECTED_SIGNAL_COUNT).toBe(47);
+  it('exposes EXPECTED_SIGNAL_COUNT = 48 (Round 3 Part 2 + Task A1 sCalibration)', () => {
+    expect(EXPECTED_SIGNAL_COUNT).toBe(48);
   });
 
-  it('is callable without throwing on a fresh registry (Task 13e closes at 47)', () => {
+  it('is callable without throwing on a fresh registry (Task A1 closes at 48)', () => {
     const reg = new SignalRegistryImpl();
     expect(() => registerAllSignals(reg)).not.toThrow();
-    // Task 11 Step 4G registered sBeliefUpdateMagnitude (1/47); Task 13a added
-    // 5 P0 signals (6/47); Task 13b added 10 MA signals (16/47); Task 13c added
-    // 23 MB signals (39/47); Task 13d added 4 MD + 1 SE signals (44/47); Task
-    // 13e adds the remaining 3 MC signals, matching EXPECTED_SIGNAL_COUNT.
-    expect(reg.getSignalCount()).toBe(47);
+    // Task 11 Step 4G registered sBeliefUpdateMagnitude (1/48); Task 13a added
+    // 5 P0 signals (6/48); Task 13b added 10 MA signals (16/48); Task 13c added
+    // 23 MB signals (39/48); Task 13d added 4 MD + 1 SE signals (44/48); Task
+    // 13e added the remaining 3 MC signals (47/48); Task A1 adds sCalibration
+    // (SE · metacognition · first meta-signal · 48/48).
+    expect(reg.getSignalCount()).toBe(48);
   });
 
   it('registers sBeliefUpdateMagnitude on the metacognition dimension (Task 11)', () => {

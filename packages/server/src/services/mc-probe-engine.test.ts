@@ -2,7 +2,7 @@
  * Tests for V5 mc-probe-engine.
  *
  * Covers:
- *   - V5_DIMENSION_SIGNALS totals (47 = EXPECTED_SIGNAL_COUNT).
+ *   - V5_DIMENSION_SIGNALS totals (48 = EXPECTED_SIGNAL_COUNT).
  *   - analyzeSignalsForProbing round dispatch (1 / 2-4 / 5 + contradiction).
  *   - PromptRegistry template is loaded per strategy (mocked).
  *   - buildSignalSnapshot reads session.metadata.signalResults only.
@@ -42,10 +42,10 @@ import {
 import { promptRegistry } from './prompt-registry.service.js';
 import { prisma } from '../config/db.js';
 
-describe('V5_DIMENSION_SIGNALS — 6-dimension × 47-signal map', () => {
-  it('total equals EXPECTED_SIGNAL_COUNT (47)', () => {
+describe('V5_DIMENSION_SIGNALS — 6-dimension × 48-signal map', () => {
+  it('total equals EXPECTED_SIGNAL_COUNT (48)', () => {
     expect(V5_DIMENSION_SIGNAL_TOTAL).toBe(EXPECTED_SIGNAL_COUNT);
-    expect(V5_DIMENSION_SIGNAL_TOTAL).toBe(47);
+    expect(V5_DIMENSION_SIGNAL_TOTAL).toBe(48);
   });
 
   it('has exactly 6 dimensions matching the V5 taxonomy', () => {
@@ -61,12 +61,12 @@ describe('V5_DIMENSION_SIGNALS — 6-dimension × 47-signal map', () => {
     );
   });
 
-  it('per-dimension counts match Round 3 Part 2 taxonomy (9/14/12/3/6/3)', () => {
+  it('per-dimension counts match Round 3 Part 2 + Task A1 taxonomy (9/14/12/3/7/3)', () => {
     expect(V5_DIMENSION_SIGNALS.technicalJudgment.signals.length).toBe(9);
     expect(V5_DIMENSION_SIGNALS.aiEngineering.signals.length).toBe(14);
     expect(V5_DIMENSION_SIGNALS.codeQuality.signals.length).toBe(12);
     expect(V5_DIMENSION_SIGNALS.communication.signals.length).toBe(3);
-    expect(V5_DIMENSION_SIGNALS.metacognition.signals.length).toBe(6);
+    expect(V5_DIMENSION_SIGNALS.metacognition.signals.length).toBe(7);
     expect(V5_DIMENSION_SIGNALS.systemDesign.signals.length).toBe(3);
   });
 

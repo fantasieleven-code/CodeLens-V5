@@ -11,11 +11,11 @@
  *
  * 3 Blocks (dual-block mirror of Task 30a 7th gate):
  *   Block 1 — Full coverage: all 6 module namespaces populated, deep_dive
- *     suite, ≥46 of 47 signals non-null, 6 dimensions populated, grade
+ *     suite, ≥47 of 48 signals non-null, 6 dimensions populated, grade
  *     computation works, scoringResult persisted.
- *   Block 2 — Graceful degradation: selfAssess namespace removed; the 1
- *     SE signal (sMetaCognition) null-outs but the hydrator does not
- *     throw and the remaining ≥42 signals still compute non-null.
+ *   Block 2 — Graceful degradation: selfAssess namespace removed; the 2
+ *     SE signals (sMetaCognition + sCalibration) null-out but the hydrator
+ *     does not throw and the remaining ≥42 signals still compute non-null.
  *   Block 3 — Idempotency: running hydrateAndScore twice against the same
  *     session yields deep-equal scoringResult; no hidden side-effect
  *     state leaks between calls.
@@ -661,12 +661,12 @@ describe('Cold Start Validation · Block 1 — full-coverage scenario', () => {
     expect(out.hydrationReport.examData.SE).toBe('present');
     expect(out.hydrationReport.examData.MC).toBe('present');
 
-    // 47 signals registered; threshold ≥46 non-null per brief §2 (">= 46"
-    // rather than "== 46/47" to survive tiny fixture fragility).
+    // 48 signals registered; threshold ≥47 non-null per brief §2 (">= 47"
+    // rather than "== 47/48" to survive tiny fixture fragility).
     const signalEntries = Object.entries(out.scoringResult.signals);
-    expect(signalEntries.length).toBe(47);
+    expect(signalEntries.length).toBe(48);
     const nonNullCount = signalEntries.filter(([, r]) => r && r.value != null).length;
-    expect(nonNullCount).toBeGreaterThanOrEqual(46);
+    expect(nonNullCount).toBeGreaterThanOrEqual(47);
 
     // 6 dimensions all numeric + in 0-100.
     for (const dim of V5_DIMENSIONS) {
@@ -703,10 +703,13 @@ describe('Cold Start Validation · Block 2 — graceful degradation', () => {
 
     expect(out.hydrationReport.selfAssess).toBe('absent');
 
-    // sMetaCognition is the sole SE signal; must null when selfAssess absent.
+    // sMetaCognition + sCalibration are the 2 SE signals; both must null
+    // when selfAssess absent (sCalibration reads selfConfidence; falls back
+    // to explained-null via Pattern H when input missing).
     expect(out.scoringResult.signals.sMetaCognition?.value ?? null).toBeNull();
+    expect(out.scoringResult.signals.sCalibration?.value ?? null).toBeNull();
 
-    // Remaining ≥42 signals (47 total − 5 P0/MC/MD outliers worst case) still non-null.
+    // Remaining ≥42 signals (48 total − 6 P0/MC/MD/SE outliers worst case) still non-null.
     const nonNullCount = Object.values(out.scoringResult.signals).filter(
       (r) => r && r.value != null,
     ).length;
