@@ -6,12 +6,13 @@
  * will extract the zh side as i18n source-of-truth once a translation
  * layer is added.
  *
- * The shape here is consumed by `ConsentPage.tsx` and lock-tested in
- * `__tests__/consentContent.test.ts` so the 6 error keys stay in sync
- * with `SubmitConsentErrorKind`.
+ * The shape here is consumed by `ConsentPage.tsx`. Error codes are the
+ * Backend AppError codes (Round 3 remap — AUTH_REQUIRED / NOT_FOUND /
+ * VALIDATION_ERROR / FORBIDDEN / INTERNAL_ERROR) plus two Frontend-only
+ * ones (NETWORK for fetch rejection, UNKNOWN for defensive fallback).
  */
 
-import type { SubmitConsentErrorKind } from '../../services/candidateApi.js';
+import type { CandidateApiErrorCode } from '../../services/candidateApi.js';
 
 export interface BilingualText {
   readonly zh: string;
@@ -31,7 +32,8 @@ export interface ConsentContent {
   readonly checkboxLabel: BilingualText;
   readonly submit: BilingualText;
   readonly submitting: BilingualText;
-  readonly errors: Readonly<Record<SubmitConsentErrorKind, BilingualText>>;
+  readonly errors: Readonly<Record<CandidateApiErrorCode, BilingualText>>;
+  readonly urlMissingToken: BilingualText;
   readonly supportEmail: string;
 }
 
@@ -103,30 +105,38 @@ export const CONSENT_CONTENT: ConsentContent = {
     en: 'Submitting\u2026',
   },
   errors: {
-    unknown: {
-      zh: '提交失败,请稍后重试。如问题持续,请联系招聘联系人。',
-      en: 'Submission failed. Please retry shortly. If the problem persists, contact your recruiter.',
+    AUTH_REQUIRED: {
+      zh: '会话凭据无效或已过期,请重新打开招聘方发送的链接。',
+      en: 'Session credential missing or expired. Please reopen the link sent by your recruiter.',
     },
-    network: {
+    NOT_FOUND: {
+      zh: '会话不存在或已被撤销,请联系招聘联系人确认链接。',
+      en: 'Session not found or has been revoked. Please contact your recruiter to confirm the link.',
+    },
+    VALIDATION_ERROR: {
+      zh: '提交内容未通过校验,请重试。如问题持续,请联系招聘联系人。',
+      en: 'Submission failed validation. Please retry. If the problem persists, contact your recruiter.',
+    },
+    FORBIDDEN: {
+      zh: '访问被拒绝,请确认您使用的是自己的评估链接。',
+      en: 'Access denied. Please confirm you are using the link issued to you.',
+    },
+    INTERNAL_ERROR: {
+      zh: '服务器暂时无法处理请求,请稍后重试。',
+      en: 'The server cannot process the request right now. Please retry shortly.',
+    },
+    NETWORK: {
       zh: '网络连接异常,请检查网络后重试。',
       en: 'Network error. Please check your connection and retry.',
     },
-    session_token_required: {
-      zh: '会话标识缺失,请重新打开招聘方发送的链接。',
-      en: 'Session token missing. Please reopen the link sent by your recruiter.',
+    UNKNOWN: {
+      zh: '提交失败,请稍后重试。如问题持续,请联系招聘联系人。',
+      en: 'Submission failed. Please retry shortly. If the problem persists, contact your recruiter.',
     },
-    session_not_found: {
-      zh: '会话不存在或已过期,请联系招聘联系人确认链接。',
-      en: 'Session not found or expired. Please contact your recruiter to confirm the link.',
-    },
-    validation_failed: {
-      zh: '提交内容未通过校验,请重试。',
-      en: 'Submission failed validation. Please retry.',
-    },
-    empty_submit: {
-      zh: '提交内容为空,请勾选同意后再继续。',
-      en: 'Submission was empty. Please check the consent box before continuing.',
-    },
+  },
+  urlMissingToken: {
+    zh: '会话标识缺失,请重新打开招聘方发送的链接。',
+    en: 'Session token missing. Please reopen the link sent by your recruiter.',
   },
   supportEmail: 'privacy@codelens.dev',
 };

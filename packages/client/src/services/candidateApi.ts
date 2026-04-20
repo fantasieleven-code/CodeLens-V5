@@ -1,47 +1,47 @@
 /**
- * candidateApi — POST /api/candidate/profile/submit wrapper.
+ * candidateApi — wrapper for `/api/candidate/*` (POST profile/submit today;
+ * F-A12 will reuse the same fetch + error plumbing for the 7-field profile
+ * form).
  *
- * The Consent flow (brief §3 D3) only needs the consent field; later F-A12
- * extends the same endpoint with the 7-field profile form. Round 1 accepts
- * Backend B-A12's brief contract:
- *   200 → { ok: true, profile, consentAcceptedAt }
- *   400 → { code: 'SESSION_TOKEN_REQUIRED' | 'VALIDATION_FAILED' | 'EMPTY_SUBMIT', error }
- *   404 → { code: 'SESSION_NOT_FOUND', error }
+ * Round 3 (Backend B-A12 merged at 376ada7) aligns with:
+ *   - auth: header Bearer, or body.sessionToken fallback (Session.candidateToken)
+ *   - 200 response: { ok, sessionId, profile, consentAcceptedAt: string | null }
+ *   - error envelope (AppError via errorHandler): nested
+ *       { error: { code, message, details? } }
+ *     where code ∈ { AUTH_REQUIRED, NOT_FOUND, VALIDATION_ERROR,
+ *                    FORBIDDEN, INTERNAL_ERROR }
+ *   - a few legacy paths (requireAdmin) still emit flat { error: 'string' };
+ *     the union parser below treats that as AUTH_REQUIRED so callers get a
+ *     sensible default.
  *
- * Round 2 (after B-A12 merge) re-greps the actual route + zod schema —
- * any drift stops the cutover per Pattern H.
- *
- * Errors are surfaced as `SubmitConsentError` with `kind` so the page can
- * pick localised copy without string-matching the server message.
+ * Errors surface as `CandidateApiError` — the β naming ratified in Round 3
+ * so the same class covers Consent + F-A12 calls.
  */
+export type CandidateApiErrorCode =
+  | 'AUTH_REQUIRED'
+  | 'NOT_FOUND'
+  | 'VALIDATION_ERROR'
+  | 'FORBIDDEN'
+  | 'INTERNAL_ERROR'
+  | 'NETWORK'
+  | 'UNKNOWN';
 
-export interface SubmitConsentSuccess {
-  ok: true;
-  profile: unknown;
-  consentAcceptedAt: string;
-}
-
-export type SubmitConsentErrorKind =
-  | 'session_token_required'
-  | 'session_not_found'
-  | 'validation_failed'
-  | 'empty_submit'
-  | 'network'
-  | 'unknown';
-
-export class SubmitConsentError extends Error {
-  readonly kind: SubmitConsentErrorKind;
+export class CandidateApiError extends Error {
+  readonly code: string;
   readonly status: number | null;
-  constructor(
-    kind: SubmitConsentErrorKind,
-    message: string,
-    status: number | null = null,
-  ) {
+  constructor(code: string, status: number | null, message: string) {
     super(message);
-    this.name = 'SubmitConsentError';
-    this.kind = kind;
+    this.name = 'CandidateApiError';
+    this.code = code;
     this.status = status;
   }
+}
+
+export interface ConsentSubmitResponse {
+  ok: true;
+  sessionId: string;
+  profile: unknown | null;
+  consentAcceptedAt: string | null;
 }
 
 declare global {
@@ -60,9 +60,9 @@ function requireApiUrl(): string {
 /**
  * Centralised fetch wrapper for `/api/candidate/*`.
  *
- * Unlike `adminFetch`, no Bearer header is attached — the URL-bound
- * `sessionToken` is the only candidate credential in V5.0. Returns the
- * raw Response so callers decide how to parse and throw.
+ * No Bearer header — the body-level `sessionToken` is the candidate
+ * credential in V5.0; `requireCandidate` middleware consumes it when no
+ * header is present.
  */
 async function candidateFetch(
   path: string,
@@ -75,16 +75,39 @@ async function candidateFetch(
   return fetch(`${requireApiUrl()}${path}`, { ...init, headers });
 }
 
-const ERROR_CODE_MAP: Record<string, SubmitConsentErrorKind> = {
-  SESSION_TOKEN_REQUIRED: 'session_token_required',
-  SESSION_NOT_FOUND: 'session_not_found',
-  VALIDATION_FAILED: 'validation_failed',
-  EMPTY_SUBMIT: 'empty_submit',
-};
+/**
+ * Parse a non-2xx Backend response into (code, message).
+ *
+ * Preferred nested shape (AppError → errorHandler): { error: { code, message } }.
+ * Legacy flat shape (e.g. requireAdmin): { error: 'string' } → AUTH_REQUIRED
+ * by convention, since the only flat emitters today are 401/403 guards.
+ * Anything else (non-JSON, empty) → UNKNOWN.
+ */
+function parseErrorBody(
+  body: unknown,
+  status: number,
+): { code: string; message: string } {
+  if (body && typeof body === 'object') {
+    const errField = (body as { error?: unknown }).error;
+    if (errField && typeof errField === 'object') {
+      const nested = errField as { code?: unknown; message?: unknown };
+      const code = typeof nested.code === 'string' ? nested.code : 'UNKNOWN';
+      const message =
+        typeof nested.message === 'string'
+          ? nested.message
+          : `Request failed: ${status}`;
+      return { code, message };
+    }
+    if (typeof errField === 'string') {
+      return { code: 'AUTH_REQUIRED', message: errField };
+    }
+  }
+  return { code: 'UNKNOWN', message: `Request failed: ${status}` };
+}
 
 export async function submitConsent(
   sessionToken: string,
-): Promise<SubmitConsentSuccess> {
+): Promise<ConsentSubmitResponse> {
   let res: Response;
   try {
     res = await candidateFetch('/api/candidate/profile/submit', {
@@ -92,36 +115,25 @@ export async function submitConsent(
       body: JSON.stringify({ sessionToken, consentAccepted: true }),
     });
   } catch (err) {
-    throw new SubmitConsentError(
-      'network',
+    throw new CandidateApiError(
+      'NETWORK',
+      null,
       err instanceof Error ? err.message : 'network failure',
     );
   }
 
   if (res.ok) {
-    return res.json() as Promise<SubmitConsentSuccess>;
+    return res.json() as Promise<ConsentSubmitResponse>;
   }
 
-  let body: { error?: string; code?: string } = {};
+  let body: unknown = null;
   try {
-    body = (await res.json()) as { error?: string; code?: string };
+    body = await res.json();
   } catch {
-    /* body not JSON — fall through with empty object */
+    /* body not JSON — parseErrorBody treats as UNKNOWN */
   }
-
-  const mapped = body.code ? ERROR_CODE_MAP[body.code] : undefined;
-  if (mapped) {
-    throw new SubmitConsentError(
-      mapped,
-      body.error ?? `submitConsent failed: ${res.status}`,
-      res.status,
-    );
-  }
-  throw new SubmitConsentError(
-    'unknown',
-    body.error ?? `submitConsent failed: ${res.status}`,
-    res.status,
-  );
+  const { code, message } = parseErrorBody(body, res.status);
+  throw new CandidateApiError(code, res.status, message);
 }
 
 export const __candidateFetch__ = candidateFetch;

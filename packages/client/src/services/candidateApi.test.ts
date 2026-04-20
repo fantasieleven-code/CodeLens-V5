@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { submitConsent, SubmitConsentError } from './candidateApi.js';
+import { submitConsent, CandidateApiError } from './candidateApi.js';
 
 const ORIGINAL_FETCH = globalThis.fetch;
 
@@ -34,7 +34,8 @@ describe('submitConsent', () => {
       calls.push({ url: String(url), init: init ?? {} });
       return jsonResponse(200, {
         ok: true,
-        profile: { id: 'cand-1' },
+        sessionId: 'sess-abc',
+        profile: null,
         consentAcceptedAt: '2026-04-20T10:00:00.000Z',
       });
     });
@@ -42,7 +43,8 @@ describe('submitConsent', () => {
     const out = await submitConsent('sess-abc');
     expect(out).toEqual({
       ok: true,
-      profile: { id: 'cand-1' },
+      sessionId: 'sess-abc',
+      profile: null,
       consentAcceptedAt: '2026-04-20T10:00:00.000Z',
     });
     expect(calls).toHaveLength(1);
@@ -56,43 +58,51 @@ describe('submitConsent', () => {
     expect(headers.get('content-type')).toBe('application/json');
   });
 
-  it('maps backend error codes to SubmitConsentError.kind', async () => {
-    const cases: Array<{
-      status: number;
-      code: string;
-      kind: SubmitConsentError['kind'];
-    }> = [
-      { status: 400, code: 'SESSION_TOKEN_REQUIRED', kind: 'session_token_required' },
-      { status: 404, code: 'SESSION_NOT_FOUND', kind: 'session_not_found' },
-      { status: 400, code: 'VALIDATION_FAILED', kind: 'validation_failed' },
-      { status: 400, code: 'EMPTY_SUBMIT', kind: 'empty_submit' },
+  it('maps nested AppError envelope { error: { code, message } } to CandidateApiError.code', async () => {
+    const cases: Array<{ status: number; code: string; message: string }> = [
+      { status: 400, code: 'VALIDATION_ERROR', message: 'Validation failed' },
+      { status: 404, code: 'NOT_FOUND', message: 'Session not found' },
+      { status: 403, code: 'FORBIDDEN', message: 'Access denied' },
+      { status: 500, code: 'INTERNAL_ERROR', message: 'Internal server error' },
     ];
     for (const c of cases) {
       mockFetch(async () =>
-        jsonResponse(c.status, { error: c.code, code: c.code }),
+        jsonResponse(c.status, { error: { code: c.code, message: c.message } }),
       );
       const err = await submitConsent('sess-x').catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(SubmitConsentError);
-      expect((err as SubmitConsentError).kind).toBe(c.kind);
-      expect((err as SubmitConsentError).status).toBe(c.status);
+      expect(err).toBeInstanceOf(CandidateApiError);
+      expect((err as CandidateApiError).code).toBe(c.code);
+      expect((err as CandidateApiError).status).toBe(c.status);
+      expect((err as CandidateApiError).message).toBe(c.message);
     }
   });
 
-  it('falls back to kind=unknown when no code or unknown code is returned', async () => {
-    mockFetch(async () => new Response(null, { status: 500 }));
+  it('maps flat legacy envelope { error: "string" } to CandidateApiError(AUTH_REQUIRED)', async () => {
+    mockFetch(async () =>
+      jsonResponse(401, { error: 'Authentication required' }),
+    );
     const err = await submitConsent('sess-x').catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(SubmitConsentError);
-    expect((err as SubmitConsentError).kind).toBe('unknown');
-    expect((err as SubmitConsentError).status).toBe(500);
+    expect(err).toBeInstanceOf(CandidateApiError);
+    expect((err as CandidateApiError).code).toBe('AUTH_REQUIRED');
+    expect((err as CandidateApiError).status).toBe(401);
+    expect((err as CandidateApiError).message).toBe('Authentication required');
   });
 
-  it('throws SubmitConsentError(network) when fetch itself rejects', async () => {
+  it('falls back to code=UNKNOWN when the body is empty or non-JSON', async () => {
+    mockFetch(async () => new Response(null, { status: 500 }));
+    const err = await submitConsent('sess-x').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(CandidateApiError);
+    expect((err as CandidateApiError).code).toBe('UNKNOWN');
+    expect((err as CandidateApiError).status).toBe(500);
+  });
+
+  it('throws CandidateApiError(NETWORK) when fetch itself rejects', async () => {
     mockFetch(async () => {
       throw new TypeError('failed to fetch');
     });
     const err = await submitConsent('sess-x').catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(SubmitConsentError);
-    expect((err as SubmitConsentError).kind).toBe('network');
-    expect((err as SubmitConsentError).status).toBeNull();
+    expect(err).toBeInstanceOf(CandidateApiError);
+    expect((err as CandidateApiError).code).toBe('NETWORK');
+    expect((err as CandidateApiError).status).toBeNull();
   });
 });

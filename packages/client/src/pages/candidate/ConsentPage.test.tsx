@@ -78,7 +78,8 @@ describe('<ConsentPage />', () => {
       captured = { url: String(url), init: init ?? {} };
       return jsonResponse(200, {
         ok: true,
-        profile: { id: 'cand-1' },
+        sessionId: 'sess-abc',
+        profile: null,
         consentAcceptedAt: '2026-04-20T10:00:00.000Z',
       });
     }) as typeof fetch;
@@ -100,9 +101,11 @@ describe('<ConsentPage />', () => {
     });
   });
 
-  it('on SESSION_NOT_FOUND surfaces an error block with data-error-kind and skips localStorage', async () => {
+  it('on 404 NOT_FOUND (nested envelope) surfaces an error block with data-error-code and skips localStorage', async () => {
     globalThis.fetch = vi.fn(async () =>
-      jsonResponse(404, { error: 'session not found', code: 'SESSION_NOT_FOUND' }),
+      jsonResponse(404, {
+        error: { code: 'NOT_FOUND', message: 'Session not found' },
+      }),
     ) as typeof fetch;
 
     renderAt('/candidate/sess-missing/consent');
@@ -110,12 +113,30 @@ describe('<ConsentPage />', () => {
     fireEvent.click(screen.getByTestId('consent-submit'));
 
     const errEl = await screen.findByTestId('consent-error');
-    expect(errEl.getAttribute('data-error-kind')).toBe('session_not_found');
-    expect(errEl.textContent).toContain(CONSENT_CONTENT.errors.session_not_found.zh);
+    expect(errEl.getAttribute('data-error-code')).toBe('NOT_FOUND');
+    expect(errEl.textContent).toContain(CONSENT_CONTENT.errors.NOT_FOUND.zh);
+    expect(errEl.textContent).toContain(CONSENT_CONTENT.errors.NOT_FOUND.en);
 
     expect(localStorage.getItem(consentStorageKey('sess-missing'))).toBeNull();
     expect(screen.queryByTestId('exam-landed')).not.toBeInTheDocument();
     // Submit re-enabled so the candidate can retry after fixing the link
     expect((screen.getByTestId('consent-submit') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('on 401 flat legacy envelope renders AUTH_REQUIRED bilingual copy', async () => {
+    globalThis.fetch = vi.fn(async () =>
+      jsonResponse(401, { error: 'Authentication required' }),
+    ) as typeof fetch;
+
+    renderAt('/candidate/sess-bad/consent');
+    fireEvent.click(screen.getByTestId('consent-checkbox'));
+    fireEvent.click(screen.getByTestId('consent-submit'));
+
+    const errEl = await screen.findByTestId('consent-error');
+    expect(errEl.getAttribute('data-error-code')).toBe('AUTH_REQUIRED');
+    expect(errEl.textContent).toContain(CONSENT_CONTENT.errors.AUTH_REQUIRED.zh);
+    expect(errEl.textContent).toContain(CONSENT_CONTENT.errors.AUTH_REQUIRED.en);
+
+    expect(localStorage.getItem(consentStorageKey('sess-bad'))).toBeNull();
   });
 });

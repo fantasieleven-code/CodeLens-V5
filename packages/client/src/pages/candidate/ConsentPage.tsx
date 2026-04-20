@@ -10,17 +10,17 @@
  *   3. Navigates to `/exam/:sessionToken` (sessionToken ≡ sessionId per
  *      Phase 1 ratify)
  *
- * Errors map server `SubmitConsentErrorKind` → bilingual copy in
- * `consentContent.ts`. The error block carries `data-error-kind` so the
- * smoke harness can assert without string-matching.
+ * Errors map `CandidateApiError.code` → bilingual copy in `consentContent.ts`
+ * (AppError codes + NETWORK/UNKNOWN). Unknown codes fall back to UNKNOWN.
+ * The error block carries `data-error-code` so the smoke harness can assert
+ * without string-matching.
  */
 
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   submitConsent,
-  SubmitConsentError,
-  type SubmitConsentErrorKind,
+  CandidateApiError,
 } from '../../services/candidateApi.js';
 import { CONSENT_CONTENT } from './consentContent.js';
 import {
@@ -39,15 +39,15 @@ export const ConsentPage: React.FC = () => {
   const navigate = useNavigate();
   const [accepted, setAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [errorKind, setErrorKind] = useState<SubmitConsentErrorKind | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
 
   if (!sessionToken) {
     return (
       <div data-testid="consent-missing-token" style={styles.statusContainer}>
         <div style={styles.errorCard}>
-          <h1 style={styles.errorTitle}>{CONSENT_CONTENT.errors.session_token_required.zh}</h1>
+          <h1 style={styles.errorTitle}>{CONSENT_CONTENT.urlMissingToken.zh}</h1>
           <p style={styles.statusText}>
-            {CONSENT_CONTENT.errors.session_token_required.en}
+            {CONSENT_CONTENT.urlMissingToken.en}
           </p>
         </div>
       </div>
@@ -58,15 +58,14 @@ export const ConsentPage: React.FC = () => {
     event.preventDefault();
     if (!accepted || submitting) return;
     setSubmitting(true);
-    setErrorKind(null);
+    setErrorCode(null);
     try {
       await submitConsent(sessionToken);
       localStorage.setItem(consentStorageKey(sessionToken), '1');
       navigate(`/exam/${sessionToken}`, { replace: true });
     } catch (err) {
-      const kind: SubmitConsentErrorKind =
-        err instanceof SubmitConsentError ? err.kind : 'unknown';
-      setErrorKind(kind);
+      const code = err instanceof CandidateApiError ? err.code : 'UNKNOWN';
+      setErrorCode(code);
       setSubmitting(false);
     }
   };
@@ -118,20 +117,24 @@ export const ConsentPage: React.FC = () => {
             </span>
           </label>
 
-          {errorKind && (
-            <p
-              data-testid="consent-error"
-              data-error-kind={errorKind}
-              style={styles.errorMsg}
-              role="alert"
-            >
-              <span>{CONSENT_CONTENT.errors[errorKind].zh}</span>
-              <br />
-              <span style={styles.errorMsgEn}>
-                {CONSENT_CONTENT.errors[errorKind].en}
-              </span>
-            </p>
-          )}
+          {errorCode && (() => {
+            const copy =
+              (CONSENT_CONTENT.errors as Record<string, { zh: string; en: string }>)[
+                errorCode
+              ] ?? CONSENT_CONTENT.errors.UNKNOWN;
+            return (
+              <p
+                data-testid="consent-error"
+                data-error-code={errorCode}
+                style={styles.errorMsg}
+                role="alert"
+              >
+                <span>{copy.zh}</span>
+                <br />
+                <span style={styles.errorMsgEn}>{copy.en}</span>
+              </p>
+            );
+          })()}
 
           <button
             type="submit"
