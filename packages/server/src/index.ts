@@ -1,14 +1,11 @@
 /**
  * V5 server entrypoint.
  *
- * Task 5.5 scope: minimal Express + Socket.IO bootstrap so `npm run dev` works
- * and /health returns a real status. Module-specific routes and socket handlers
- * land in later tasks (MC=Task 11, MB=Task 12, Admin=Task 15).
+ * Admin + Auth mounted Task 15b. Session routes still pending Task 11.
  *
  * Routes intentionally NOT registered — still in TYPECHECK_EXCLUDES.md:
- *   - routes/session.ts       (Task 11, MC backend rewrite)
- *   - routes/shared-report.ts (Task 15, Admin API / Prisma V5 fields)
- *   - config/job-models/*     (Task 6, not a route — noted for completeness)
+ *   - routes/session.ts   (Task 11, MC backend rewrite)
+ *   - config/job-models/* (Task 6, not a route — noted for completeness)
  */
 
 import 'dotenv/config';
@@ -26,10 +23,13 @@ import { securityMiddleware } from './middleware/security.js';
 import { requestIdMiddleware } from './middleware/requestId.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { requireAdmin } from './middleware/auth.js';
 
 import { eventBus } from './services/event-bus.service.js';
 import { sandboxFactory } from './services/sandbox/index.js';
 import { healthRouter } from './routes/health.js';
+import { adminRouter } from './routes/admin.js';
+import { authRouter } from './routes/auth.js';
 import { registerSocketHandlers } from './socket/index.js';
 
 const app = express();
@@ -51,6 +51,8 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 app.use('/health', healthRouter);
 app.use('/api', apiLimiter);
+app.use('/api/admin', requireAdmin, adminRouter);
+app.use('/auth', authRouter);
 
 app.use(errorHandler);
 

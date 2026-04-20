@@ -7,8 +7,6 @@
  * key has no row at all).
  *
  * Re-running this seed is idempotent: existing (name, v1) rows are skipped.
- *
- * See prisma/seed.v4-archived.ts for V4 seeding patterns reference.
  */
 import { PrismaClient } from '@prisma/client';
 import { V5_PROMPT_KEYS } from '../src/services/prompt-keys.js';

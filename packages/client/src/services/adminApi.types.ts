@@ -2,7 +2,7 @@
  * Admin API contract shapes — Frontend Task 10 mock basis + Backend Task 15
  * implementation contract.
  *
- * Aligned with Steve's Admin API spec (8 endpoints). Where @codelens-v5/shared
+ * Aligned with Steve's Admin API spec (7 endpoints). Where @codelens-v5/shared
  * already defines a canonical type, we reuse it; otherwise we define a local
  * shim that Task 12 will migrate once the shared type lands.
  */
