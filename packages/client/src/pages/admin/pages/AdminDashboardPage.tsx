@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { adminApi } from '../../../services/adminApi.js';
-import type { AdminStatsOverview } from '../../../services/adminApi.types.js';
-import type { V5Grade, SuiteId } from '@codelens-v5/shared';
+import type { V5AdminStatsOverview, V5Grade, SuiteId } from '@codelens-v5/shared';
 import { SUITES, V5_GRADE_ORDER } from '@codelens-v5/shared';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../../../lib/tokens.js';
 
@@ -24,7 +23,7 @@ const GRADE_COLORS: Record<V5Grade, string> = {
 };
 
 export const AdminDashboardPage: React.FC = () => {
-  const [stats, setStats] = useState<AdminStatsOverview | null>(null);
+  const [stats, setStats] = useState<V5AdminStatsOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

@@ -1,26 +1,28 @@
 /**
- * Admin API contract shapes — Frontend Task 10 mock basis + Backend Task 15
- * implementation contract.
+ * Admin API client-only shim types — Task 12 Layer 2 slim-down.
  *
- * Aligned with Steve's Admin API spec (7 endpoints). Where @codelens-v5/shared
- * already defines a canonical type, we reuse it; otherwise we define a local
- * shim that Task 12 will migrate once the shared type lands.
+ * The 10 server-contract types (V5AdminStatsOverview, V5AdminExamInstance,
+ * V5AdminSuite, V5AdminSession, V5AdminListSessionsParams, V5AdminSessionList,
+ * V5AdminSessionCreateRequest, V5AdminSessionCreateResponse, V5AdminSessionReport,
+ * V5AdminCandidateSnapshot) were migrated to
+ * `packages/shared/src/types/v5-admin-api.ts` under Backend Task 15a and are
+ * imported directly from `@codelens-v5/shared` by Frontend admin code.
+ *
+ * What remains here are 3 client-only UX helpers that the server doesn't know
+ * about: the Step 1 wizard card shape, the suite recommendation result, and
+ * the wizard draft state.
  */
 
 import type {
   SuiteId,
-  SessionStatus,
   V5TechStack,
   V5Domain,
   V5ChallengePattern,
   V5ArchStyle,
   V5Level,
-  V5Grade,
-  GradeDecision,
 } from '@codelens-v5/shared';
-import type { ReportViewModel } from '../report/types.js';
 
-// ── Shared position shape ─────────────────────────────────────────────
+// ── Wizard Step 1 position card ──────────────────────────────────────
 
 export interface AdminPosition {
   id: string;
@@ -32,114 +34,6 @@ export interface AdminPosition {
   /** Short one-line blurb for Step 1 card preview. */
   summary: string;
 }
-
-// ── /admin/stats/overview ─────────────────────────────────────────────
-
-export interface AdminStatsOverview {
-  totalSessions: number;
-  completedSessions: number;
-  /** Percentage 0..1. */
-  completionRate: number;
-  averageComposite: number;
-  gradeDistribution: Record<V5Grade, number>;
-  suiteDistribution: Record<SuiteId, number>;
-}
-
-// ── /admin/exam-instances ─────────────────────────────────────────────
-
-export interface AdminExamInstance {
-  id: string;
-  suiteId: SuiteId;
-  techStack: V5TechStack;
-  domain: V5Domain;
-  challengePattern: V5ChallengePattern;
-  archStyle?: V5ArchStyle;
-  level: V5Level;
-  titleZh: string;
-  createdAt: number;
-  usedCount: number;
-  /** 0-100. Null when usedCount is too small to be meaningful. */
-  avgCompositeScore: number | null;
-  /** 0-1 (how well the exam discriminates grades). Null until sampled. */
-  discriminationScore: number | null;
-}
-
-// ── /admin/suites ─────────────────────────────────────────────────────
-
-export interface AdminSuiteSummary {
-  id: SuiteId;
-  nameZh: string;
-  nameEn: string;
-  estimatedMinutes: number;
-  gradeCap: V5Grade;
-  modules: readonly string[];
-}
-
-// ── /admin/sessions ───────────────────────────────────────────────────
-
-export interface AdminCandidateSnapshot {
-  id: string;
-  name: string;
-  email: string;
-}
-
-export interface AdminSessionSummary {
-  id: string;
-  suiteId: SuiteId;
-  examInstanceId: string;
-  candidate: AdminCandidateSnapshot;
-  status: SessionStatus;
-  createdAt: number;
-  startedAt: number | null;
-  completedAt: number | null;
-  /** Only present once scored (status = COMPLETED). */
-  grade: V5Grade | null;
-  composite: number | null;
-  shareableLink: string | null;
-  orgId?: string;
-}
-
-export interface ListSessionsParams {
-  suiteId?: SuiteId;
-  status?: SessionStatus;
-  orgId?: string;
-  page?: number;
-  pageSize?: number;
-}
-
-export interface PaginatedSessions {
-  items: AdminSessionSummary[];
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-}
-
-// ── /admin/sessions/create ────────────────────────────────────────────
-
-export interface CreateSessionRequest {
-  suiteId: SuiteId;
-  examInstanceId: string;
-  candidate: {
-    name: string;
-    email: string;
-  };
-  orgId?: string;
-}
-
-export interface CreateSessionResponse {
-  session: AdminSessionSummary;
-  shareableLink: string;
-}
-
-// ── /admin/sessions/:sessionId/report ────────────────────────────────
-
-/**
- * Task 10 mock returns the same ReportViewModel shape used by ReportViewPage.
- * Task 12 will point this at the real Backend Task 15 endpoint which returns
- * the canonical server scoring output.
- */
-export type AdminSessionReport = ReportViewModel;
 
 // ── Suite recommendation (client-side UX, not a server endpoint) ─────
 
@@ -159,7 +53,3 @@ export interface CreateWizardDraft {
   candidateName: string;
   candidateEmail: string;
 }
-
-// ── Re-export for convenience ───────────────────────────────────────
-
-export type { SuiteId, SessionStatus, V5Grade, V5Level, GradeDecision };

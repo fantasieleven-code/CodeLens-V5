@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { adminApi } from '../../../services/adminApi.js';
-import type { AdminExamInstance } from '../../../services/adminApi.types.js';
-import type { V5Level } from '@codelens-v5/shared';
+import type { V5AdminExamInstance, V5Level } from '@codelens-v5/shared';
 import { SUITES } from '@codelens-v5/shared';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../../../lib/tokens.js';
 
@@ -13,11 +12,11 @@ const LEVEL_OPTIONS: ReadonlyArray<{ id: V5Level | ''; label: string }> = [
 ];
 
 export const AdminExamLibraryPage: React.FC = () => {
-  const [exams, setExams] = useState<AdminExamInstance[]>([]);
+  const [exams, setExams] = useState<V5AdminExamInstance[]>([]);
   const [filterTech, setFilterTech] = useState('');
   const [filterDomain, setFilterDomain] = useState('');
   const [filterLevel, setFilterLevel] = useState<V5Level | ''>('');
-  const [selected, setSelected] = useState<AdminExamInstance | null>(null);
+  const [selected, setSelected] = useState<V5AdminExamInstance | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

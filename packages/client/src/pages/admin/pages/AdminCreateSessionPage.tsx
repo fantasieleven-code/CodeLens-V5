@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type {
-  AdminExamInstance,
   AdminPosition,
   CreateWizardDraft,
   SuiteRecommendation,
 } from '../../../services/adminApi.types.js';
-import type { SuiteId, V5Level } from '@codelens-v5/shared';
+import type {
+  V5AdminExamInstance,
+  SuiteId,
+  V5Level,
+} from '@codelens-v5/shared';
 import { SUITES } from '@codelens-v5/shared';
 import { adminApi } from '../../../services/adminApi.js';
 import { ADMIN_POSITIONS } from '../mock/admin-positions-fixtures.js';
@@ -32,7 +35,7 @@ const EMPTY_DRAFT: CreateWizardDraft = {
 export const AdminCreateSessionPage: React.FC = () => {
   const [step, setStep] = useState<WizardStep>(1);
   const [draft, setDraft] = useState<CreateWizardDraft>(EMPTY_DRAFT);
-  const [exams, setExams] = useState<AdminExamInstance[]>([]);
+  const [exams, setExams] = useState<V5AdminExamInstance[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [shareableLink, setShareableLink] = useState<string | null>(null);
