@@ -102,6 +102,19 @@ describe('Golden Path — scoreSession end-to-end', () => {
       expect(expectation.grades).toContain(result.grade);
     });
 
+    it(`${name}: sCalibration falls in target band ${expectation.sCalibrationRange[0]}-${expectation.sCalibrationRange[1]}`, async () => {
+      const result = results.get(name) ?? (await scoreSession(fixture));
+      results.set(name, result);
+
+      const sc = result.signals.sCalibration;
+      expect(sc, `${name}: sCalibration present`).toBeDefined();
+      expect(sc?.value, `${name}: sCalibration numeric`).toEqual(expect.any(Number));
+
+      const [lo, hi] = expectation.sCalibrationRange;
+      expect(sc?.value).toBeGreaterThanOrEqual(lo);
+      expect(sc?.value).toBeLessThanOrEqual(hi);
+    });
+
     it(`${name}: every scored dimension is in 0-100 and all non-SD dimensions have a score`, async () => {
       const result = results.get(name) ?? (await scoreSession(fixture));
       results.set(name, result);
