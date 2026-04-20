@@ -714,3 +714,59 @@ sCalibration 输出 `SignalEvidence.direction ∈ {'overconfident', 'underconfid
 
 **V5.0.5 不必行动**:Task A1 unit test 已锁定 undefined 分支 · production scoring 不受影响。
 
+---
+
+## Day 4 addendum — Task Consent Frontend (2026-04-20)
+
+### #115 — `design-insight` Consent flow Option γ scope discipline · standalone first · F-A12 deferred
+**trace**: Task Consent Frontend Phase 1-2 · ratify [B] Reading (b)
+
+3-perspective ratify(Karpathy / Gemini / Claude Code 负责人)定下 Option γ:**ConsentPage 先单独发** · 7-field ProfileSetup form 推迟到 F-A12 下一轮。Pattern B 分阶段 merge:
+
+- **Karpathy(UX coherence)**:GDPR transparency screen 是 candidate 进 phase0 前的硬要求 · 不能等 7 字段 form ready 再一起出 · 阻塞 V5.0 release gate A-series #3
+- **Gemini(API contract)**:Backend `/api/candidate/profile/submit` Option A 单 endpoint · 同 endpoint 后续扩 7 字段不破坏 schema(consent 字段保留 + profile 字段 optional 渐进式)
+- **Claude Code 负责人(agent workflow)**:0.5d Frontend scope · 单 PR 单 round trip · 比 1.5d "consent + form 一起做" 风险低 · Round 2 reconciliation 也只需 verify consent 字段一段
+
+**Pattern B 验证**:scope discipline 让 PR ≤ 700 LOC(实际 ~500) · 远低于 §9 ≤900 fence · 给 F-A12 留下足够 surface 不重叠。
+
+### #116 — `meta-pattern` Frontend split repo Pattern E 强化 · fetch+pull 必须先于 grep
+**trace**: Task Consent Frontend Phase 1 · agent stale main HEAD 误报
+
+Phase 1 pre-verify 报 main HEAD = `6c4ad21`(Task 15b) · brief §2 写 main HEAD = `866d85f`(PR #75 squash)· agent 误判为 brief 过期。实际:agent 在 `feat/task-12-layer-2-phase-2` branch 跑 `git log -5 main` · 看到的是 **local 未 pull 的 main** · `866d85f` 已在 origin/main 但 fetch 未 run。
+
+**Lesson**:Frontend split repo brief 模板必须明示步骤序:
+1. `git checkout main`
+2. `git fetch origin`
+3. `git pull origin main`
+4. `git log -1 --format="%H %s"`(verify HEAD = brief 标 hash)
+5. **然后**才能 grep verify
+
+Phase 1 grep 跳过步骤 1-3 直接看 local main · 必然 stale。Pattern E 原 brief §2 三强调路径前缀 · 现需追加"fetch+pull 必先"作为 Pattern E 第二层。
+
+**未来 Frontend brief 模板**:Phase 1 pre-verify checklist 第 0 条 = "fetch+pull main + verify HEAD"。
+
+### #117 — `design-insight` sessionToken ≡ sessionId URL alias · V5.0 ratified · V5.1 mapper extraction option
+**trace**: Task Consent Frontend Phase 1 · ratify [B] Reading (b)
+
+Brief 用 `:sessionToken` (`/candidate/:sessionToken/consent`) · 现有 candidate flow 用 `:sessionId` (`/exam/:sessionId`)。两 term 同指 `Session.id`。3-perspective ratify 同一 URL param · 不引入 mapper:
+
+- **Karpathy**:UX coherence · 单一 identifier 简化用户心智模型(分享链接里只有一个 token)
+- **Gemini**:API contract `Session.id` 已是 candidate-facing primary key · 命名 alias 前向兼容(Backend zod 接 sessionToken field 即可)
+- **Claude Code 负责人**:1 line `<CandidateGuard><ExamRouter /></CandidateGuard>` 包装 · 不是 refactor
+
+**V5.0 decision**:`sessionToken === sessionId` · `CandidateGuard.useParams<{sessionId}>()` · ConsentPage submit 后 `navigate(`/exam/${sessionToken}`)` · 同一字符串两 namespace 通用。
+
+**V5.1 escape hatch**:若未来 candidate URL tree 整体 split 到 `/candidate/:sessionToken/exam/*`(F-A12 续作可能) · extract `mapSessionTokenToSessionId(token)` 作为 seam · 当前不需要(KISS)。
+
+### #118 — `design-insight` CandidateGuard Option b minimalism · localStorage flag · V5.0.5 server-side upgrade option
+**trace**: Task Consent Frontend Commit 3 · Pattern D defense
+
+CandidateGuard V5.0 用 Option b · 纯 client-side localStorage flag `codelens_candidate_consent:{sessionId}` · **无 TTL**。Pattern D 防御理由:
+
+1. **Per-session namespace**:flag key 含 sessionId · stale flag 跨 session 不可能
+2. **Server-side source of truth**:Backend `consentAcceptedAt` 是权威 · client flag 仅为 UX shortcut(避免每次 mount 打 API 探查)
+3. **No expiry needed**:V5.0 session lifecycle 短(typically <2h) · TTL 工程化复杂度高于收益
+
+**V5.0.5 upgrade path**:若 Backend 扩 `GET /api/candidate/session/:id/status` 返回 `{ consented: boolean }` · CandidateGuard 可改为 server-fetch on mount + cache · 当前 punt(observation `v5_05_ui_infra_candidates` memory 已追加候选)。
+
+**Pattern D scope**:V5.0 client-side state 凡 server 有权威源的 · 优先 client cache + 可选 server reconcile · 不做客户端 expiry 逻辑(易 bug · TTL drift / clock skew)。
