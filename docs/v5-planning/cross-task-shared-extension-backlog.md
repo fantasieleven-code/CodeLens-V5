@@ -326,7 +326,7 @@ Frontend adminApi.types.ts shim 与这 5 个 shared types **1:1 对齐**(Fronten
 ### 3. A-series(3.5-4.5 day,分 Backend/Frontend)
 
 - **A1 sCalibration**(0.5 day, Backend)· depends on fixture `selfAssess.confidence` 调整(#057 observation)
-- **A12 candidate profile 7 fields**(2 day, Backend + Frontend)· Prisma schema + pre-exam form + Admin view · ~~Backend B-A12 ✅ shipped~~ · Frontend F-A12 pending
+- **A12 candidate profile 7 fields**(2 day, Backend + Frontend)· Prisma schema + pre-exam form + Admin view (Backend B-A12 ✅ shipped 2026-04-20 · Frontend F-A12 pending · 下轮)
 - **A10-lite candidate self-view**(1-2 day, Frontend)· ethics floor
 - **A14a reliability merged to Task 18+**(concurrent)
 
