@@ -2,7 +2,10 @@
  * App — top-level router.
  *
  * Routes:
- *   /exam/:sessionId    → candidate flow (ExamRouter switches on currentModule)
+ *   /exam/:sessionId    → candidate flow, fenced by CandidateGuard
+ *                         (ExamRouter switches on currentModule)
+ *   /candidate/:sessionToken/consent → GDPR consent screen (Task Consent
+ *                         Frontend); sessionToken ≡ sessionId
  *   /report/:sessionId  → finished report (Task 3: demo fixtures only)
  *   /login              → admin login (Task 12 Layer 2)
  *   /admin/*            → recruiter tools, fenced by AdminGuard
@@ -37,13 +40,26 @@ import { ModuleAPreviewPage } from './pages/moduleA/ModuleAPreviewPage.js';
 import { AdminRoutes } from './pages/admin/AdminLayoutPage.js';
 import { AdminGuard } from './pages/admin/AdminGuard.js';
 import { LoginPage } from './pages/admin/LoginPage.js';
+import { ConsentPage } from './pages/candidate/ConsentPage.js';
+import { CandidateGuard } from './pages/candidate/CandidateGuard.js';
 import { colors, spacing, fontSizes, fontWeights } from './lib/tokens.js';
 
 export function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/exam/:sessionId" element={<ExamRouter />} />
+        <Route
+          path="/exam/:sessionId"
+          element={
+            <CandidateGuard>
+              <ExamRouter />
+            </CandidateGuard>
+          }
+        />
+        <Route
+          path="/candidate/:sessionToken/consent"
+          element={<ConsentPage />}
+        />
         <Route path="/report/:sessionId" element={<ReportViewPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route
