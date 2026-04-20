@@ -20,6 +20,7 @@
 
 import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
+import { randomBytes } from 'crypto';
 import type { Prisma } from '@prisma/client';
 import type {
   V5AdminSession,
@@ -243,6 +244,10 @@ export async function createAdminSession(
       assessmentQuality: 'full',
     };
 
+    // Task B-A12 auth-fallback: mint opaque Session-scoped token for the
+    // body-token path of requireCandidate. 32 bytes → 43 base64url chars.
+    const candidateToken = randomBytes(32).toString('base64url');
+
     const sessionRow = await prisma.session.create({
       data: {
         candidateId: candidateRow.id,
@@ -251,6 +256,7 @@ export async function createAdminSession(
         status: 'CREATED',
         expiresAt: new Date(Date.now() + durationMs),
         metadata: metadata as unknown as Prisma.InputJsonValue,
+        candidateToken,
       },
       include: { candidate: true },
     });
@@ -262,6 +268,7 @@ export async function createAdminSession(
     const response: V5AdminSessionCreateResponse = {
       session,
       shareableLink,
+      candidateToken,
     };
     res.status(201).json(response);
   } catch (err) {

@@ -18,6 +18,7 @@ import type { Request, Response, NextFunction } from 'express';
 import type { CandidateProfile } from '@codelens-v5/shared';
 
 const sessionUpdate = vi.hoisted(() => vi.fn());
+const sessionFindFirst = vi.hoisted(() => vi.fn());
 
 vi.mock('../config/env.js', () => ({
   env: {
@@ -37,11 +38,14 @@ vi.mock('../config/db.js', () => ({
   prisma: {
     session: {
       update: sessionUpdate,
+      findFirst: sessionFindFirst,
     },
   },
 }));
 
 import { submitCandidateProfile } from './candidate.js';
+import { requireCandidate } from '../middleware/auth.js';
+import { AuthenticationError } from '../middleware/errorHandler.js';
 
 const validProfile: CandidateProfile = {
   yearsOfExperience: 7,
@@ -76,6 +80,7 @@ function makeNext(): NextFunction {
 
 beforeEach(() => {
   sessionUpdate.mockReset();
+  sessionFindFirst.mockReset();
 });
 
 describe('POST /api/candidate/profile/submit', () => {
@@ -208,5 +213,53 @@ describe('POST /api/candidate/profile/submit', () => {
     expect(sessionUpdate).not.toHaveBeenCalled();
     const err = (next as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0];
     expect(err.statusCode).toBe(401);
+  });
+
+  // ── Commit 2 · middleware + handler composition (auth-fallback) ────
+
+  it('composes · no header · valid body sessionToken → middleware resolves · handler persists', async () => {
+    sessionFindFirst.mockResolvedValue({ id: 'sess-42' });
+    sessionUpdate.mockResolvedValue({
+      id: 'sess-42',
+      candidateProfile: validProfile,
+      consentAcceptedAt: null,
+    });
+
+    const req = makeReq({
+      auth: undefined,
+      headers: {},
+      body: { sessionToken: 'opaque-token', profile: validProfile },
+    });
+    const { res, status } = makeRes();
+    const next = vi.fn() as unknown as NextFunction;
+
+    await requireCandidate(req, res, next);
+    expect((next as unknown as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith();
+    expect(req.auth).toEqual({ sub: 'sess-42', role: 'candidate', sessionId: 'sess-42' });
+
+    await submitCandidateProfile(req, res, next);
+    expect(status).toHaveBeenCalledWith(200);
+    expect(sessionUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'sess-42' } }),
+    );
+  });
+
+  it('composes · no header · invalid body sessionToken → 401 nested · handler NOT called', async () => {
+    sessionFindFirst.mockResolvedValue(null);
+
+    const req = makeReq({
+      auth: undefined,
+      headers: {},
+      body: { sessionToken: 'bogus', consentAccepted: true },
+    });
+    const next = vi.fn() as unknown as NextFunction;
+
+    await requireCandidate(req, makeRes().res, next);
+
+    const err = (next as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+    expect(err).toBeInstanceOf(AuthenticationError);
+    expect(err.statusCode).toBe(401);
+    expect(err.code).toBe('AUTH_REQUIRED');
+    expect(sessionUpdate).not.toHaveBeenCalled();
   });
 });
