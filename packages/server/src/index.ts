@@ -23,13 +23,14 @@ import { securityMiddleware } from './middleware/security.js';
 import { requestIdMiddleware } from './middleware/requestId.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
 import { errorHandler } from './middleware/errorHandler.js';
-import { requireAdmin } from './middleware/auth.js';
+import { requireAdmin, requireCandidate } from './middleware/auth.js';
 
 import { eventBus } from './services/event-bus.service.js';
 import { sandboxFactory } from './services/sandbox/index.js';
 import { healthRouter } from './routes/health.js';
 import { adminRouter } from './routes/admin.js';
 import { authRouter } from './routes/auth.js';
+import { candidateRouter } from './routes/candidate.js';
 import { registerSocketHandlers } from './socket/index.js';
 
 const app = express();
@@ -52,6 +53,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 app.use('/health', healthRouter);
 app.use('/api', apiLimiter);
 app.use('/api/admin', requireAdmin, adminRouter);
+app.use('/api/candidate', requireCandidate, candidateRouter);
 app.use('/auth', authRouter);
 
 app.use(errorHandler);
