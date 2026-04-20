@@ -573,6 +573,43 @@ Task 15a Backend agent 自加了 `hydrator.test.ts` 里 malformed `metadata.subm
 
 ---
 
+## Day 3 addendum — Task 12 Layer 2 Phase 2(2026-04-20)
+
+### #105 — `defense-mechanism` Frontend 端 Round 1 + Round 2 split pattern · 首次 8/8 pre-verify 自 catch · 0 漏
+**trace**: Task 12 Layer 2 Phase 2(commits `00ab85a` Day 1 AM · `37f30ea` Day 1 PM · `ebbe601` Day 2 AM)· PR 待开
+
+Frontend 端首次在 Backend-first / Frontend-second 配对 Task 里把 **Round 1 audit(contract 对齐)+ Round 2 pre-verify(implementation drift)** 拆成 **两段独立**(非合并一次扫)· 执行顺序:
+1. **Round 1** · Task 15a contract 自 catch:`adminApi.ts` 实装 pages 计数 undercount(预期 6 · 实际 5)· Backend 尚未 Round 2 之前主动 snapshot self-correct(#102 首次 sSelfAuditQuality cross-端命中)。
+2. **Round 2** · Phase 2 派发前 Frontend agent 主动 derive **8 条 checklist** 覆盖 Round 1 未覆盖的 implementation drift:(1) `/api` prefix 补全 · (2) `expiresAt = Date.now() + expiresIn * 1000`(seconds→ms 单位换算 · Pattern F 防御关键点 · mock 永不 expire 永远不会暴露此 bug · 仅 real backend 才能 catch)· (3) UI 不 submit orgId query param(backend 从 token derive)· (4) 400 report incomplete-session UX branch · (5) 201 status(create)res.ok 覆盖 · (6) 429 无 code field · res.status check · (7) `V5AdminExamInstance` widening 保持 string(非 enum) · (8) `createdAt=0` sentinel 优雅 render。
+
+**Phase 2 落地结果**:8/8 checklist 全部 ✅ code 固化 · **0 漏** · 无 Backend 端 rebase 摩擦。
+
+**Defense library 收益**(vs Backend-only Round 2 历史):此前 Round 2 多为 Backend agent 发起 · Frontend 通常 consume Backend 产出 · Frontend 端 Round 2 首次 validated · **模板 reusable for 所有 Backend-first / Frontend-second Task pair**(V5.1+ Admin lifecycle / V5.0.5 refresh rotation 等)。核心 insight:**contract audit 与 implementation drift audit 不合并**(Pattern B 防御)· 两段各有独立 checklist · 互不污染 scope。
+
+### #106 — `agent-pattern` Frontend 3-commit autonomous run · 持续 productive 无 status churn · brief §11 sequence discipline 典范
+**trace**: Task 12 Layer 2 Phase 2 Day 1 AM + Day 1 PM + Day 2 AM(连续 3 commit · 0 stop-for-clarification · 0 无效 status report)
+
+Phase 2 brief §11 prescribe 了 8-10 commit · 明确 sequence(Day 1 AM → Day 1 PM → Day 2 AM → Day 2 PM)· 以及 **self-merge 禁用 + 2500 LOC gate**。Frontend agent 在 **~3 小时连续 session** 内完成 3 commit(Day 1 AM 10 files 140/230 · Day 1 PM 9 files +999 · Day 2 AM 7 files +383/46 · 总 ~1246 net · 未触 2500 gate)· 全程 **0 silent stuck** / **0 中断 clarification** / **0 unnecessary progress ping**。
+
+**Pattern**:当 brief §11 sequence clear + stop-gate explicit(LOC / self-merge / smoke)时 · Frontend agent 可 **fully autonomous** 跑完多 commit · 仅在 **真正 blocking ambiguity 才 stop**(本次 stop 点:Day 2 PM smoke 策略选项呈现 · 非技术 blocker 而是 user schedule 决策点)。对比 Backend agent Day 1-2 similar autonomous discipline · 两 agent 均 demonstrate **well-specified brief + explicit stop-gates** 下的 productive autonomous runs。
+
+**Agent autonomy 必要条件**:§11 sequence 非 optional · 若 brief 只给 scope / deliverable 而不 prescribe sequence · agent 会 detour 到 ambiguity-resolution reasoning · 失去 compounding 效率。
+
+### #107 — `meta-pattern` Pattern F 防御关键 case · `expiresIn` seconds vs ms 单位换算 · Round 2 checklist 2 code 固化
+**trace**: Task 12 Layer 2 Phase 2 · `packages/client/src/stores/auth.store.ts:94` + `packages/client/src/stores/auth.store.test.ts` 专项 test
+
+`POST /auth/login` 响应 `{expiresIn}` 单位 **seconds**(见 `packages/server/src/routes/auth.ts:41` `parseJwtExpiryToSeconds`)· Frontend `useAuthStore.login()` 必须 `Date.now() + expiresIn * 1000` 才能得到 `expiresAt` ms。**若漏 `* 1000` · token 会 "立刻过期"(`expiresAt = Date.now() + 28800 ms = 28.8 秒后`)· getToken() 返回 null · isAuthenticated 立刻 false · redirect /login · 循环**。
+
+**为什么 mock 模式永不暴露**:mock 不走真 `POST /auth/login` · 也不经 `useAuthStore.login({expiresIn})` · 仅 manual seed `expiresAt = Date.now() + 60*60*1000`(ms)· 永远正确。**只有 real backend smoke(Step 3)才能暴露**此 drift · 如果漏 catch · 会在 HR onboarding 首次 login 时表现为 "登录按钮没反应"(实际是登录成功后立即 redirect /login · 肉眼观察以为登录失败)。
+
+**Round 2 checklist 2 防御**:Phase 2 派发前 derive checklist 时显式列出 `expiresIn unit conversion` · 实装时 `auth.store.ts:94` 直接写对 · 专项 unit test(`auth.store.test.ts` "login writes token + computes expiresAt from expiresIn (seconds)" + "getToken returns null and wipes state once expiresAt is past")seal 不回归。
+
+**Pattern F 累计**(在不读 filesystem 前提下凭记忆或 assumption 推实现)· 本次 **Frontend agent 在 Phase 2 派发前 pre-verify 了 Server 的 expiresIn 单位**(grep `packages/server/src/routes/auth.ts` + `parseJwtExpiryToSeconds`)· 属 Pattern F 防御成功 case。若未 pre-verify · Frontend agent 很容易按 React ecosystem 常见 `expiresIn ms` 默认假设写成 `+ expiresIn` · 触发上述无限循环 bug。
+
+**结论**:mock vs real 单位换算类 bug 必须 Round 2 checklist 显式列项 + unit test 专项 cover · 不能 only rely on integration smoke(Step 3)· 因为 Frontend agent 在 Phase 2 派发前就要写对。
+
+---
+
 ## V5.0.5 Backlog Addition(post-Task-15b · 同步 log)
 
 本 Task 不改 `cross-task-shared-extension-backlog.md`(权威 V5.0.5 backlog)· 以下 2 条 observation-derived 条目同步 log 此处留痕 · 待 V5.0.5 sprint planning PR 统一迁入:
