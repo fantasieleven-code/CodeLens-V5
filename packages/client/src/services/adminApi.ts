@@ -14,6 +14,7 @@
  */
 
 import { SUITES } from '@codelens-v5/shared';
+import { useAuthStore } from '../stores/auth.store.js';
 import type {
   V5AdminExamInstance,
   V5AdminSessionReport,
@@ -177,12 +178,36 @@ function requireApiUrl(): string {
   return base.replace(/\/+$/, '');
 }
 
+/**
+ * Centralized fetch wrapper for `/api/admin/*`.
+ *
+ * - Injects `Authorization: Bearer …` from the auth store so every admin call
+ *   carries the admin JWT without the call sites threading the token through.
+ * - Flips the auth store to logged-out on 401 so AdminGuard's next render
+ *   bounces the admin to `/login`, preventing a loop where a stale token
+ *   keeps firing failing requests.
+ * - Callers receive the raw Response and decide how to parse/throw, because
+ *   one endpoint (getSessionReport) encodes a domain-specific 400.
+ */
+async function adminFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const token = useAuthStore.getState().getToken();
+  const headers = new Headers(init.headers);
+  if (token) headers.set('authorization', `Bearer ${token}`);
+  if (init.body !== undefined && !headers.has('content-type')) {
+    headers.set('content-type', 'application/json');
+  }
+  const res = await fetch(`${requireApiUrl()}${path}`, { ...init, headers });
+  if (res.status === 401) {
+    useAuthStore.getState().logout();
+  }
+  return res;
+}
+
 async function realCreateSession(
   req: V5AdminSessionCreateRequest,
 ): Promise<V5AdminSessionCreateResponse> {
-  const res = await fetch(`${requireApiUrl()}/api/admin/sessions/create`, {
+  const res = await adminFetch('/api/admin/sessions/create', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
     body: JSON.stringify(req),
   });
   if (!res.ok) throw new Error(`createSession failed: ${res.status}`);
@@ -198,13 +223,13 @@ async function realListSessions(
     if (k === 'orgId') continue;
     if (v !== undefined) qs.set(k, String(v));
   }
-  const res = await fetch(`${requireApiUrl()}/api/admin/sessions?${qs.toString()}`);
+  const res = await adminFetch(`/api/admin/sessions?${qs.toString()}`);
   if (!res.ok) throw new Error(`listSessions failed: ${res.status}`);
   return res.json() as Promise<V5AdminSessionList>;
 }
 
 async function realGetSession(sessionId: string): Promise<V5AdminSession> {
-  const res = await fetch(`${requireApiUrl()}/api/admin/sessions/${sessionId}`);
+  const res = await adminFetch(`/api/admin/sessions/${sessionId}`);
   if (!res.ok) throw new Error(`getSession failed: ${res.status}`);
   return res.json() as Promise<V5AdminSession>;
 }
@@ -212,9 +237,7 @@ async function realGetSession(sessionId: string): Promise<V5AdminSession> {
 async function realGetSessionReport(
   sessionId: string,
 ): Promise<V5AdminSessionReport> {
-  const res = await fetch(
-    `${requireApiUrl()}/api/admin/sessions/${sessionId}/report`,
-  );
+  const res = await adminFetch(`/api/admin/sessions/${sessionId}/report`);
   if (!res.ok) {
     if (res.status === 400) throw new Error('REPORT_NOT_COMPLETED');
     throw new Error(`getSessionReport failed: ${res.status}`);
@@ -232,21 +255,19 @@ async function realListExamInstances(params: {
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined) qs.set(k, String(v));
   }
-  const res = await fetch(
-    `${requireApiUrl()}/api/admin/exam-instances?${qs.toString()}`,
-  );
+  const res = await adminFetch(`/api/admin/exam-instances?${qs.toString()}`);
   if (!res.ok) throw new Error(`listExamInstances failed: ${res.status}`);
   return res.json() as Promise<V5AdminExamInstance[]>;
 }
 
 async function realGetSuites(): Promise<V5AdminSuite[]> {
-  const res = await fetch(`${requireApiUrl()}/api/admin/suites`);
+  const res = await adminFetch('/api/admin/suites');
   if (!res.ok) throw new Error(`getSuites failed: ${res.status}`);
   return res.json() as Promise<V5AdminSuite[]>;
 }
 
 async function realGetStatsOverview(): Promise<V5AdminStatsOverview> {
-  const res = await fetch(`${requireApiUrl()}/api/admin/stats/overview`);
+  const res = await adminFetch('/api/admin/stats/overview');
   if (!res.ok) throw new Error(`getStatsOverview failed: ${res.status}`);
   return res.json() as Promise<V5AdminStatsOverview>;
 }
@@ -282,6 +303,8 @@ export const adminApi: AdminApi = shouldUseMock()
       getSuites: realGetSuites,
       getStatsOverview: realGetStatsOverview,
     };
+
+export const __adminFetch__ = adminFetch;
 
 export const __mockAdminApi__ = {
   createSession: mockCreateSession,

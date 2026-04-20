@@ -1,17 +1,42 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AdminRoutes } from './AdminLayoutPage.js';
+import { __authStorageKey__, useAuthStore } from '../../stores/auth.store.js';
 
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/admin/*" element={<AdminRoutes />} />
+        <Route
+          path="/login"
+          element={<div data-testid="login-landed">login</div>}
+        />
       </Routes>
     </MemoryRouter>,
   );
 }
+
+function seedAuth(role: 'OWNER' | 'MEMBER' = 'OWNER'): void {
+  useAuthStore.setState({
+    token: 'jwt-ok',
+    orgId: 'org-1',
+    orgRole: role,
+    expiresAt: Date.now() + 60_000,
+  });
+}
+
+beforeEach(() => {
+  localStorage.removeItem(__authStorageKey__);
+  useAuthStore.setState({
+    token: null,
+    orgId: null,
+    orgRole: null,
+    expiresAt: null,
+  });
+  seedAuth();
+});
 
 afterEach(() => cleanup());
 
@@ -55,5 +80,17 @@ describe('<AdminRoutes />', () => {
     renderAt('/admin');
     const nav = screen.getByRole('navigation', { name: 'Admin 主导航' });
     expect(nav).toBeInTheDocument();
+  });
+
+  it('renders the current org role in the header', () => {
+    renderAt('/admin');
+    expect(screen.getByTestId('admin-user-role')).toHaveTextContent('OWNER');
+  });
+
+  it('logout button clears auth store and navigates to /login', () => {
+    renderAt('/admin');
+    fireEvent.click(screen.getByTestId('admin-logout'));
+    expect(useAuthStore.getState().token).toBeNull();
+    expect(screen.getByTestId('login-landed')).toBeInTheDocument();
   });
 });
