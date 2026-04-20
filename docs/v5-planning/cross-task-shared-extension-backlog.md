@@ -326,7 +326,7 @@ Frontend adminApi.types.ts shim 与这 5 个 shared types **1:1 对齐**(Fronten
 ### 3. A-series(3.5-4.5 day,分 Backend/Frontend)
 
 - **A1 sCalibration**(0.5 day, Backend)· depends on fixture `selfAssess.confidence` 调整(#057 observation)
-- **A12 candidate profile 7 fields**(2 day, Backend + Frontend)· Prisma schema + pre-exam form + Admin view
+- **A12 candidate profile 7 fields**(2 day, Backend + Frontend)· Prisma schema + pre-exam form + Admin view (Backend B-A12 ✅ shipped 2026-04-20 · Frontend F-A12 pending · 下轮)
 - **A10-lite candidate self-view**(1-2 day, Frontend)· ethics floor
 - **A14a reliability merged to Task 18+**(concurrent)
 
@@ -396,3 +396,14 @@ From observations #075-#093 + prior Task 17b backlog:
 | `v5-signal-production-coverage.md` | 41/47 = 87.2%(post-Task-27)| 2026-04-19 |
 
 **Pattern C #5 self-pollution**(#077):glossary 自身 Event Naming 小节有 Claude 写的 `v5:mb:behavior:batch` 错误前缀。Task 30 brief dispatch 前需先修 glossary(Backend 可 squash 进 Task 30 PR,或单独 5-min docs PR)。
+
+---
+
+## V5.0.5 Housekeeping(post-V5.0 release)
+
+Accumulated follow-ups captured during Task B-A12 auth-fallback patch(observation #127):
+
+- **middleware envelope consistency**:`requireAdmin` / `requireOrg` / `requireOrgOwner` still emit flat `{ error: string }`. B-A12 auth-fallback patch only migrated `requireCandidate` to `next(AppError)` nested envelope(Frontend F-A12 + Consent path). Full 4-helper unification deferred — blocked by Frontend `AdminGuard`(PR #75)current flat-shape dependency.
+- **A10-lite candidateSelfViewToken vs reuse**:Task B-A12 Commit 0 added `Session.candidateToken String? @unique`. A10-lite(candidate self-view · ethics floor)originally planned an independent token field. Decide whether A10-lite reuses `candidateToken` or mints its own(scope isolation vs schema bloat tradeoff).
+- **admin error shape Frontend remap**:Pair with middleware envelope consistency above. Frontend admin surface needs a remap layer before backend can flip `requireAdmin` to nested envelope.
+- **Candidate.token audit**:historical HR-mint long-lived token on `Candidate` model(not Session-scoped)has unclear current consumers. Audit and decide keep / deprecate post-V5.0.5 once auth-fallback path is stable.

@@ -140,7 +140,13 @@ async function mockCreateSession(
     orgId: req.orgId,
   };
   ADMIN_SESSIONS.unshift(session);
-  return { session, shareableLink };
+  return {
+    session,
+    shareableLink,
+    // Task B-A12 auth-fallback: real backend mints via crypto.randomBytes(32).
+    // Mock stub produces a deterministic value so downstream UI renders.
+    candidateToken: `mock-token-${session.id}`,
+  };
 }
 
 async function mockListExamInstances(params: {
