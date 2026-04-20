@@ -417,3 +417,40 @@ gap 公式敏感度高于 composite 的 6-dim 加权均值。
   V5.1 可调一个 fixture 的 confidence 使其 gap≤5 且与 composite 完全
   equal,覆盖 direction-annotation 的 undefined 分支(当前仅 sCalibration
   unit test case "perfect calibration" 覆盖)
+
+## Candidate vs CandidateProfile
+
+两个 concept 同源 "candidate" 词根但**截然不同**,Task B-A12 Pattern C 第 8 次
+occurrence,预防 reviewer / 未来 Claude 混用。
+
+### Candidate(HR 身份实体)
+
+- **位置**: Prisma `Candidate` table(persistent row,HR 创建流程维护)
+- **时态**: 长期持久 · 跨 session 复用 · 代表"这个人"
+- **字段**: `id` / `name` / `email` / `createdAt`
+- **修改语义**: HR 编辑 candidate 档案,影响历史 session 的 snapshot 字段
+  不回写(snapshot 独立)
+- **使用**: `/admin/sessions` 列表的 candidate 字段(V5AdminCandidateSnapshot
+  取自 Candidate row 的瞬时 copy)
+
+### CandidateProfile(Session 上的 JSON 快照)
+
+- **位置**: `Session.candidateProfile` 列(Json? · Task B-A12 新增)
+- **时态**: Session 级临时快照 · 候选人**进入 exam 前**填写 · 不可回改
+- **字段**: 7 项 self-report(yearsOfExperience / currentRole /
+  primaryTechStack / companySize / aiToolYears / primaryAiTool /
+  dailyAiUsageHours)· 全部 enum/bounded scalar,非 FK
+- **修改语义**: 候选人提交后 Session-scoped immutable(Pattern H add-
+  nullable-only,旧 session 读 null 不破坏 shape);HR 不编辑,新 session
+  需要重新提交
+- **使用**: `/admin/sessions/:sessionId/profile` 读接口、Report header 展示
+  候选人答题前的技术背景上下文(evaluate scoring 时的 prior);候选人
+  submit via `POST /api/candidate/profile/submit`
+
+### 一句话区分
+
+> Candidate = "这个人是谁"(HR 维护,跨 session);CandidateProfile = "他
+> 答题前怎么自评自己"(候选人提交,钉在当次 session)。
+
+Report 可同时出现:header 顶显示 Candidate.name/email,副栏显示 profile
+snapshot 的 yearsOfExperience / currentRole / AI-tool 背景。
