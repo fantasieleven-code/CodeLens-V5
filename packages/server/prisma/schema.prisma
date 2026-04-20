@@ -59,6 +59,10 @@ model Session {
   expiresAt     DateTime
   metadata      Json      @default("{}") // V5Submissions
   scoringResult Json?     // { signals, dimensions, composite, grade, dangerFlag }
+  // Task B-A12: candidate pre-exam profile (7 fields, CandidateProfile in shared).
+  candidateProfile Json?
+  // Task B-A12: timestamp at which the candidate accepted the data-use consent.
+  consentAcceptedAt DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
