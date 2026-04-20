@@ -12,10 +12,12 @@
 
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import {
-  CandidateProfile,
   CandidateProfileSchema,
-  CandidateProfileSubmitRequest,
   CandidateProfileSubmitRequestSchema,
+} from './candidate-profile.js';
+import type {
+  CandidateProfile,
+  CandidateProfileSubmitRequest,
 } from './candidate-profile.js';
 
 const validProfile: CandidateProfile = {
