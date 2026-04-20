@@ -36,6 +36,8 @@ export interface SignalEvidence {
   contribution: number;
   /** 命中的规则名,如 'has_quantitative_marker' / 'stance_maintained'。 */
   triggeredRule?: string;
+  /** V5.0 A1 · meta-signal 专用方向标注(sCalibration);V5.1 A8 potentialJunior pattern consumer。 */
+  direction?: 'overconfident' | 'underconfident';
 }
 
 /**
@@ -66,17 +68,35 @@ export interface SignalDefinition {
   moduleSource: V5ModuleType;
   /** 是否是 LLM 白名单信号（仅 MD 有 3 个）。非白名单信号永远纯规则计算。 */
   isLLMWhitelist: boolean;
-  compute: (input: SignalInput) => Promise<SignalResult>;
+  /**
+   * V5.0 A1 · signature widened with optional `partialComposite` (0-100) to
+   * support meta-signals that read the 47-signal pass-1 composite. 47 普通
+   * signals 仍按 1-arg 实装 — TS 允许 narrower function assignable to wider
+   * type. 仅 META_SIGNAL_IDS 里的 signal 读第 2 arg(sCalibration 起)。
+   */
+  compute: (input: SignalInput, partialComposite?: number) => Promise<SignalResult>;
   /** 仅 LLM 白名单信号需要：超时/失败时的纯规则降级。 */
   fallback?: (input: SignalInput) => SignalResult;
 }
 
 export type SignalResults = Record<string, SignalResult>;
 
+/** V5.0 A1 · `computeAll` 可选过滤 · 给 orchestrator two-pass excludeIds meta-signal。 */
+export interface ComputeAllOptions {
+  /** 跳过这些 signal id(不 compute · 不出现在 SignalResults 结果里)。 */
+  excludeIds?: readonly string[];
+}
+
 export interface SignalRegistry {
   register(def: SignalDefinition): void;
-  /** 计算所有已注册信号；未参与模块对应信号直接返回 value === null。 */
-  computeAll(input: SignalInput): Promise<SignalResults>;
+  /**
+   * 计算所有已注册信号；未参与模块对应信号直接返回 value === null。
+   *
+   * V5.0 A1 · `options.excludeIds` 让 orchestrator pass-1 跳过 meta-signals
+   * (e.g. sCalibration)· pass-2 由 `computeMetaSignals` seam 单独调度。
+   * 未知 id 被静默忽略(不 throw)· 与 participatingModules skip 语义对齐。
+   */
+  computeAll(input: SignalInput, options?: ComputeAllOptions): Promise<SignalResults>;
   getDimensionSignals(dim: V5Dimension): SignalDefinition[];
   getSignalCount(): number;
   listSignals(): SignalDefinition[];

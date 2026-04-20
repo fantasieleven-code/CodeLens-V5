@@ -15,6 +15,7 @@
  */
 
 import type {
+  ComputeAllOptions,
   SignalDefinition,
   SignalInput,
   SignalRegistry,
@@ -92,12 +93,15 @@ export class SignalRegistryImpl implements SignalRegistry {
     this.signals.set(def.id, def);
   }
 
-  async computeAll(input: SignalInput): Promise<SignalResults> {
+  async computeAll(input: SignalInput, options?: ComputeAllOptions): Promise<SignalResults> {
     const results: SignalResults = {};
     const participating = new Set<string>(input.participatingModules);
+    const excluded = options?.excludeIds ? new Set<string>(options.excludeIds) : null;
 
     await Promise.all(
       Array.from(this.signals.values()).map(async (def) => {
+        if (excluded?.has(def.id)) return;
+
         if (!this.isParticipating(def, participating)) {
           results[def.id] = makeSkippedResult();
           return;
