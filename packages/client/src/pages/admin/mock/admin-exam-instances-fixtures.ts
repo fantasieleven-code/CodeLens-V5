@@ -1,11 +1,11 @@
-import type { AdminExamInstance } from '../../../services/adminApi.types.js';
+import type { V5AdminExamInstance } from '@codelens-v5/shared';
 
 /**
  * 8 exam instances spread across techStacks / domains / levels. Each position
  * in admin-positions-fixtures has at least one matching exam. Metrics are hand
  * picked to give the exam library page something to sort on.
  */
-export const ADMIN_EXAM_INSTANCES: readonly AdminExamInstance[] = [
+export const ADMIN_EXAM_INSTANCES: readonly V5AdminExamInstance[] = [
   {
     id: 'exam-java-payment-mid',
     suiteId: 'full_stack',
@@ -113,6 +113,6 @@ export const ADMIN_EXAM_INSTANCES: readonly AdminExamInstance[] = [
   },
 ];
 
-export function findExamInstanceById(id: string): AdminExamInstance | undefined {
+export function findExamInstanceById(id: string): V5AdminExamInstance | undefined {
   return ADMIN_EXAM_INSTANCES.find((e) => e.id === id);
 }

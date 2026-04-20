@@ -4,7 +4,8 @@
  * Routes:
  *   /exam/:sessionId    → candidate flow (ExamRouter switches on currentModule)
  *   /report/:sessionId  → finished report (Task 3: demo fixtures only)
- *   /admin/*            → recruiter tools (stub until admin work)
+ *   /login              → admin login (Task 12 Layer 2)
+ *   /admin/*            → recruiter tools, fenced by AdminGuard
  *   /share/report/:token → public report share link (stub)
  *   /__preview/report   → Section Registry preview (Task 2 dev tool)
  *   /__preview/sections → Section gallery (Task 2 dev tool)
@@ -34,6 +35,8 @@ import { SectionGalleryPage } from './report/preview/SectionGalleryPage.js';
 import { Phase0PreviewPage } from './pages/phase0/Phase0PreviewPage.js';
 import { ModuleAPreviewPage } from './pages/moduleA/ModuleAPreviewPage.js';
 import { AdminRoutes } from './pages/admin/AdminLayoutPage.js';
+import { AdminGuard } from './pages/admin/AdminGuard.js';
+import { LoginPage } from './pages/admin/LoginPage.js';
 import { colors, spacing, fontSizes, fontWeights } from './lib/tokens.js';
 
 export function App() {
@@ -42,7 +45,15 @@ export function App() {
       <Routes>
         <Route path="/exam/:sessionId" element={<ExamRouter />} />
         <Route path="/report/:sessionId" element={<ReportViewPage />} />
-        <Route path="/admin/*" element={<AdminRoutes />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/admin/*"
+          element={
+            <AdminGuard>
+              <AdminRoutes />
+            </AdminGuard>
+          }
+        />
         <Route path="/share/report/:token" element={<SharedReportPage />} />
         <Route path="/__preview/report" element={<ReportPreviewPage />} />
         <Route path="/__preview/sections" element={<SectionGalleryPage />} />

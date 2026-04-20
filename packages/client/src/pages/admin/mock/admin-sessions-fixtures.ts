@@ -1,11 +1,11 @@
-import type { AdminSessionSummary } from '../../../services/adminApi.types.js';
+import type { V5AdminSession } from '@codelens-v5/shared';
 
 /**
  * 10 sessions across statuses / grades / suites. Mutable array so the mock
  * adminApi.createSession can push new entries without reallocating the module
  * shape. Fresh arrays are returned to callers via slice().
  */
-export const ADMIN_SESSIONS: AdminSessionSummary[] = [
+export const ADMIN_SESSIONS: V5AdminSession[] = [
   {
     id: 'sess-00001',
     suiteId: 'full_stack',
@@ -138,6 +138,6 @@ export const ADMIN_SESSIONS: AdminSessionSummary[] = [
   },
 ];
 
-export function findSessionById(id: string): AdminSessionSummary | undefined {
+export function findSessionById(id: string): V5AdminSession | undefined {
   return ADMIN_SESSIONS.find((s) => s.id === id);
 }

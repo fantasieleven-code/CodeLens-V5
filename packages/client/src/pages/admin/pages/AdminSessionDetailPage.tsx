@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { adminApi } from '../../../services/adminApi.js';
 import type {
-  AdminSessionReport,
-  AdminSessionSummary,
-} from '../../../services/adminApi.types.js';
+  V5AdminSession,
+  V5AdminSessionReport,
+} from '@codelens-v5/shared';
 import { SUITES } from '@codelens-v5/shared';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../../../lib/tokens.js';
 
@@ -15,8 +15,9 @@ function formatDate(ts: number | null): string {
 
 export const AdminSessionDetailPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const [session, setSession] = useState<AdminSessionSummary | null>(null);
-  const [report, setReport] = useState<AdminSessionReport | null>(null);
+  const [session, setSession] = useState<V5AdminSession | null>(null);
+  const [report, setReport] = useState<V5AdminSessionReport | null>(null);
+  const [reportNotReady, setReportNotReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,9 +28,24 @@ export const AdminSessionDetailPage: React.FC = () => {
       .then((s) => {
         if (!cancelled) setSession(s);
         if (s.status === 'COMPLETED') {
-          return adminApi.getSessionReport(sessionId).then((r) => {
-            if (!cancelled) setReport(r);
-          });
+          return adminApi.getSessionReport(sessionId).then(
+            (r) => {
+              if (!cancelled) setReport(r);
+            },
+            (err: unknown) => {
+              // Backend throws 400 → REPORT_NOT_COMPLETED when a session is
+              // flagged COMPLETED but its scoring pipeline hasn't finished
+              // writing out `scoringResult` yet. Render a dedicated pending
+              // state rather than a raw error so the admin doesn't see
+              // "REPORT_NOT_COMPLETED" text.
+              const message = err instanceof Error ? err.message : String(err);
+              if (message === 'REPORT_NOT_COMPLETED') {
+                if (!cancelled) setReportNotReady(true);
+              } else {
+                throw err;
+              }
+            },
+          );
         }
         return undefined;
       })
@@ -150,6 +166,16 @@ export const AdminSessionDetailPage: React.FC = () => {
           >
             查看完整报告 →
           </Link>
+        </section>
+      ) : session.status === 'COMPLETED' && reportNotReady ? (
+        <section
+          style={styles.card}
+          data-testid="admin-session-detail-report-incomplete"
+        >
+          <h2 style={styles.sectionTitle}>评估报告</h2>
+          <p style={styles.reasoning}>
+            会话已完成,但评分结果尚未写入,稍后刷新即可。
+          </p>
         </section>
       ) : session.status === 'COMPLETED' ? (
         <div style={styles.loading} data-testid="admin-session-detail-report-loading">

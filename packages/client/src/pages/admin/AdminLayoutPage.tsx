@@ -1,6 +1,14 @@
 import React from 'react';
-import { Outlet, NavLink, Routes, Route, Navigate } from 'react-router-dom';
+import {
+  Outlet,
+  NavLink,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+} from 'react-router-dom';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../../lib/tokens.js';
+import { useAuthStore } from '../../stores/auth.store.js';
 import { AdminDashboardPage } from './pages/AdminDashboardPage.js';
 import { AdminCreateSessionPage } from './pages/AdminCreateSessionPage.js';
 import { AdminSessionsListPage } from './pages/AdminSessionsListPage.js';
@@ -35,31 +43,57 @@ const NAV_ITEMS: ReadonlyArray<{ to: string; label: string; testid: string }> = 
   { to: '/admin/exams', label: '题库管理', testid: 'admin-nav-exams' },
 ];
 
-const AdminLayoutPage: React.FC = () => (
-  <div style={styles.container} data-testid="admin-layout">
-    <header style={styles.header}>
-      <div style={styles.brand}>CodeLens · Admin</div>
-      <nav style={styles.nav} aria-label="Admin 主导航">
-        {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            data-testid={item.testid}
-            style={({ isActive }) => ({
-              ...styles.navLink,
-              ...(isActive ? styles.navLinkActive : {}),
-            })}
+const AdminLayoutPage: React.FC = () => {
+  const navigate = useNavigate();
+  const logout = useAuthStore((s) => s.logout);
+  const orgRole = useAuthStore((s) => s.orgRole);
+
+  function onLogout(): void {
+    logout();
+    navigate('/login', { replace: true });
+  }
+
+  return (
+    <div style={styles.container} data-testid="admin-layout">
+      <header style={styles.header}>
+        <div style={styles.brand}>CodeLens · Admin</div>
+        <nav style={styles.nav} aria-label="Admin 主导航">
+          {NAV_ITEMS.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              data-testid={item.testid}
+              style={({ isActive }) => ({
+                ...styles.navLink,
+                ...(isActive ? styles.navLinkActive : {}),
+              })}
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+        <div style={styles.userBlock}>
+          {orgRole && (
+            <span style={styles.role} data-testid="admin-user-role">
+              {orgRole}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={onLogout}
+            data-testid="admin-logout"
+            style={styles.logout}
           >
-            {item.label}
-          </NavLink>
-        ))}
-      </nav>
-    </header>
-    <main style={styles.main}>
-      <Outlet />
-    </main>
-  </div>
-);
+            退出登录
+          </button>
+        </div>
+      </header>
+      <main style={styles.main}>
+        <Outlet />
+      </main>
+    </div>
+  );
+};
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -100,6 +134,27 @@ const styles: Record<string, React.CSSProperties> = {
   navLinkActive: {
     backgroundColor: colors.blue,
     color: colors.base,
+  },
+  userBlock: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginLeft: 'auto',
+  },
+  role: {
+    fontSize: fontSizes.xs,
+    color: colors.subtext0,
+    fontFamily: 'monospace',
+  },
+  logout: {
+    padding: `${spacing.xs} ${spacing.md}`,
+    borderRadius: radii.sm,
+    border: `1px solid ${colors.surface1}`,
+    backgroundColor: 'transparent',
+    color: colors.text,
+    fontSize: fontSizes.sm,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
   },
   main: {
     flex: 1,

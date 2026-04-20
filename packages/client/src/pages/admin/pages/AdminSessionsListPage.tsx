@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type {
-  AdminSessionSummary,
-  ListSessionsParams,
-  PaginatedSessions,
-} from '../../../services/adminApi.types.js';
-import type { SessionStatus, SuiteId, V5Grade } from '@codelens-v5/shared';
+  V5AdminSession,
+  V5AdminListSessionsParams,
+  V5AdminSessionList,
+  SessionStatus,
+  SuiteId,
+  V5Grade,
+} from '@codelens-v5/shared';
 import { SUITES, SUITE_IDS } from '@codelens-v5/shared';
 import { adminApi } from '../../../services/adminApi.js';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../../../lib/tokens.js';
@@ -54,8 +56,11 @@ const PAGE_SIZE = 5;
 
 export const AdminSessionsListPage: React.FC = () => {
   const navigate = useNavigate();
-  const [filters, setFilters] = useState<ListSessionsParams>({ page: 1, pageSize: PAGE_SIZE });
-  const [data, setData] = useState<PaginatedSessions | null>(null);
+  const [filters, setFilters] = useState<V5AdminListSessionsParams>({
+    page: 1,
+    pageSize: PAGE_SIZE,
+  });
+  const [data, setData] = useState<V5AdminSessionList | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -81,9 +86,6 @@ export const AdminSessionsListPage: React.FC = () => {
   };
   const setStatusFilter = (value: SessionStatus | '') => {
     setFilters((f) => ({ ...f, status: value || undefined, page: 1 }));
-  };
-  const setOrgFilter = (value: string) => {
-    setFilters((f) => ({ ...f, orgId: value || undefined, page: 1 }));
   };
   const gotoPage = (p: number) => setFilters((f) => ({ ...f, page: p }));
   const openRow = (id: string) => navigate(`/admin/sessions/${id}`);
@@ -124,17 +126,6 @@ export const AdminSessionsListPage: React.FC = () => {
               </option>
             ))}
           </select>
-        </label>
-        <label style={styles.label}>
-          组织 ID
-          <input
-            type="text"
-            value={filters.orgId ?? ''}
-            onChange={(e) => setOrgFilter(e.target.value)}
-            data-testid="admin-sessions-filter-org"
-            placeholder="可选"
-            style={styles.input}
-          />
         </label>
       </div>
 
@@ -205,7 +196,7 @@ export const AdminSessionsListPage: React.FC = () => {
 };
 
 const SessionRow: React.FC<{
-  session: AdminSessionSummary;
+  session: V5AdminSession;
   onOpen: (id: string) => void;
 }> = ({ session, onOpen }) => (
   <tr
@@ -276,14 +267,6 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: 160,
   },
   select: {
-    padding: spacing.sm,
-    borderRadius: radii.sm,
-    backgroundColor: colors.base,
-    color: colors.text,
-    border: `1px solid ${colors.surface0}`,
-    fontFamily: 'inherit',
-  },
-  input: {
     padding: spacing.sm,
     borderRadius: radii.sm,
     backgroundColor: colors.base,
