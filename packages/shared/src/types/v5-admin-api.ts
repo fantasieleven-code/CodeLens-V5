@@ -1,0 +1,193 @@
+/**
+ * V5 Admin API shared contract types — Task 15a.
+ *
+ * Migrated verbatim from `packages/client/src/services/adminApi.types.ts`
+ * Frontend Task 10 shim. Backend Task 15b and Frontend Task 12 Layer 2 both
+ * import from here as the single source of truth for the 7 admin endpoints.
+ *
+ * 7 endpoints covered (Phase 1 Q3 locked, Steve adjudicated option c):
+ *   1. POST /admin/sessions/create         → V5AdminSessionCreateResponse
+ *   2. GET  /admin/sessions                → V5AdminSessionList
+ *   3. GET  /admin/sessions/:sessionId     → V5AdminSession
+ *   4. GET  /admin/sessions/:id/report     → V5AdminSessionReport
+ *   5. GET  /admin/exam-instances          → V5AdminExamInstance[]
+ *   6. GET  /admin/suites                  → V5AdminSuite[]
+ *   7. GET  /admin/stats/overview          → V5AdminStatsOverview
+ *
+ * Field shapes are frozen against the Frontend shim (Pattern F defense —
+ * no rename, no "improve"). Task 12 Layer 2 migrates Frontend imports from
+ * the local shim to this module without touching any field name.
+ *
+ * Client-only shim types NOT migrated (they are Frontend UX helpers, not
+ * server-contract data):
+ *   - AdminPosition        (Step 1 wizard card shape)
+ *   - SuiteRecommendation  (client-side UX suggestion)
+ *   - CreateWizardDraft    (wizard page state)
+ */
+
+import type { SessionStatus } from './session.js';
+import type { SuiteId } from './v5-suite.js';
+import type { V5Grade, V5DimensionScores } from './v5-dimensions.js';
+import type { GradeDecision } from './v5-grade.js';
+import type { CapabilityProfile } from './v5-capability-profile.js';
+import type { SignalDefinition, SignalResults } from './v5-signals.js';
+import type { V5ModuleKey } from '../constants/module-keys.js';
+import type { V5Submissions } from './v5-submissions.js';
+import type { CursorBehaviorLabel } from './v5-scoring.js';
+
+// ── /admin/stats/overview ────────────────────────────────────────────
+
+export interface V5AdminStatsOverview {
+  totalSessions: number;
+  completedSessions: number;
+  /** Percentage 0..1. */
+  completionRate: number;
+  averageComposite: number;
+  gradeDistribution: Record<V5Grade, number>;
+  suiteDistribution: Record<SuiteId, number>;
+}
+
+// ── /admin/exam-instances ────────────────────────────────────────────
+
+export interface V5AdminExamInstance {
+  id: string;
+  suiteId: SuiteId;
+  techStack: string;
+  domain: string;
+  challengePattern: string;
+  archStyle?: string;
+  level: string;
+  titleZh: string;
+  createdAt: number;
+  usedCount: number;
+  /** 0-100. Null when usedCount is too small to be meaningful. */
+  avgCompositeScore: number | null;
+  /** 0-1 (how well the exam discriminates grades). Null until sampled. */
+  discriminationScore: number | null;
+}
+
+export interface V5AdminExamInstanceListParams {
+  suiteId?: string;
+  techStack?: string;
+  domain?: string;
+  level?: string;
+}
+
+// ── /admin/suites ────────────────────────────────────────────────────
+
+export interface V5AdminSuite {
+  id: SuiteId;
+  nameZh: string;
+  nameEn: string;
+  estimatedMinutes: number;
+  gradeCap: V5Grade;
+  modules: readonly string[];
+}
+
+// ── /admin/sessions ──────────────────────────────────────────────────
+
+export interface V5AdminCandidateSnapshot {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface V5AdminSession {
+  id: string;
+  suiteId: SuiteId;
+  examInstanceId: string;
+  candidate: V5AdminCandidateSnapshot;
+  status: SessionStatus;
+  createdAt: number;
+  startedAt: number | null;
+  completedAt: number | null;
+  /** Only present once scored (status = COMPLETED). */
+  grade: V5Grade | null;
+  composite: number | null;
+  shareableLink: string | null;
+  orgId?: string;
+}
+
+export interface V5AdminListSessionsParams {
+  suiteId?: SuiteId;
+  status?: SessionStatus;
+  orgId?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface V5AdminSessionList {
+  items: V5AdminSession[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+// ── /admin/sessions/create ───────────────────────────────────────────
+
+export interface V5AdminSessionCreateRequest {
+  suiteId: SuiteId;
+  examInstanceId: string;
+  candidate: {
+    name: string;
+    email: string;
+  };
+  orgId?: string;
+}
+
+export interface V5AdminSessionCreateResponse {
+  session: V5AdminSession;
+  shareableLink: string;
+}
+
+// ── /admin/sessions/:sessionId/report ────────────────────────────────
+
+/**
+ * Canonical admin report payload. Mirrors the Frontend `ReportViewModel`
+ * (`packages/client/src/report/types.ts:40`) field-for-field so Task 12
+ * Layer 2 can alias `AdminSessionReport = V5AdminSessionReport` without
+ * shape drift. All component types are already shared.
+ */
+export interface V5AdminSessionReport {
+  sessionId: string;
+  candidateName?: string;
+  completedAt?: number;
+  suite: V5AdminSuite;
+  participatingModules: readonly V5ModuleKey[];
+
+  gradeDecision: GradeDecision;
+  capabilityProfiles: readonly CapabilityProfile[];
+  dimensions: V5DimensionScores;
+
+  signalResults: SignalResults;
+  signalDefinitions: readonly V5AdminSignalViewMeta[];
+
+  submissions: Partial<V5Submissions>;
+
+  /** Round 3 调整 5 — only populated for suites that include MB. */
+  cursorBehaviorLabel?: CursorBehaviorLabel;
+}
+
+/**
+ * Frontend-safe signal metadata — `compute` / `fallback` function refs are
+ * stripped because they do not survive JSON serialization. Equivalent to
+ * `Omit<SignalDefinition, 'compute' | 'fallback'>` and matches the existing
+ * Frontend `SignalViewMeta` alias.
+ */
+export type V5AdminSignalViewMeta = Omit<SignalDefinition, 'compute' | 'fallback'>;
+
+// ── Generic pagination envelope ─────────────────────────────────────
+
+/**
+ * Shared pagination envelope. `V5AdminSessionList` is the concrete
+ * instantiation for endpoint 2; other future admin list endpoints reuse
+ * this shape.
+ */
+export interface V5PaginatedResponse<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
