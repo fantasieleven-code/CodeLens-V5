@@ -247,6 +247,10 @@ export async function createAdminSession(
     // Task B-A12 auth-fallback: mint opaque Session-scoped token for the
     // body-token path of requireCandidate. 32 bytes → 43 base64url chars.
     const candidateToken = randomBytes(32).toString('base64url');
+    // Task B-A10-lite: second token authorizes the candidate self-view
+    // endpoint. Separate from candidateToken so the admin-visible exam-token
+    // can't impersonate the candidate's post-completion self-view.
+    const candidateSelfViewToken = randomBytes(32).toString('base64url');
 
     const sessionRow = await prisma.session.create({
       data: {
@@ -257,11 +261,16 @@ export async function createAdminSession(
         expiresAt: new Date(Date.now() + durationMs),
         metadata: metadata as unknown as Prisma.InputJsonValue,
         candidateToken,
+        candidateSelfViewToken,
       },
       include: { candidate: true },
     });
 
     const shareableLink = shareableUrl(req, sessionRow.id);
+    const origin =
+      (typeof req.headers.origin === 'string' && req.headers.origin) ||
+      `${req.protocol}://${req.get('host') ?? 'localhost'}`;
+    const selfViewUrl = `${origin}/candidate/self-view/${sessionRow.id}/${candidateSelfViewToken}`;
     const session = toAdminSession(sessionRow);
     session.shareableLink = shareableLink;
 
@@ -269,6 +278,8 @@ export async function createAdminSession(
       session,
       shareableLink,
       candidateToken,
+      candidateSelfViewToken,
+      selfViewUrl,
     };
     res.status(201).json(response);
   } catch (err) {

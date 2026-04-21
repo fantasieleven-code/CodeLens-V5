@@ -140,12 +140,18 @@ async function mockCreateSession(
     orgId: req.orgId,
   };
   ADMIN_SESSIONS.unshift(session);
+  // Task B-A10-lite · deterministic mock stubs for the two separate tokens
+  // + pre-rendered self-view URL. Real backend mints via randomBytes(32)
+  // and returns the same field names.
+  const candidateSelfViewToken = `mock-selfview-${session.id}`;
   return {
     session,
     shareableLink,
     // Task B-A12 auth-fallback: real backend mints via crypto.randomBytes(32).
     // Mock stub produces a deterministic value so downstream UI renders.
     candidateToken: `mock-token-${session.id}`,
+    candidateSelfViewToken,
+    selfViewUrl: `/candidate/self-view/${session.id}/${candidateSelfViewToken}`,
   };
 }
 
