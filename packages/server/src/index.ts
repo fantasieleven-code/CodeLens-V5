@@ -31,6 +31,7 @@ import { healthRouter } from './routes/health.js';
 import { adminRouter } from './routes/admin.js';
 import { authRouter } from './routes/auth.js';
 import { candidateRouter } from './routes/candidate.js';
+import { candidateSelfViewRouter } from './routes/candidate-self-view.js';
 import { registerSocketHandlers } from './socket/index.js';
 
 const app = express();
@@ -53,6 +54,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 app.use('/health', healthRouter);
 app.use('/api', apiLimiter);
 app.use('/api/admin', requireAdmin, adminRouter);
+// B-A10-lite: self-view mounted BEFORE /api/candidate so Express matches this
+// prefix first and skips the requireCandidate layer (URL token IS the auth).
+app.use('/api/candidate/self-view', candidateSelfViewRouter);
 app.use('/api/candidate', requireCandidate, candidateRouter);
 app.use('/auth', authRouter);
 
