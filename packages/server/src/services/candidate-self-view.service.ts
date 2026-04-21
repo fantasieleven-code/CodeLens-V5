@@ -8,9 +8,9 @@
  */
 
 import {
-  V5Dimension,
   V5_DIMENSION_NAME_EN,
   V5_DIMENSION_NAME_ZH,
+  type V5Dimension,
   type CandidateDimensionStrength,
   type V5CandidateSelfView,
   type V5DimensionScores,
