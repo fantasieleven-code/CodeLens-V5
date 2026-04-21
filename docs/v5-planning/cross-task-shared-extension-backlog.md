@@ -404,6 +404,17 @@ From observations #075-#093 + prior Task 17b backlog:
 Accumulated follow-ups captured during Task B-A12 auth-fallback patch(observation #127):
 
 - **middleware envelope consistency**:`requireAdmin` / `requireOrg` / `requireOrgOwner` still emit flat `{ error: string }`. B-A12 auth-fallback patch only migrated `requireCandidate` to `next(AppError)` nested envelope(Frontend F-A12 + Consent path). Full 4-helper unification deferred — blocked by Frontend `AdminGuard`(PR #75)current flat-shape dependency.
-- **A10-lite candidateSelfViewToken vs reuse**:Task B-A12 Commit 0 added `Session.candidateToken String? @unique`. A10-lite(candidate self-view · ethics floor)originally planned an independent token field. Decide whether A10-lite reuses `candidateToken` or mints its own(scope isolation vs schema bloat tradeoff).
+- ~~**A10-lite candidateSelfViewToken vs reuse**:Task B-A12 Commit 0 added `Session.candidateToken String? @unique`. A10-lite(candidate self-view · ethics floor)originally planned an independent token field. Decide whether A10-lite reuses `candidateToken` or mints its own(scope isolation vs schema bloat tradeoff).~~ **Resolved 2026-04-21**: B-A10-lite shipped with independent `Session.candidateSelfViewToken String? @unique` field(two-token separation · ethics-floor narrative). See observation #129 (Pattern H 第 5 次) + #128 (ethics floor `.strict()` schema).
 - **admin error shape Frontend remap**:Pair with middleware envelope consistency above. Frontend admin surface needs a remap layer before backend can flip `requireAdmin` to nested envelope.
 - **Candidate.token audit**:historical HR-mint long-lived token on `Candidate` model(not Session-scoped)has unclear current consumers. Audit and decide keep / deprecate post-V5.0.5 once auth-fallback path is stable.
+
+---
+
+## V5.0.5 Housekeeping(B-A10-lite self-view · 2026-04-21)
+
+Added during Task B-A10-lite(backend candidate self-view · brief docs flag + observations #128-#130):
+
+- **admin session-lifecycle mint-list API**(Pattern D cleanup flag):admin `POST /admin/sessions/create` now mints 2 opaque Session-scoped tokens(`candidateToken` + `candidateSelfViewToken`).Considered a future `GET /admin/sessions/:id/links` endpoint that returns `{ candidateExamLink, candidateSelfViewUrl }` so admin UI can re-fetch after session creation without re-hitting mint(idempotent read).V5.0.5 · blocked by admin UI need(not urgent — current response envelope sufficient).
+- **cross-repo mock sync rule 精化**(observation #130):shared type扩展 PR 必须 create GH Issue to `CodeLens-v5-frontend` split repo with `monorepo-sync` label.Need to formalize as checklist-v2.6 item once split repo workflow stabilizes.
+- **admin.ts Pattern D migration**(Pattern D cleanup flag):`admin.ts` 中 scoringResult handling 仍用 `as V5ScoringResult` cast(L374)、B-A10-lite self-view 路由已迁移到 `V5ScoringResultSchema.parse()` + cast-back pattern.Admin endpoint 4 `getAdminSessionReport` 可在 V5.0.5 内同步迁移到 zod parse · 修复 Pattern D 一致性(admin 侧 scoringResult 读取默认走 runtime parse · 而非 cast)。
+- **shared.V5ScoringResultSchema `.strict()` tightening**(observation #128 follow-up):当前 `V5ScoringResultSchema` 是 non-strict(顶层 passthrough) · 原因是 scoring pipeline 偶发写入 transient forward-compat 字段。V5.0.5 考虑审计所有 writer · 转成 `.strict()` · 做 gate 而非 parse 轮廓。

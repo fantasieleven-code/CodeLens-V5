@@ -454,3 +454,35 @@ occurrence,预防 reviewer / 未来 Claude 混用。
 
 Report 可同时出现:header 顶显示 Candidate.name/email,副栏显示 profile
 snapshot 的 yearsOfExperience / currentRole / AI-tool 背景。
+
+---
+
+## V5CandidateSelfView (Task B-A10-lite · ethics-floor reduced projection)
+
+**Context**: Candidate 答题+完成后访问 `GET /api/candidate/self-view/:sessionId/:privateToken`(无 JWT · URL token IS auth)看到的受限自查视图。**刻意与 `V5ScoringResult`(admin-only)分离** · 承载 ethics floor narrative:候选人不应看到 absolute grade / composite / signals / dangerFlag / reasoning / abs dim scores / capability evidence signals。
+
+### Top-level shape(`.strict()` — 4 fields only)
+
+| Field | Type | Semantics |
+|-------|------|-----------|
+| `sessionId` | `string` | Session identifier(candidate already knows it from URL) |
+| `completedAt` | ISO-8601 string | When the exam session was marked COMPLETED |
+| `capabilityProfiles` | `V5CandidateCapabilityProfile[]` | Per-profile candidate-safe summary(no score / dimensionBreakdown / evidenceSignals) |
+| `dimensionRadar` | `V5CandidateDimensionSummary[]` | Per-dimension relative strength label(`strong` / `medium` / `weak`) · no abs score |
+
+### `V5CandidateCapabilityProfile`(`.strict()`)
+
+Candidate-safe reduction of admin-side `CapabilityProfile`. Stripped: `score` / `dimensionBreakdown` / `evidenceSignals`. Kept: `id` / `nameZh` / `nameEn` / `label` / `description`(wording per brief is already candidate-safe).
+
+### `V5CandidateDimensionSummary`(`.strict()`)
+
+Per-dim identity + `relativeStrength: 'strong' | 'medium' | 'weak'`. Computed by `computeRelativeStrength(dimensions)` via sort-desc + 3-tier index split(`idx < total/3` = strong · `idx >= total*2/3` = weak · else medium). Participating dims only(null/undefined scores dropped — `quick_screen` suite may omit dims).
+
+### Two-token separation
+
+- `Session.candidateToken` (B-A12): opaque session-scoped token used by `requireCandidate` body-token fallback(exam-time auth · admin-visible in create response). NOT accepted by self-view endpoint.
+- `Session.candidateSelfViewToken` (B-A10-lite): opaque session-scoped token ONLY authorizing the self-view endpoint. Distinct from `candidateToken`. Admin-visible in create response + pre-rendered `selfViewUrl`. Rationale: admin-visible exam-token cannot impersonate the candidate's self-view on post-completion leak.
+
+### Ethics-floor `.strict()` gate
+
+Both the top-level schema AND nested object schemas(`V5CandidateCapabilityProfile` / `V5CandidateDimensionSummary`) carry `.strict()`. Unknown keys throw at parse time — caught by tests. Any future `V5ScoringResult` extension whose transform forgets to strip will trip the schema and surface at test time rather than silently leaking to candidate clients.
