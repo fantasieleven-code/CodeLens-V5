@@ -42,6 +42,8 @@ import { AdminGuard } from './pages/admin/AdminGuard.js';
 import { LoginPage } from './pages/admin/LoginPage.js';
 import { ConsentPage } from './pages/candidate/ConsentPage.js';
 import { CandidateGuard } from './pages/candidate/CandidateGuard.js';
+import { ProfileSetup } from './pages/candidate/ProfileSetup.js';
+import { ProfileGuard } from './pages/candidate/ProfileGuard.js';
 import { colors, spacing, fontSizes, fontWeights } from './lib/tokens.js';
 
 export function App() {
@@ -59,6 +61,14 @@ export function App() {
         <Route
           path="/candidate/:sessionToken/consent"
           element={<ConsentPage />}
+        />
+        <Route
+          path="/candidate/:sessionToken/profile"
+          element={
+            <ProfileGuard>
+              <ProfileSetup />
+            </ProfileGuard>
+          }
         />
         <Route path="/report/:sessionId" element={<ReportViewPage />} />
         <Route path="/login" element={<LoginPage />} />
