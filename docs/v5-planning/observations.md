@@ -919,3 +919,70 @@ B-A12 auth-fallback Phase 1 Q2 发现 middleware 与 errorHandler **不一致**:
 3. `admin error shape Frontend remap` · 独立 Task · 与 (1) 配对
 
 **Backlog 记录**:`cross-task-shared-extension-backlog.md` 新增 `## V5.0.5 Housekeeping` section · 上述 3 项 enumerated。
+
+---
+
+### #128 — `design-insight` B-A10-lite ethics-floor `.strict()` zod schema as permanent gate
+**trace**: B-A10-lite brief §3 · `V5CandidateSelfViewSchema` 顶层 + 嵌套对象全部 `.strict()` · 显式拒绝 unknown keys
+
+`V5ScoringResult` 是 admin-only payload(含 grade / composite / signals /
+dangerFlag / reasoning / capabilityProfiles.score / evidenceSignals)·
+candidate 的自查视图必须 strip 所有 judgement-grade / evidence 字段 ·
+只保留相对强弱排序 + 能力画像候选人安全字段。
+
+**Why `.strict()` over `.passthrough()`**: 若未来新增 admin-only 字段到
+`V5ScoringResult`(如 `internalNotes`) · 且 transform 层忘记 strip ·
+`.strict()` 会在 test 时 throw · 而 `.passthrough()` 静默通过 · 泄露到
+candidate 客户端。schema 即 gate · 把 "何时何地 strip" 的责任从 code-review
+reviewer 转移到 schema 结构本身。
+
+**Test contract**:6 个 schema-level 测试 · 3 个正向用例 + 3 个 unknown-field
+rejection 用例 · 每个 stripped field(grade / composite / dimensionBreakdown)
+都有专属 "schema rejects this" 测试 · 退化不会 silent。
+
+**Rule candidate**:所有 candidate-facing reduced-projection payload(未来的
+candidate-facing module progress / hint 等)默认走 `.strict()` schema + explicit
+strip transform;admin-facing 才用 `.passthrough()` / 无 runtime schema。
+
+---
+
+### #129 — `pattern-H` 第 5 次 · B-A12 `Session.candidateToken` nullable + B-A10-lite `Session.candidateSelfViewToken` nullable 共 2 次 reuse
+**trace**: B-A10-lite C0 `20260421000000_add_session_candidate_self_view_token`
+migration · `ALTER TABLE "Session" ADD COLUMN "candidateSelfViewToken" TEXT` +
+unique index · 和 B-A12 `candidateToken` migration 完全同构
+
+Pattern H(add-nullable-only migration sub-gate · #080 首次发布 · #124 Round 2 Patch
+强化)在 2 个月内第 5 次复用:
+
+- 第 1 次: Task B-A12 `Session.candidateToken` nullable opaque token(auth-fallback)
+- 第 5 次: Task B-A10-lite `Session.candidateSelfViewToken` nullable opaque token(self-view)
+
+两次都是 "Session 生命周期中 admin/candidate 在特定 phase 才 mint 的 opaque token" · shape 完全一致(String? + @unique)· migration DDL 结构一致
+(ALTER TABLE ADD COLUMN + CREATE UNIQUE INDEX) · 都不破坏历史 session 读取。
+
+**Pattern 成熟度信号**:模式化到可以作 boilerplate 生成器 —— "给我 mint 一个
+Session 级 nullable opaque token 字段" 输入 field name 直接产出 schema diff +
+migration SQL + 不破历史数据的契约 trio。V5.0.5 考虑加 CLI 脚本。
+
+---
+
+### #130 — `cross-repo-drift-risk` split-repo frontend mock sync rule 精化
+**trace**: B-A10-lite C4 扩展 `V5AdminSessionCreateResponse` · monorepo
+`packages/client/src/services/adminApi.ts` mockCreateSession 同 commit 已更新;
+但 split repo `CodeLens-v5-frontend/` 的独立 mock 需要通过 GH Issue 手动同步
+
+V5 monorepo (`packages/client`) 和 split repo (`CodeLens-v5-frontend`) 目前**并存**
+(split repo 是 Frontend agent 的隔离工作区 · monorepo 是联合 typecheck/test
+保护层)。**API 契约变更触发的 mock 更新**必须两边同步 · 否则 split repo
+agent 下次 pull shared types 时会 compile pass 但 mock fixture 数据结构不匹配。
+
+**规则候选**:
+1. shared type 扩展 PR 必须 create GH Issue to split repo · label = `monorepo-sync`
+2. Issue body 列 type diff + 建议 mock edit diff + 本 PR link
+3. Split repo PR merge 前必须 close 这个 Issue · Frontend agent owner 负责
+
+**Scope**:适用所有 `V5Admin*` / `V5Candidate*` contract-type 扩展;不适用纯
+server-only 字段(如 Prisma schema 字段不出现在 shared type)· 也不适用 server
+internal service 层接口。
+
+---

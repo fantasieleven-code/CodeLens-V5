@@ -170,8 +170,92 @@ describe('POST /admin/sessions/create', () => {
     );
     // B-A12 auth-fallback · candidateToken minted + returned + persisted.
     expect(payload.candidateToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    const createArgs = sessionCreate.mock.calls[0][0] as { data: { candidateToken: string } };
+    const createArgs = sessionCreate.mock.calls[0][0] as {
+      data: { candidateToken: string; candidateSelfViewToken: string };
+    };
     expect(createArgs.data.candidateToken).toBe(payload.candidateToken);
+  });
+
+  it('B-A10-lite · mints candidateSelfViewToken distinct from candidateToken and persists both', async () => {
+    examInstanceFindUnique.mockResolvedValue({ id: 'exam-1', orgId: 'org-1' });
+    candidateUpsert.mockResolvedValue({ id: 'cand-1', name: 'Alice', email: 'alice@example.com' });
+    sessionCreate.mockResolvedValue({
+      id: 'sess-1',
+      orgId: 'org-1',
+      status: 'CREATED',
+      candidateId: 'cand-1',
+      candidate: { id: 'cand-1', name: 'Alice', email: 'alice@example.com' },
+      createdAt: new Date(1_700_000_000_000),
+      startedAt: null,
+      completedAt: null,
+      metadata: { suiteId: 'full_stack', examInstanceId: 'exam-1' },
+      scoringResult: null,
+    });
+
+    const req = makeReq({ body: validBody });
+    const { res, status } = makeRes();
+    await createAdminSession(req, res, makeNext());
+
+    const payload = status.mock.results[0]!.value.json.mock.calls[0][0];
+    expect(payload.candidateSelfViewToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(payload.candidateSelfViewToken).not.toBe(payload.candidateToken);
+
+    const createArgs = sessionCreate.mock.calls[0][0] as {
+      data: { candidateToken: string; candidateSelfViewToken: string };
+    };
+    expect(createArgs.data.candidateSelfViewToken).toBe(payload.candidateSelfViewToken);
+  });
+
+  it('B-A10-lite · selfViewUrl embeds sessionId + selfViewToken off request origin', async () => {
+    examInstanceFindUnique.mockResolvedValue({ id: 'exam-1', orgId: 'org-1' });
+    candidateUpsert.mockResolvedValue({ id: 'cand-1', name: 'Alice', email: 'alice@example.com' });
+    sessionCreate.mockResolvedValue({
+      id: 'sess-xyz',
+      orgId: 'org-1',
+      status: 'CREATED',
+      candidateId: 'cand-1',
+      candidate: { id: 'cand-1', name: 'Alice', email: 'alice@example.com' },
+      createdAt: new Date(1_700_000_000_000),
+      startedAt: null,
+      completedAt: null,
+      metadata: { suiteId: 'full_stack', examInstanceId: 'exam-1' },
+      scoringResult: null,
+    });
+
+    const req = makeReq({ body: validBody });
+    const { res, status } = makeRes();
+    await createAdminSession(req, res, makeNext());
+
+    const payload = status.mock.results[0]!.value.json.mock.calls[0][0];
+    expect(payload.selfViewUrl).toBe(
+      `https://app.test/candidate/self-view/sess-xyz/${payload.candidateSelfViewToken}`,
+    );
+  });
+
+  it('B-A10-lite · selfViewUrl and shareableLink are distinct (two-audience separation)', async () => {
+    examInstanceFindUnique.mockResolvedValue({ id: 'exam-1', orgId: 'org-1' });
+    candidateUpsert.mockResolvedValue({ id: 'cand-1', name: 'Alice', email: 'alice@example.com' });
+    sessionCreate.mockResolvedValue({
+      id: 'sess-1',
+      orgId: 'org-1',
+      status: 'CREATED',
+      candidateId: 'cand-1',
+      candidate: { id: 'cand-1', name: 'Alice', email: 'alice@example.com' },
+      createdAt: new Date(1_700_000_000_000),
+      startedAt: null,
+      completedAt: null,
+      metadata: { suiteId: 'full_stack', examInstanceId: 'exam-1' },
+      scoringResult: null,
+    });
+
+    const req = makeReq({ body: validBody });
+    const { res, status } = makeRes();
+    await createAdminSession(req, res, makeNext());
+
+    const payload = status.mock.results[0]!.value.json.mock.calls[0][0];
+    expect(payload.selfViewUrl).not.toBe(payload.shareableLink);
+    expect(payload.shareableLink).toMatch(/\/shared\//);
+    expect(payload.selfViewUrl).toMatch(/\/candidate\/self-view\//);
   });
 
   it('refuses when orgId missing (auth guard)', async () => {

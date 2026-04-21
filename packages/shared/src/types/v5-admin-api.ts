@@ -147,6 +147,22 @@ export interface V5AdminSessionCreateResponse {
    * link; never returned by the list or get endpoints.
    */
   candidateToken: string;
+  /**
+   * Task B-A10-lite — second opaque Session-scoped token minted alongside
+   * candidateToken. Authorizes the candidate self-view endpoint
+   * (GET /api/candidate/self-view/:sessionId/:privateToken) which is not
+   * behind JWT. Distinct from candidateToken to enforce two-token separation
+   * (admin-visible exam-token cannot impersonate the candidate's self-view).
+   */
+  candidateSelfViewToken: string;
+  /**
+   * Task B-A10-lite — pre-rendered self-view URL the admin can share
+   * directly with the candidate post-completion (format:
+   * `${origin}/candidate/self-view/${sessionId}/${candidateSelfViewToken}`).
+   * Returned alongside `shareableLink`; the two links are intentionally
+   * separate because they authorize different audiences.
+   */
+  selfViewUrl: string;
 }
 
 // ── /admin/sessions/:sessionId/report ────────────────────────────────
