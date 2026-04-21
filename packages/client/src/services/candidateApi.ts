@@ -17,6 +17,8 @@
  * Errors surface as `CandidateApiError` — the β naming ratified in Round 3
  * so the same class covers Consent + F-A12 calls.
  */
+import type { CandidateProfile } from '@codelens-v5/shared';
+
 export type CandidateApiErrorCode =
   | 'AUTH_REQUIRED'
   | 'NOT_FOUND'
@@ -42,6 +44,15 @@ export interface ConsentSubmitResponse {
   sessionId: string;
   profile: unknown | null;
   consentAcceptedAt: string | null;
+}
+
+/** Profile submit shares the consent envelope (Backend unifies the endpoint). */
+export type CandidateProfileSubmitResponse = ConsentSubmitResponse;
+
+export interface SubmitProfileRequest {
+  readonly sessionToken: string;
+  readonly profile: CandidateProfile;
+  readonly consentAccepted?: boolean;
 }
 
 declare global {
@@ -124,6 +135,37 @@ export async function submitConsent(
 
   if (res.ok) {
     return res.json() as Promise<ConsentSubmitResponse>;
+  }
+
+  let body: unknown = null;
+  try {
+    body = await res.json();
+  } catch {
+    /* body not JSON — parseErrorBody treats as UNKNOWN */
+  }
+  const { code, message } = parseErrorBody(body, res.status);
+  throw new CandidateApiError(code, res.status, message);
+}
+
+export async function submitProfile(
+  req: SubmitProfileRequest,
+): Promise<CandidateProfileSubmitResponse> {
+  let res: Response;
+  try {
+    res = await candidateFetch('/api/candidate/profile/submit', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    });
+  } catch (err) {
+    throw new CandidateApiError(
+      'NETWORK',
+      null,
+      err instanceof Error ? err.message : 'network failure',
+    );
+  }
+
+  if (res.ok) {
+    return res.json() as Promise<CandidateProfileSubmitResponse>;
   }
 
   let body: unknown = null;
