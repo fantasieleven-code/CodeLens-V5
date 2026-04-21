@@ -13,6 +13,8 @@
  *   remains V5.1 backlog per `v5-design-clarifications.md` L640-700.
  */
 
+import { z } from 'zod';
+
 import type { CapabilityProfile } from './v5-capability-profile.js';
 import type { V5DimensionScores, V5Grade } from './v5-dimensions.js';
 import type {
@@ -83,3 +85,46 @@ export interface V5ScoringResult {
   capabilityProfiles: CapabilityProfile[];
   cursorBehaviorLabel?: CursorBehaviorLabel;
 }
+
+/**
+ * V5ScoringResult runtime zod schema — Task B-A10-lite β ratified.
+ *
+ * Consumer-facing drift defense for `Session.scoringResult` Json reads.
+ * NOT strict at top level — Task 17 may extend future fields; self-view
+ * transform strips to V5CandidateSelfView via a separate strict schema
+ * (the ethics floor gate). capabilityProfiles + dimensions + grade are
+ * the fields self-view actually reads, so those nested shapes carry the
+ * runtime guarantees; signals / boundaryAnalysis / cursorBehaviorLabel
+ * use passthrough because self-view drops them entirely.
+ *
+ * V5.0.5 cleanup candidate: migrate admin.ts:374 `scoringResult as
+ * V5ScoringResult` cast + scoring-hydrator read path to this schema.
+ */
+export const V5ScoringResultSchema = z.object({
+  grade: z.enum(['D', 'C', 'B', 'B+', 'A', 'S', 'S+']),
+  composite: z.number(),
+  dimensions: z.record(z.string(), z.number().nullable()),
+  confidence: z.enum(['high', 'medium', 'low']),
+  boundaryAnalysis: z.object({}).passthrough(),
+  reasoning: z.string(),
+  dangerFlag: z.object({}).passthrough().optional(),
+  signals: z.record(z.string(), z.object({}).passthrough()),
+  capabilityProfiles: z.array(
+    z.object({
+      id: z.enum([
+        'independent_delivery',
+        'ai_collaboration',
+        'system_thinking',
+        'learning_agility',
+      ]),
+      nameZh: z.string(),
+      nameEn: z.string(),
+      score: z.number(),
+      label: z.enum(['自主', '熟练', '有潜力', '待发展']),
+      dimensionBreakdown: z.record(z.string(), z.number()),
+      evidenceSignals: z.array(z.string()),
+      description: z.string(),
+    }),
+  ),
+  cursorBehaviorLabel: z.object({}).passthrough().optional(),
+});
