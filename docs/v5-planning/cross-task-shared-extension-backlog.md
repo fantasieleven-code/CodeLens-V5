@@ -418,3 +418,12 @@ Added during Task B-A10-lite(backend candidate self-view · brief docs flag + ob
 - **cross-repo mock sync rule 精化**(observation #130):shared type扩展 PR 必须 create GH Issue to `CodeLens-v5-frontend` split repo with `monorepo-sync` label.Need to formalize as checklist-v2.6 item once split repo workflow stabilizes.
 - **admin.ts Pattern D migration**(Pattern D cleanup flag):`admin.ts` 中 scoringResult handling 仍用 `as V5ScoringResult` cast(L374)、B-A10-lite self-view 路由已迁移到 `V5ScoringResultSchema.parse()` + cast-back pattern.Admin endpoint 4 `getAdminSessionReport` 可在 V5.0.5 内同步迁移到 zod parse · 修复 Pattern D 一致性(admin 侧 scoringResult 读取默认走 runtime parse · 而非 cast)。
 - **shared.V5ScoringResultSchema `.strict()` tightening**(observation #128 follow-up):当前 `V5ScoringResultSchema` 是 non-strict(顶层 passthrough) · 原因是 scoring pipeline 偶发写入 transient forward-compat 字段。V5.0.5 考虑审计所有 writer · 转成 `.strict()` · 做 gate 而非 parse 轮廓。
+
+---
+
+## V5.0.5 Housekeeping(F-A12 ProfileSetup · 2026-04-21)
+
+Accumulated follow-ups captured during Task F-A12 ProfileSetup(observations #131-#133):
+
+- **CandidateApiError `details` field**:backend AppError envelope supports `{ error: { code, message, details? } }` per drift #6. Today's `CandidateApiError` only carries `{ code, status, message }` — F-A12 C2 test 4 explicitly skipped `details` assertion (T2 α ratify). When a downstream consumer needs field-level 422 breakdown (e.g. surface "which field failed"), widen `CandidateApiError` with `readonly details?: unknown` and thread it through `parseErrorBody`. Non-breaking add.
+- **`CandidateGuard` → `ExamGuard` rename candidate**:the name `CandidateGuard` was fine when it was the only candidate-side guard, but F-A12 introduces `ProfileGuard`. The former gates `/exam/:sessionId`, so `ExamGuard` is more descriptive. Pure rename · ~3 file touch (component, App.tsx import, colocated test). No behavior change.

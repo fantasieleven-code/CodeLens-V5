@@ -986,3 +986,37 @@ server-only 字段(如 Prisma schema 字段不出现在 shared type)· 也不适
 internal service 层接口。
 
 ---
+
+### #131 — `design-insight` F-A12 · shared workspace zod transitive consumption (no client-side dep add)
+**trace**: F-A12 Phase 1 Q3/D9 drift · Consent used manual boolean check (no zod) · client package.json has no direct zod dep · T4 α ratify
+
+F-A12 needed form-level validation for 7 fields (yearsOfExperience 0-50 range · techStack 2-5 items · 5 enum memberships). Phase 1 Q3 surfaced that the Consent predecessor used manual boolean check, and the client workspace has no direct `zod` dependency.
+
+Three-view consensus on α lever: import `CandidateProfileSchema` from `@codelens-v5/shared` and call `.safeParse()` inside the submit handler. Works because `@codelens-v5/shared` declares `zod: ^3.22.0` as a dep, and npm hoists it so the client sees `zod` as a transitive node_modules resolution. No client package.json change needed.
+
+**Pattern**: when a shared schema already exists server-side, prefer `shared.Schema.safeParse(formState)` over a second client-side zod dep. Single source of truth for validation rules; no version drift risk between shared and client. If a client later needs client-only schemas, upgrade path is to add the explicit zod dep at that time.
+
+---
+
+### #132 — `design-insight` F-A12 · bilingual (zh+en) inline as GDPR transparency narrative · δ5 NOT apply rationale
+**trace**: F-A12 §E E3 LOC breach · δ5 lever (techStackPlaceholder / techStackHint → zh-only) proposed · three-view REJECT
+
+The §E E3 LOC resolve round considered δ5 — trimming the bilingual zh+en pair on `techStackPlaceholder` and `techStackHint` to zh-only (saving ~6 LOC). Three-view consensus rejected: **bilingual inline is not a decorative duplicate, it is part of the GDPR transparency narrative**. The pattern is inherited from Consent (PR #77) where every rationale line appears in both languages; trimming even "minor" UX surfaces (placeholder, hint) creates a silent asymmetry that degrades the promise of "we explain everything in your language."
+
+**Rule**: LOC fences may compact styles / structure / re-exports / comments (δ1-δ4 all applied in F-A12 C3). They may NOT compact UX copy that carries a transparency commitment. When a task's UX is bilingual-by-narrative (Consent, Profile, V5.0.5 future candidate-facing flows), α/β/δ-copy levers are off-limits; scope-reduce must route through pre-verify α (feature cut), not post-hoc copy trim.
+
+---
+
+### #133 — `meta-pattern` Task-specific fence raise precedent · three-view ratify + self-merge authority
+**trace**: F-A12 §E E3 resolve · prod 800 → 850 · total 1200 → 1450 · B-A10-lite PR #81 precedent · Steve 2026-04-21 ratify
+
+F-A12 C3 production came in at 828 LOC post-implementation (591 LOC in ProfileSetup.tsx alone). δ compact saved 70 LOC (ProfileSetup 591 → 521), landing at 762. UI-heavy tasks (7 form fields × bilingual label + GDPR help + tag-input + 5 enum dropdowns + 33 styles-in-JS entries) have genuine production cost that does not compress below a floor.
+
+Precedent: Backend B-A10-lite PR #81 total 1087 > 900 fence was ratified because production 368 was genuine test-coverage cost. F-A12 symmetry: production 762 > 800 fence ratified as genuine UX complexity, not scope creep.
+
+**Rule candidate (V5.0.5 checklist v2.5)**: Task-specific fence raise permitted when ALL three hold:
+1. Phase 2 surfaces breach that is NOT scope creep (code structure already compact, no feature additions beyond brief).
+2. Three-view consensus on rationale, documented in PR body.
+3. Future sibling tasks pre-calibrate fence to actual (e.g. F-A10-lite fences should be set from F-A12 observed ceiling, not the generic 800 default).
+
+**Authority delegation (Steve 2026-04-21)**: three-view consensus executes; Steve post-reviews. §G Steve-merge bottleneck relaxed to self-merge authorized for three-view-consensus PRs. Steve continues to spot-check via PR list + observations scan.
