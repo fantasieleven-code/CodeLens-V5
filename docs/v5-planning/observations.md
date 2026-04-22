@@ -1148,3 +1148,41 @@ With A15 merged, the V5.0 Frontend user-facing narrative is complete: **public p
 **Milestone significance**: V5.0 ship-gate #5 ("Golden Path + public GDPR narrative 双完备") closes. Remaining V5.0 work is Backend-only (Task 17 CI green-up) + Cold Start Validation (Backend + Steve). Frontend agent's sequential A-series execution (4 PRs in 3 calendar days, each self-merged under three-view authority) validates the split-repo workflow + Task-specific fence raise precedent + narrative-consistency defense.
 
 **Agent-pattern**: the four shipped Frontend A-PRs share a stable shape — `{feature}Content.ts` bilingual dict + `{Feature}Page.tsx` renders with `lib/tokens` + `{Feature}Page.test.tsx` covers render + route wire + ethics floor DOM negative where applicable. The shape emerged organically from Consent (F-77) and held across three subsequent tasks without explicit codification. V5.0.5 candidate: promote this shape to a `docs/v5-planning/frontend-page-shape.md` template so future candidate-facing pages inherit the pattern mechanically.
+
+---
+
+### #146 — `discipline` V5.0 CI ship gate 达成 · e2e + prompt-regression green
+**trace**: Task CI-Green-Up · `e2e/smoke.spec.ts` + `packages/server/promptfooconfig.yaml` + `packages/server/promptfoo/mock-provider.js` · CI_KNOWN_RED.md 仅剩 docker V5.2 row · branch `chore/ci-green-up` · 2026-04-22
+
+Pre-A14a CI had 3 red jobs: `e2e` ("No tests found") · `prompt-regression` (missing config) · `docker` (no Dockerfile). A14a green 4/6 but carried over the same 2 infra reds. CI-Green-Up resolves the two V5.0-scope rows in a single 3-commit PR: C1 ships a minimal `/health` Playwright smoke (Playwright now discovers a test → webServer orchestration exercised in CI), C2 ships a 1-LLM-signal mock-provider baseline (sAiOrchestrationQuality · AE dim · OQ2-α), C3 rewrites CI_KNOWN_RED.md to the final V5.0-ship-ready shape.
+
+**Rule**: V5.0 release gate review looks for `CI_KNOWN_RED.md` to contain **only** docker V5.2 row (or be empty). Any resurrection of `e2e` or `prompt-regression` as known-red is a regression against this observation and must be treated as a ship blocker, not a carry-over.
+
+---
+
+### #147 — `design-insight` promptfoo mock-provider pattern · V5.0 minimal baseline · V5.0.5 A14b real-LLM expansion
+**trace**: Task CI-Green-Up C2 · `packages/server/promptfoo/mock-provider.js` class export · file-based deterministic JSON payload · 0 secrets / 0 network
+
+Three options considered for the prompt-regression baseline: (α) 1 signal mock, (β) all 3 MD signals real LLM, (γ) placeholder config with internal skip. α picked because (i) it demonstrates the pipeline shape — prompts / providers / tests / assertions — without committing to a scorecard V5.0.5 A14b will supersede, (ii) mock provider keeps CI deterministic (no OPENAI_API_KEY gate, no token cost, no rate-limit flake surface), (iii) V5.0.5 A14b has a clear migration path: swap the mock provider for `openai:chat-4o-mini` / equivalent and widen `tests:` to the 3-signal matrix.
+
+**Implementation gotcha**: promptfoo v0.121.x JS-provider loader calls `new DefaultExport()`. First-pass mock exported an object literal (`module.exports = { id, callApi }`) and failed with `TypeError: (intermediate value) is not a constructor`. The fix is to export a class (`module.exports = class MockMdProvider { constructor() {...}; id() {...}; async callApi() {...} }`). Any future V5 mock provider (e.g. A14b variance bands) must follow the class pattern.
+
+**Rule (V5.0.5 candidate)**: when introducing a CI-adjacent tool whose API is underdocumented (promptfoo providers, playwright fixtures, trivy configs), always run a smoke eval locally before committing the config file. A 5-minute local eval caught the constructor-vs-object drift in one cycle; committing blind would have surfaced it only on PR CI run.
+
+---
+
+### #148 — `meta-pattern` Brief §0 OQ-at-Phase-1 ratify pattern 第 2 次 validated · V5.0.5 checklist v2.4 rule candidate
+**trace**: Task CI-Green-Up brief §0 pre-declared 3 OQs · Phase 1 report returned α × 3 recommendation + F1/F2/F3 surface · three-view consensus in single ratify round · Phase 2 started clean
+
+Second task in a row (A14a was first · observation #139) to pre-declare OQs at brief §0 and return them in the Phase 1 report. Benefits re-confirmed: (i) zero mid-implementation pivots, (ii) ratify-in-one-round (planning Claude ratifies all OQs plus agent-surfaced F-findings in a single paste), (iii) commit messages can cite the ratified decision without narrative reconstruction. Pattern cost remains low — brief author invests ~10 min to enumerate OQs, agent invests ~5 min to append F-findings.
+
+**Rule (V5.0.5 checklist v2.4 candidate · formalize from A14a #139 · this observation is the re-confirmation)**: every task brief reserves a §0 OQ block at draft time, agent Phase 1 pre-verify is required to append any newly-discovered OQs (here F1/F2/F3 · in A14a the computedAt strip OQ4), and Phase 2 implementation does not start until planning Claude ratifies every open OQ. Silent default-adoption where the brief left ambiguity is a Pattern F precursor.
+
+---
+
+### #149 — `pattern-F` 第 22 次 · prompt-regression SKIP-vs-fail distinction · Phase 1 Q5 catch · self-merge gate extended
+**trace**: Task CI-Green-Up Phase 1 Q5 · `gh run view 24759853843` · `prompt-regression` conclusion = `skipped` (not `failure`) on main push event · ci.yml job `if:` path-gated (push only if `packages/server/prompts/` or `packages/server/promptfooconfig.yaml` modified · pull_request always runs)
+
+Brief §5 Q5 framed main CI as "3 red" matching F-A10-lite report, implying `prompt-regression` was in the red bucket. Actual `gh` query returned conclusion = `skipped` for that job on main pushes. Pattern-F 第 22 次: brief text narrative ≠ CI-observed state; agent grep of `gh run view --json` caught the distinction before C2 was designed. Impact: C2's mock-provider baseline was designed knowing the job is dormant on main push (path gate) but **live on every PR event** (`github.event_name == 'pull_request'` condition) — the PR CI run is the real verification gate, not a theoretical pass.
+
+**Rule reinforcement**: any "CI red" claim in a brief should be cross-checked via `gh run view --json conclusion,jobs` for the exact conclusion string. `skipped` / `cancelled` / `failure` / `success` are four distinct states with four distinct implications for the follow-up fix. Self-merge gate was extended per ratify §F2: post-PR-open check requires "e2e + prompt-regression jobs run AND green" (not assumed green via SKIP).
