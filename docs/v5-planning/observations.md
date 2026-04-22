@@ -1113,3 +1113,38 @@ Every `SignalResult` carries `computedAt: number` (epoch ms), stamped by each si
 **V5.0.5 candidate**: hoist the `computedAt` stamp out of `signal.compute()` return shapes and `makeSkippedResult` / `makeFailureResult` bodies into a post-processing step inside `SignalRegistryImpl.computeAll`. After the move, `SignalResult.computedAt` can be marked read-only at the orchestrator boundary, signals return pure `{ value, evidence, algorithmVersion }`, and the reliability gate no longer needs a strip helper.
 
 Benefit: strict mode — signals can be declared `: Promise<Omit<SignalResult, 'computedAt'>>` at their compute signatures, and the type system enforces purity. Cost: touches 48 signal files (mechanical: delete one line each) + registry constructors + any downstream consumers that compare results. Acceptable within V5.0.5 housekeeping budget.
+
+---
+
+### #143 — `design-insight` A15 · public policy page vs in-context report trailer · deliberately not reused
+**trace**: A15 Phase 1 Q3 finding · Phase 2 ratify D1 · `TransparencyStatement.tsx` (report/sections · PR #62) NOT imported into `TransparencyPage` (public policy doc)
+
+The A15 brief's original D10 proposed reusing `TransparencyStatement.tsx` inside `TransparencyPage`'s ethics section. Phase 1 pre-verify surfaced a tension: the component was built as a **report trailer disclaimer** (4 sections: grade meaning / what-we-measure / known limitations / data handling — all in the HR-reading-a-report voice), while the page's ethics section covers a **different narrative** (candidate-vs-company symmetric view + two-token separation + `.strict()` schema guard). Three-view ratify adjusted D1 to **not reuse** — keep the component scoped to the report trailer, write the page's ethics section fresh.
+
+**Pattern**: same topic area ("transparency") can require distinct artifacts for distinct discovery paths. Report trailer (in-context, candidate+HR co-read a report) and public policy page (out-of-context, anyone discovers via URL) serve different cognitive contexts and should not be forced into a single component even when it would save LOC. Forcing reuse couples evolution: a change motivated by policy-page feedback would destabilize the report trailer contract, and vice versa.
+
+**Rule candidate (V5.0.5 design catalog)**: when a brief proposes component reuse across audience-context boundaries, Phase 1 must verify the component's current narrative voice matches the new consumer's voice. Mismatch → build fresh, document the intentional duplication as design-by-contract. Matches existing pattern of Section Registry keeping report-specific sections isolated from page-level components.
+
+---
+
+### #144 — `cross-task-gap` A15 · signal-count literal drift · 43 vs 48 · V5.0.5 content-only PR candidate
+**trace**: A15 Phase 1 Q0 finding · `TransparencyStatement.tsx` hard-codes "43 个信号" / "43 signals" (L47, L54) · CLAUDE.md says "43 信号: 40 纯规则 + 3 LLM 白名单" · A14a reliability gate ships "45 pure-rule + 3 LLM = 48 total"
+
+Phase 1 surfaced a cross-surface drift on the signal count literal. Pre-A1 era (PR #62 · 2026-04-18): the count was 43 (40 pure + 3 LLM). A14a (PR #84 · 2026-04-22) shipped the reliability gate with a 45/48 tally — the 5 Cluster-A signals that landed in Task 30 brought the pure-rule count from 40 to 45. Three surfaces now disagree: component text (43) · CLAUDE.md (43) · reliability infrastructure (48).
+
+A15 Phase 2 ratify D2 decided: **new `TransparencyPage` copy uses "48 · 45 pure + 3 LLM"** (post-A1 framing, matches reality of deployed signal count). TransparencyStatement.tsx is deliberately NOT modified by A15 (§8 fence #1 · stable PR #62 contract).
+
+**V5.0.5 content-only PR candidate**: single-surface unify pass that updates (a) TransparencyStatement.tsx "43 个信号" → "48 个信号" at both zh + en lines, (b) CLAUDE.md "43 信号: 40 纯规则 + 3 LLM 白名单" → "48 信号: 45 纯规则 + 3 LLM 白名单", (c) any other surface that surfaces the count literal. Scope: pure copy change, no logic, no tests beyond the existing TransparencyStatement assertion on "43 signals" being updated alongside. Owner: either the Frontend agent in a dedicated content-only PR, or a Steve-direct edit if urgency arises before V5.0.5.
+
+**Rule candidate (V5.0.5 checklist)**: when a task extends scoring infrastructure (signal-count, threshold, dimension weights), Phase 2 ratify reviews all user-facing surfaces that surface the same literal and either updates in the same PR (if within fence) or queues an explicit content-only unify entry in cross-task-shared-extension-backlog (to prevent silent drift).
+
+---
+
+### #145 — `agent-pattern` V5.0 A-series Frontend column fully shipped · 4 candidate-facing + 1 public · narrative loop closed
+**trace**: A15 merge closes Frontend column · Consent (F-77 · 2026-04-20) + ProfileSetup (F-A12 · PR #82 · 2026-04-21) + SelfView (F-A10-lite · PR #85 · 2026-04-21) + Transparency (A15 · this PR · 2026-04-22)
+
+With A15 merged, the V5.0 Frontend user-facing narrative is complete: **public policy** (anyone discovers `/transparency`) → **GDPR consent** (candidate opens invite link) → **self-profile setup** (7 fields) → **exam** (Phase0/MA/MB/MD) → **self-view** (post-exam capability profile). Every candidate-facing surface carries bilingual zh+en inline copy; every page that handles candidate data cites the ethics floor narrative (two-token separation + `.strict()` schema + candidate-rights link). The public transparency page is the discovery entry point for the full narrative — anyone can read how the system works before a candidate even sees an invite link.
+
+**Milestone significance**: V5.0 ship-gate #5 ("Golden Path + public GDPR narrative 双完备") closes. Remaining V5.0 work is Backend-only (Task 17 CI green-up) + Cold Start Validation (Backend + Steve). Frontend agent's sequential A-series execution (4 PRs in 3 calendar days, each self-merged under three-view authority) validates the split-repo workflow + Task-specific fence raise precedent + narrative-consistency defense.
+
+**Agent-pattern**: the four shipped Frontend A-PRs share a stable shape — `{feature}Content.ts` bilingual dict + `{Feature}Page.tsx` renders with `lib/tokens` + `{Feature}Page.test.tsx` covers render + route wire + ethics floor DOM negative where applicable. The shape emerged organically from Consent (F-77) and held across three subsequent tasks without explicit codification. V5.0.5 candidate: promote this shape to a `docs/v5-planning/frontend-page-shape.md` template so future candidate-facing pages inherit the pattern mechanically.
