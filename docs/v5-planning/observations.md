@@ -1020,3 +1020,36 @@ Precedent: Backend B-A10-lite PR #81 total 1087 > 900 fence was ratified because
 3. Future sibling tasks pre-calibrate fence to actual (e.g. F-A10-lite fences should be set from F-A12 observed ceiling, not the generic 800 default).
 
 **Authority delegation (Steve 2026-04-21)**: three-view consensus executes; Steve post-reviews. §G Steve-merge bottleneck relaxed to self-merge authorized for three-view-consensus PRs. Steve continues to spot-check via PR list + observations scan.
+
+---
+
+### #134 — `design-insight` F-A10-lite · URL-as-auth · first V5 candidate page without localStorage flag
+**trace**: F-A10-lite Phase 1 Q4/D4 · SelfViewPage routes at `/candidate/self-view/:sessionId/:privateToken` · no Guard wrap · no `codelens_candidate_*` localStorage check
+
+All prior V5 candidate pages (Consent, ProfileSetup, ExamRouter) gate on a Guard component that reads a localStorage flag minted at a prior step (`codelens_candidate_consent:*` / `codelens_candidate_profile_submitted:*`). F-A10-lite introduces the first candidate page where the URL itself is the credential: `privateToken` in the path is the per-session opaque secret, verified server-side by B-A10-lite. No Guard, no flag, no redirect.
+
+**Rationale**: the self-view URL is delivered post-exam via an out-of-band channel (email link from CodeLens, not the HR admin). If a Guard redirected to consent/profile whenever the flag was missing, the candidate returning from a cold device would be blocked. URL-as-auth also matches the ethics-floor story — the URL is the only handle, and losing it is the narrative promise ("keep this link safe · cannot be re-fetched from company admin.").
+
+**Rule candidate (V5.0.5 design catalog)**: candidate pages with post-exam delivery + one-time out-of-band link default to URL-as-auth, no Guard. Candidate pages that are part of the consent → profile → exam sequential flow default to Guard + localStorage flag. The two patterns coexist; routing in `App.tsx` keeps them distinct by having the URL shape carry the distinction (4-segment `/candidate/self-view/:sessionId/:privateToken` vs 3-segment `/candidate/:sessionToken/{consent,profile}`).
+
+---
+
+### #135 — `defense-mechanism` F-A10-lite · client-side `schema.strict().safeParse()` as second ethics-floor guard
+**trace**: F-A10-lite C1 · `candidateApi.fetchCandidateSelfView` runs `V5CandidateSelfViewSchema.safeParse(raw)` on 200 response · parse failure → `INTERNAL_ERROR`
+
+B-A10-lite established the server-side ethics floor: `V5CandidateSelfViewSchema.strict()` at three nesting levels blocks any forbidden field (abs score / grade / composite / dangerFlag / signal-ids) from ever leaving the server. F-A10-lite adds a second guard on the **client side** — the same `.strict()` schema is re-run on the fetched JSON inside `candidateApi`. Any future server-side regression that accidentally leaks a forbidden field (e.g. a dev patches the self-view controller without re-running the schema check) gets caught at the client boundary and converted to `INTERNAL_ERROR` before it reaches the DOM.
+
+**Pattern**: defense-in-depth schema parsing at both endpoints of a contract. Cheap (schema already exists in `@codelens-v5/shared`), runtime-checked, and the failure mode is benign (candidate sees "cannot load" instead of forbidden field leaking to page). The SelfViewPage test suite doubles as a DOM-level ethics floor assertion (`expect(text).not.toMatch(/grade|composite|dangerFlag|\bscore\b|sAiOrchestration|\d{2,3}\s*分/)`) — three layers total (server schema · client schema · DOM regex).
+
+**Rule candidate (V5.0.5 design catalog)**: any contract type marked ethics-sensitive (candidate-facing payload with forbidden-field blocklist) should run the shared `.strict()` schema on **both** the server response path and the client receive path, with the client path converting parse failure into the task's user-visible error code (INTERNAL_ERROR here). DOM-level negative regex is a third optional layer for high-stakes narrative promises.
+
+---
+
+### #136 — `agent-pattern` V5.0 A-series Frontend closure · A10-lite row full strike milestone
+**trace**: F-A10-lite merge completes the A-series Frontend column · Consent (F-77) + ProfileSetup (F-A12 · PR #82) + SelfView (F-A10-lite · this PR) all shipped · backlog strike in same commit
+
+The V5.0 A-series originally listed three Frontend items in `cross-task-shared-extension-backlog.md` §V5.0 Plan: A12 candidate profile 7 fields (F-A12) and A10-lite candidate self-view (F-A10-lite), plus the earlier Consent standalone page (F-77). With F-A10-lite merged, the A-series Frontend column is complete — no candidate-facing page remains unshipped. Remaining V5.0 work is Backend-only (A1 sCalibration, A14a reliability) + CI green-up (Task 17) + Cold Start Validation.
+
+**Milestone significance**: first time a candidate can complete the full narrative loop end-to-end — Consent (GDPR transparency) → ProfileSetup (7-field self-report) → Exam (Phase0 → MA → MB → MD) → Complete → SelfView (ethics-floor capability profile). Every candidate-facing surface now carries the bilingual zh+en transparency commitment. The V5.0 "ethics floor" story (candidate sees profile, never sees score) closes the loop at the Frontend boundary with schema-verified assurance.
+
+**Agent-pattern**: the Frontend agent's sequential A-series execution (F-77 Consent · F-A12 ProfileSetup · F-A10-lite SelfView) validates the split-repo + self-merge authority workflow. Three PRs, all self-merged after three-view consensus, all landed within the Task-specific fence precedent. Backend agent shipped B-A12 + B-A10-lite in parallel; cross-repo mock sync (observation #130) held. V5.0.5 checklist v2.5 Task-specific fence raise rule (observation #133) survived its first multi-Task stress test.

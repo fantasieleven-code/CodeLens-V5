@@ -327,7 +327,7 @@ Frontend adminApi.types.ts shim 与这 5 个 shared types **1:1 对齐**(Fronten
 
 - **A1 sCalibration**(0.5 day, Backend)· depends on fixture `selfAssess.confidence` 调整(#057 observation)
 - **A12 candidate profile 7 fields**(2 day, Backend + Frontend)· Prisma schema + pre-exam form + Admin view (Backend B-A12 ✅ shipped 2026-04-20 · Frontend F-A12 pending · 下轮)
-- **A10-lite candidate self-view**(1-2 day, Frontend)· ethics floor
+- ~~**A10-lite candidate self-view**(1-2 day, Frontend)· ethics floor~~ **Backend B-A10-lite ✅ 2026-04-21 (PR #81) · Frontend F-A10-lite ✅ 2026-04-21** · SelfViewPage at `/candidate/self-view/:sessionId/:privateToken` (URL-as-auth · 4 capability profiles + 6 dim relative strength · bilingual zh+en · ethics-floor DOM assertion + client-side `.strict()` schema guard). See observations #134-#136.
 - **A14a reliability merged to Task 18+**(concurrent)
 
 ### 4. CI green-up(1 day,Backend)
