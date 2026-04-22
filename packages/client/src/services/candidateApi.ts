@@ -17,7 +17,11 @@
  * Errors surface as `CandidateApiError` — the β naming ratified in Round 3
  * so the same class covers Consent + F-A12 calls.
  */
-import type { CandidateProfile } from '@codelens-v5/shared';
+import {
+  V5CandidateSelfViewSchema,
+  type CandidateProfile,
+  type V5CandidateSelfView,
+} from '@codelens-v5/shared';
 
 export type CandidateApiErrorCode =
   | 'AUTH_REQUIRED'
@@ -176,6 +180,69 @@ export async function submitProfile(
   }
   const { code, message } = parseErrorBody(body, res.status);
   throw new CandidateApiError(code, res.status, message);
+}
+
+/**
+ * GET /api/candidate/self-view/:sessionId/:privateToken — candidate-private
+ * view. URL is the credential; no Bearer, no body.sessionToken. Response is
+ * `V5CandidateSelfView` (flat, not wrapped). Errors surface via
+ * `CandidateApiError`; `SESSION_INCOMPLETE` (400) is a code unique to this
+ * endpoint and flows through as a string — `CandidateApiError.code` is
+ * `string`, so no `CandidateApiErrorCode` union change is needed.
+ *
+ * Runtime `.safeParse` is defense-in-depth: Backend `.strict()` gates the
+ * ethics floor server-side, and this re-runs the same schema client-side so
+ * any server-side drift surfaces as `INTERNAL_ERROR` rather than silently
+ * rendering forbidden fields.
+ */
+export async function fetchCandidateSelfView(
+  sessionId: string,
+  privateToken: string,
+): Promise<V5CandidateSelfView> {
+  let res: Response;
+  try {
+    res = await candidateFetch(
+      `/api/candidate/self-view/${encodeURIComponent(sessionId)}/${encodeURIComponent(privateToken)}`,
+      { method: 'GET' },
+    );
+  } catch (err) {
+    throw new CandidateApiError(
+      'NETWORK',
+      null,
+      err instanceof Error ? err.message : 'network failure',
+    );
+  }
+
+  if (!res.ok) {
+    let body: unknown = null;
+    try {
+      body = await res.json();
+    } catch {
+      /* body not JSON — parseErrorBody treats as UNKNOWN */
+    }
+    const { code, message } = parseErrorBody(body, res.status);
+    throw new CandidateApiError(code, res.status, message);
+  }
+
+  let raw: unknown;
+  try {
+    raw = await res.json();
+  } catch {
+    throw new CandidateApiError(
+      'INTERNAL_ERROR',
+      res.status,
+      'Server response shape invalid',
+    );
+  }
+  const parsed = V5CandidateSelfViewSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new CandidateApiError(
+      'INTERNAL_ERROR',
+      res.status,
+      'Server response shape invalid',
+    );
+  }
+  return parsed.data;
 }
 
 export const __candidateFetch__ = candidateFetch;

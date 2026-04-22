@@ -6,6 +6,8 @@
  *                         (ExamRouter switches on currentModule)
  *   /candidate/:sessionToken/consent → GDPR consent screen (Task Consent
  *                         Frontend); sessionToken ≡ sessionId
+ *   /candidate/self-view/:sessionId/:privateToken → candidate post-exam
+ *                         self-view (F-A10-lite); URL-as-auth, NO Guard
  *   /report/:sessionId  → finished report (Task 3: demo fixtures only)
  *   /login              → admin login (Task 12 Layer 2)
  *   /admin/*            → recruiter tools, fenced by AdminGuard
@@ -44,6 +46,7 @@ import { ConsentPage } from './pages/candidate/ConsentPage.js';
 import { CandidateGuard } from './pages/candidate/CandidateGuard.js';
 import { ProfileSetup } from './pages/candidate/ProfileSetup.js';
 import { ProfileGuard } from './pages/candidate/ProfileGuard.js';
+import { SelfViewPage } from './pages/candidate/SelfViewPage.js';
 import { colors, spacing, fontSizes, fontWeights } from './lib/tokens.js';
 
 export function App() {
@@ -69,6 +72,10 @@ export function App() {
               <ProfileSetup />
             </ProfileGuard>
           }
+        />
+        <Route
+          path="/candidate/self-view/:sessionId/:privateToken"
+          element={<SelfViewPage />}
         />
         <Route path="/report/:sessionId" element={<ReportViewPage />} />
         <Route path="/login" element={<LoginPage />} />
