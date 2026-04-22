@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { TransparencyPage } from './TransparencyPage.js';
 import { TRANSPARENCY_CONTENT } from './transparencyContent.js';
 
@@ -136,5 +136,29 @@ describe('TransparencyPage · ethics floor consistency', () => {
     expect(text).not.toMatch(/\b[0-9]{2,3}\s*分/);
     expect(text).not.toMatch(/sAiOrchestration|sDesignDecomposition|sTradeoff/);
     expect(text).not.toMatch(/composite\s*[:=]\s*\d/i);
+  });
+});
+
+describe('Transparency route wiring (App.tsx)', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('mounts TransparencyPage at /transparency · public · no Guard · no URL token', () => {
+    render(
+      <MemoryRouter initialEntries={['/transparency']}>
+        <Routes>
+          <Route path="/transparency" element={<TransparencyPage />} />
+          <Route path="/login" element={<div data-testid="login-redirect">login</div>} />
+          <Route
+            path="/candidate/:sessionToken/consent"
+            element={<div data-testid="consent-redirect">consent</div>}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId('transparency-page')).toBeInTheDocument();
+    expect(screen.queryByTestId('login-redirect')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('consent-redirect')).not.toBeInTheDocument();
   });
 });
