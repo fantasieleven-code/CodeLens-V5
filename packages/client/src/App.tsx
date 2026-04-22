@@ -12,6 +12,8 @@
  *   /login              → admin login (Task 12 Layer 2)
  *   /admin/*            → recruiter tools, fenced by AdminGuard
  *   /share/report/:token → public report share link (stub)
+ *   /transparency       → public GDPR / ethics-floor policy doc (Task A15);
+ *                         no auth, no Guard, anyone can read
  *   /__preview/report   → Section Registry preview (Task 2 dev tool)
  *   /__preview/sections → Section gallery (Task 2 dev tool)
  *   /                   → landing page (stub)
@@ -47,6 +49,7 @@ import { CandidateGuard } from './pages/candidate/CandidateGuard.js';
 import { ProfileSetup } from './pages/candidate/ProfileSetup.js';
 import { ProfileGuard } from './pages/candidate/ProfileGuard.js';
 import { SelfViewPage } from './pages/candidate/SelfViewPage.js';
+import { TransparencyPage } from './pages/transparency/TransparencyPage.js';
 import { colors, spacing, fontSizes, fontWeights } from './lib/tokens.js';
 
 export function App() {
@@ -88,6 +91,7 @@ export function App() {
           }
         />
         <Route path="/share/report/:token" element={<SharedReportPage />} />
+        <Route path="/transparency" element={<TransparencyPage />} />
         <Route path="/__preview/report" element={<ReportPreviewPage />} />
         <Route path="/__preview/sections" element={<SectionGalleryPage />} />
         <Route path="/__preview/phase0" element={<Phase0PreviewPage />} />

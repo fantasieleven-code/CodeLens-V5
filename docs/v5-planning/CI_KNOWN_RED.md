@@ -8,7 +8,7 @@
 |---|---|---|---|---|
 | docker | `Dockerfile` 未创建 · trivy scan + base image + multi-stage 未设计 | **V5.2 deployment scope**(原 Task 21) | V5.2 blocker · V5.0 非 blocker(生产用 E2B sandbox 不依赖 docker) | known-red · V5.2 |
 
-(e2e · prompt-regression · V5.0 CI-Green-Up Task 已 resolve 2026-04-22 · e2e row 被 `e2e/smoke.spec.ts` minimal /health smoke 解封 · prompt-regression row 被 `packages/server/promptfooconfig.yaml` + mock provider baseline 解封 · 详见 observations #143)
+(e2e · prompt-regression · V5.0 CI-Green-Up Task 已 resolve 2026-04-22 · e2e row 被 `e2e/smoke.spec.ts` minimal /health smoke 解封 · prompt-regression row 被 `packages/server/promptfooconfig.yaml` + mock provider baseline 解封 · 详见 observations #146)
 
 ### docker 失败
 
