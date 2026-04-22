@@ -1,0 +1,50 @@
+# Task CI-Green-Up · C2 · V5.0 minimal prompt-regression baseline.
+#
+# Unblocks the `prompt-regression` CI job (previously failing on missing
+# config). Scope intentionally narrow (OQ2-α): 1 LLM whitelist signal
+# (sAiOrchestrationQuality · AE dimension · V5.0 headline value prop).
+# File-based mock provider so the eval is deterministic in CI without
+# OPENAI_API_KEY or network. V5.0.5 Task A14b expands to all 3 MD LLM
+# signals with real LLM variance monitoring.
+#
+# The prompt below mirrors the contract enforced at
+# `packages/server/src/signals/md/llm-helper.ts`: SYSTEM_PROMPT requires
+# the model to return ONLY `{"score": 0-1, "notes": "<=2 sentences"}` with
+# no preamble or markdown fences. The `{{aiOrchestrationPrompts}}` +
+# `{{subModules}}` variables match the slot names produced by
+# `s-ai-orchestration-quality.ts:gradeWithLLM`.
+
+description: "MD signal LLM prompt regression baseline (V5.0 minimal · 1 LLM signal · mock provider)"
+
+prompts:
+  - id: sAiOrchestrationQuality_v1
+    raw: |
+      You grade senior software engineer design submissions on a 0-1 scale.
+      Return ONLY a JSON object: {"score": <number 0-1>, "notes": "<=2 sentences>"}.
+      No preamble, no markdown fences.
+
+      Candidate AI orchestration prompts:
+      {{aiOrchestrationPrompts}}
+
+      Candidate sub-modules:
+      {{subModules}}
+
+providers:
+  - id: file://promptfoo/mock-provider.js
+    label: mock-md-provider
+
+tests:
+  - description: "Deterministic mock baseline · shape + range assertion"
+    vars:
+      aiOrchestrationPrompts: |
+        1. 目标: 生成产品描述 · 约束: 50 字内 · 输出: markdown
+        2. 任务: 总结评审意见 · 步骤: 先分类再汇总
+      subModules: "ProductService, ReviewAggregator"
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          const scoreOk = typeof parsed.score === 'number' && parsed.score >= 0 && parsed.score <= 1;
+          const notesOk = typeof parsed.notes === 'string' && parsed.notes.length > 0;
+          return scoreOk && notesOk;
