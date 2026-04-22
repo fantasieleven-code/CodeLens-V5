@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { V5CandidateSelfView } from '@codelens-v5/shared';
 import { SelfViewPage } from './SelfViewPage.js';
+import { ProfileGuard } from './ProfileGuard.js';
 import { CandidateApiError } from '../../services/candidateApi.js';
 import * as candidateApi from '../../services/candidateApi.js';
 
@@ -180,5 +181,73 @@ describe('<SelfViewPage />', () => {
     expect(screen.getByText(/This page is private to you/)).toBeInTheDocument();
     expect(screen.getByTestId('self-view-footer')).toBeInTheDocument();
     expect(screen.getByText(/请妥善保存此链接 · 不可通过公司后台重新获取/)).toBeInTheDocument();
+  });
+});
+
+describe('SelfView route wiring (App.tsx)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.spyOn(candidateApi, 'fetchCandidateSelfView').mockResolvedValue(VALID_VIEW);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    cleanup();
+  });
+
+  it('mounts SelfViewPage at /candidate/self-view/:sessionId/:privateToken (4-segment path · does not match /candidate/:sessionToken/profile)', async () => {
+    render(
+      <MemoryRouter initialEntries={['/candidate/self-view/sess-r1/tok-r1']}>
+        <Routes>
+          <Route
+            path="/candidate/:sessionToken/profile"
+            element={
+              <ProfileGuard>
+                <div data-testid="profile-landed">profile</div>
+              </ProfileGuard>
+            }
+          />
+          <Route
+            path="/candidate/self-view/:sessionId/:privateToken"
+            element={<SelfViewPage />}
+          />
+          <Route
+            path="/candidate/:sessionToken/consent"
+            element={<div data-testid="consent-landed">consent</div>}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('self-view-page')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('profile-landed')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('consent-landed')).not.toBeInTheDocument();
+  });
+
+  it('renders without any consent / profile localStorage flag set (URL-as-auth · no Guard redirect)', async () => {
+    expect(localStorage.getItem('codelens_candidate_consent:sess-r2')).toBeNull();
+    expect(
+      localStorage.getItem('codelens_candidate_profile_submitted:sess-r2'),
+    ).toBeNull();
+
+    render(
+      <MemoryRouter initialEntries={['/candidate/self-view/sess-r2/tok-r2']}>
+        <Routes>
+          <Route
+            path="/candidate/self-view/:sessionId/:privateToken"
+            element={<SelfViewPage />}
+          />
+          <Route
+            path="/candidate/:sessionToken/consent"
+            element={<div data-testid="consent-redirect">consent</div>}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('self-view-page')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('consent-redirect')).not.toBeInTheDocument();
   });
 });
