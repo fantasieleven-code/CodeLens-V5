@@ -1020,3 +1020,63 @@ Precedent: Backend B-A10-lite PR #81 total 1087 > 900 fence was ratified because
 3. Future sibling tasks pre-calibrate fence to actual (e.g. F-A10-lite fences should be set from F-A12 observed ceiling, not the generic 800 default).
 
 **Authority delegation (Steve 2026-04-21)**: three-view consensus executes; Steve post-reviews. §G Steve-merge bottleneck relaxed to self-merge authorized for three-view-consensus PRs. Steve continues to spot-check via PR list + observations scan.
+
+---
+
+### #134 — `defense-mechanism` Pure-rule signal reliability CI gate · 180 deep-equal tests
+**trace**: A14a Phase 2 C2 · `packages/server/src/__tests__/reliability/pure-rule-signals.test.ts` · 4 Golden Path fixtures × 45 pure-rule signals
+
+A14a ships a regression-proof deep-equal gate that computes each pure-rule signal twice against identical input and asserts value / evidence / algorithmVersion are byte-equal across runs. The 3 MD LLM-whitelist signals (`NON_DETERMINISTIC_SIGNAL_IDS`) are excluded — they rely on external model output and belong to V5.0.5 A14b (variance-band monitoring, not deep-equal). Gate runs inside the standard `vitest run` pipeline → 0 production overhead, automatic coverage of new signals added via `registerAllSignals`, and CI red the moment a future signal accidentally touches `Date.now()` / `Math.random()` / iteration-order-sensitive state.
+
+**Rule**: any new pure-rule signal added to the registry is automatically covered by this gate. A new LLM-whitelist signal must (a) be added to `NON_DETERMINISTIC_SIGNAL_IDS` AND (b) update the hard-coded `size === 3` assertion in `v5-signals.test.ts`. The tripwire is intentional — drifting into non-determinism without an explicit whitelist opt-in is a contract violation.
+
+---
+
+### #135 — `design-insight` LLM variance deferred to V5.0.5 A14b · describe.skip-as-marker pattern
+**trace**: A14a Phase 2 OQ3 ratify · brief §6 C3 draft · reliability test describe.skip placeholder
+
+The LLM-whitelist signals (3 MD) are not included in A14a because variance monitoring needs a fundamentally different contract (tolerance band, distributional similarity) than pure-rule determinism (deep-equal). Bundling both would muddy the "scoring pipeline is 100% deterministic" V5.0 ship narrative and dilute the regression-proof guarantee — a deep-equal failure is unambiguous; a band breach is a judgment call.
+
+**Rule (V5.0.5 candidate)**: when deferring a natural test-suite extension, prefer `describe.skip('reason · deferred to V5.0.X', ...)` with a nonce `it` over a comment-only TODO. The skip surfaces in every vitest run summary (visible 'skipped' count), cannot be grep-missed, and blocks silent re-enabling without a matching ratify.
+
+---
+
+### #136 — `meta-pattern` Brief §0 OQ-at-Phase-1 ratify pattern validated · V5.0.5 checklist v2.4 rule candidate
+**trace**: A14a brief §0 3 OQ + agent Phase 1 catch of OQ4 · three-view unanimous 4 ratifies in one round
+
+A14a brief pre-declared 3 OQs at §0; agent Phase 1 pre-verify surfaced a 4th (computedAt strip vs. fake timers) via direct grep of `Date.now()` stamping inside `makeSkippedResult` / signal compute bodies. Three-view ratify resolved all 4 in one exchange before any Phase 2 code was written. The pattern prevents mid-implementation pivot cost (C1 already commits against the wrong LLM count = rework; C2 already tests against the wrong strip strategy = rework).
+
+**Rule candidate (V5.0.5 checklist v2.4)**: every task brief reserves a §0 OQ block at draft time, and Phase 1 pre-verify is required to append any newly-discovered OQs before Phase 2 starts. Silent adoption of a default where the brief left ambiguity is a Pattern F precursor.
+
+---
+
+### #137 — `pattern-F` 第 21 次 · brief Appendix A LLM signal count drift · agent self-catch at Phase 1
+**trace**: A14a brief Appendix A listed 4 LLM signals · agent grep `isLLMWhitelist: true` + md-se-signals.test.ts cross-check · reality = 3 · sConstraintIdentification is pure-rule
+
+Brief Appendix A enumerated sConstraintIdentification + sDesignDecomposition + sTradeoffArticulation + sAiOrchestrationQuality as "4 LLM whitelist signals". Direct grep confirmed only the last 3 are `isLLMWhitelist: true`; sConstraintIdentification is pure-rule. The drift propagated through the brief without being caught because Appendix A was written from the Round 3 Part 2 module-D planning prose, which predated the implementation decision to keep sConstraintIdentification pure.
+
+Pattern-F 第 21 次 precondition holds: brief text ≠ code reality; Phase 1 grep caught it before Phase 2 wired a 4-element set. If the agent had trusted the brief, the C1 `NON_DETERMINISTIC_SIGNAL_IDS` set would have contained a phantom 4th id that fails the `listSignals().filter(isLLMWhitelist)` cross-check immediately — but the surface-area damage would have been larger had it slipped past pre-verify (hard-coded 4 in the tripwire test, misleading docs).
+
+**Rule reinforcement**: brief-vs-code count mismatches go via observations `#126` (cross-reference verify) → resolved at the brief layer, not silently adjusted downstream.
+
+---
+
+### #138 — `cross-task-gap` MD fixture coverage null-semantic · V5.0.5 Task 17b moduleD expansion candidate
+**trace**: A14a Phase 1 agent Q3 · GOLDEN_PATH_PARTICIPATING_MODULES = [phase0, moduleA, mb, selfAssess, moduleC] (no moduleD)
+
+The 4 Golden Path fixtures deliberately exclude moduleD to match the `full_stack` suite shape. Consequence: MD signals (including pure-rule sConstraintIdentification) return `makeSkippedResult()` in the reliability gate — `value === null`, `algorithmVersion === 'registry@skipped'`. The deep-equal assertion still passes (`null === null`), but the invariant being tested is the skip-path, not the compute-path.
+
+Semantic gap: a pure-rule MD signal that silently touches `Date.now()` inside its compute function would NOT be caught by the current gate, because the compute function is never invoked under Golden Path participating modules. The `algorithm-version-format` sweep does invoke `def.compute(input)` directly for skipped signals, which catches `algorithmVersion` stamping drift, but does NOT re-check deep-equal.
+
+**V5.0.5 candidate**: Task 17b extends the Golden Path fixture set (or adds a `deep_dive`-shaped 5th fixture) with moduleD participation. Surfaces the MD compute-path under the reliability gate with full deep-equal coverage, closes the null-semantic gap.
+
+---
+
+### #139 — `design-insight` computedAt metadata stamp · V5.0.5 move-to-orchestrator candidate
+**trace**: A14a Phase 2 OQ4-α ratify · stripTs helper is a necessary workaround, not a desired API
+
+Every `SignalResult` carries `computedAt: number` (epoch ms), stamped by each signal at `return` time and by the registry's `makeSkippedResult` / `makeFailureResult` constructors. This stamp is non-deterministic by definition and forces the A14a gate to strip it before comparison. The stamp is also redundant at the signal layer — the orchestrator (or hydrator) already knows when computeAll was invoked and could stamp every result uniformly at a single site.
+
+**V5.0.5 candidate**: hoist the `computedAt` stamp out of `signal.compute()` return shapes and `makeSkippedResult` / `makeFailureResult` bodies into a post-processing step inside `SignalRegistryImpl.computeAll`. After the move, `SignalResult.computedAt` can be marked read-only at the orchestrator boundary, signals return pure `{ value, evidence, algorithmVersion }`, and the reliability gate no longer needs a strip helper.
+
+Benefit: strict mode — signals can be declared `: Promise<Omit<SignalResult, 'computedAt'>>` at their compute signatures, and the type system enforces purity. Cost: touches 48 signal files (mechanical: delete one line each) + registry constructors + any downstream consumers that compare results. Acceptable within V5.0.5 housekeeping budget.
