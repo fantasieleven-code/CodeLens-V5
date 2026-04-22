@@ -12,7 +12,7 @@
  * `SignalResult.computedAt` metadata stamp is intentionally stripped before
  * comparison (three-view ratify OQ4-α) because it is written by the signal
  * or registry at call time — not part of the deterministic payload. V5.0.5
- * candidate (observation #139): move the `computedAt` stamp to the
+ * candidate (observation #142): move the `computedAt` stamp to the
  * orchestrator/hydrator layer so `signal.compute` returns pure data.
  *
  * Drift note — brief Appendix A listed 4 LLM signals; grep on

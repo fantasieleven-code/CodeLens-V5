@@ -327,7 +327,7 @@ Frontend adminApi.types.ts shim 与这 5 个 shared types **1:1 对齐**(Fronten
 
 - **A1 sCalibration**(0.5 day, Backend)· depends on fixture `selfAssess.confidence` 调整(#057 observation)
 - **A12 candidate profile 7 fields**(2 day, Backend + Frontend)· Prisma schema + pre-exam form + Admin view (Backend B-A12 ✅ shipped 2026-04-20 · Frontend F-A12 pending · 下轮)
-- **A10-lite candidate self-view**(1-2 day, Frontend)· ethics floor
+- ~~**A10-lite candidate self-view**(1-2 day, Frontend)· ethics floor~~ **Backend B-A10-lite ✅ 2026-04-21 (PR #81) · Frontend F-A10-lite ✅ 2026-04-21** · SelfViewPage at `/candidate/self-view/:sessionId/:privateToken` (URL-as-auth · 4 capability profiles + 6 dim relative strength · bilingual zh+en · ethics-floor DOM assertion + client-side `.strict()` schema guard). See observations #134-#136.
 - **A14a reliability merged to Task 18+**(concurrent)
 
 ### 4. CI green-up(1 day,Backend)
@@ -432,7 +432,7 @@ Accumulated follow-ups captured during Task F-A12 ProfileSetup(observations #131
 
 ## V5.0.5 Housekeeping(A14a pure-rule reliability · 2026-04-21)
 
-Added during Task A14a(backend pure-rule signal reliability gate · observations #134-#139):
+Added during Task A14a(backend pure-rule signal reliability gate · observations #137-#142):
 
 - **A14b LLM signal variance monitoring**(observation #135 defer):the 3 `NON_DETERMINISTIC_SIGNAL_IDS` (`sAiOrchestrationQuality`, `sDesignDecomposition`, `sTradeoffArticulation`) are explicitly out of scope for A14a's deep-equal gate. V5.0.5 A14b layers distributional-similarity monitoring on top: repeated compute against the same input stays inside a tolerance band (e.g. `|Δvalue| ≤ 0.15` or evidence-set Jaccard ≥ 0.7). Placeholder `describe.skip('A14b · LLM signal variance monitoring (V5.0.5 deferred)', ...)` is already in `packages/server/src/__tests__/reliability/pure-rule-signals.test.ts` — removing the `.skip` and implementing the band assertion is the natural entry point.
 - **`computedAt` stamp move to orchestrator/hydrator**(observation #139):every `SignalResult.computedAt` is stamped by the signal (or registry constructors) at return time, forcing the A14a reliability gate to strip the field before deep-equal. Hoist the stamp into `SignalRegistryImpl.computeAll` as a uniform post-processing step so signal compute bodies return pure `{ value, evidence, algorithmVersion }`. Enables stricter `SignalDefinition.compute: Promise<Omit<SignalResult, 'computedAt'>>` signatures and removes the strip helper at the gate. Touches ~48 signal files (mechanical 1-line delete each) + registry constructors + any downstream comparison consumers.
