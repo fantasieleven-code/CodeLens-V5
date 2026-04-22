@@ -104,3 +104,26 @@ export interface SignalRegistry {
 
 /** 证据上限——Round 3 重构 1。 */
 export const SIGNAL_EVIDENCE_LIMIT = 5;
+
+/**
+ * Task A14a · Non-deterministic signal ids — LLM whitelist (3 signals, all MD).
+ *
+ * These signals call an external model and therefore tolerate variance between
+ * runs; the A14a pure-rule reliability suite skips them. The remaining 45
+ * registered signals (48 total − 3 LLM) MUST return deep-equal results on
+ * repeated calls given identical input — enforced by
+ * `packages/server/src/__tests__/reliability/pure-rule-signals.test.ts`.
+ *
+ * Adding a new LLM-whitelist signal requires updating this set AND the
+ * matching size assertion in `v5-signals.test.ts` — the hard-coded count is
+ * an intentional tripwire against silent drift. V5.0.5 Task A14b will layer
+ * variance monitoring on top of this set.
+ */
+export const NON_DETERMINISTIC_SIGNAL_IDS = new Set([
+  'sAiOrchestrationQuality',
+  'sDesignDecomposition',
+  'sTradeoffArticulation',
+] as const);
+
+export type NonDeterministicSignalId =
+  typeof NON_DETERMINISTIC_SIGNAL_IDS extends Set<infer T> ? T : never;
