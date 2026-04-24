@@ -1,10 +1,9 @@
 /**
  * V5 server entrypoint.
  *
- * Admin + Auth mounted Task 15b. Session routes still pending Task 11.
+ * Admin + Auth mounted Task 15b.
  *
- * Routes intentionally NOT registered — still in TYPECHECK_EXCLUDES.md:
- *   - routes/session.ts   (Task 11, MC backend rewrite)
+ * Routes intentionally NOT registered — still in docs/v5-planning/TYPECHECK_EXCLUDES.md:
  *   - config/job-models/* (Task 6, not a route — noted for completeness)
  */
 
