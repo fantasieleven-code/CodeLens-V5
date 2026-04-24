@@ -551,3 +551,47 @@ Added during Task A3 (Brief #3 · mc-voice-chat-mount · observation #157):
   Recommended · Approach β (bundle all stale V4-naming references in one doc-only PR · lowest reviewer overhead · highest hygiene delta). Grep pattern: `rg '/api/(moduleC|mc-voice-chat)' docs/` — expected zero hits post-sweep.
   
   Reference · A3 Brief #3 Phase 1 Q4 catch · observations.md #157 drift D-4 · scope-fenced during A3 per ratify §2 (C1/C2/C3 touch only index.ts + mc-voice-chat.ts + tests · no doc edits outside observation + this backlog entry). Pure doc scope · no CI workflow impact · no Steve review gate.
+
+## V5.0.5 Housekeeping(B2 e2e/ CI scope gap + INV-pattern formalize · 2026-04-24)
+
+Added during Brief #8 B2 · observation #158:
+
+### e2e/ CI scope gap(high priority · Pattern F Layer 3 · V5.0.5 rule candidate #12)
+
+**状态**: `e2e/helpers/**.ts` + `e2e/*.config.ts` 在所有 CI gate 之外:
+- eslint scope `packages/*/src` (root package.json:15) · e2e/ 不在
+- tsconfig includes (3 workspace tsconfigs + base) · 无 `e2e/`
+- vitest includes (root `vitest.workspace.ts` · packages/*/vitest.config.ts) · 无 `e2e/`
+- build (`npm run build --workspaces`) · 不 compile e2e/
+- CI e2e job (`npx playwright test`) · Playwright 自 TS loader compile + run · 是 only validation path
+
+**实际风险**: B2 driver 4 Layer 2 typecheck errors caught by ad-hoc `npx tsc --noEmit` · 若 silent push · Playwright runtime load 才 fail · CI e2e smoke 是 green(不 load helpers · 只 load smoke.spec.ts · helpers 只 in golden-path config path which has 0 specs pending B3)· 问题 deferred until B3 spec ships · 届时 CI e2e gate red · 阻 B3 merge。
+
+**Reconcile approaches**(V5.0.5 pick):
+- α · Add `e2e/tsconfig.json` extending `tsconfig.base.json` + include `e2e/**/*.ts` · CI 添加 step `npx tsc --noEmit -p e2e/tsconfig.json`(CI workflow touch · Steve review gate)
+- β · Move helpers into `packages/e2e/` workspace package · inherit workspace lint/typecheck/build scope(scope explosion · ~200 LOC restructure)
+- γ · Pre-commit hook ad-hoc tsc on `e2e/**/*.ts`(local-only · CI still gap)
+- Recommend **α**(minimal surgery · CI real validation · Steve review 1 · workflow touch justified)
+
+Reference · Brief #8 B2 observation #158 Phase 2 Layer 2 typecheck catch · 4 errors(V5MBPlanning shape / interfaceDefinitions array / clickRun ordering / unused import)silent push risk 若无 ad-hoc tsc discipline。
+
+### INV-pattern formalize(V5.0.5 rule candidate #11)
+
+**状态**: Pre-brief external-data discovery pattern(INV-1/INV-2/INV-3 all 15-25 min read-only structured report · ~80% unknowns resolved pre-brief)proven 3 times session · 未在 agent kickoff.md / brief template formalized。
+
+**Action**:
+- Add "INV-pattern" section to `backend-agent-kickoff.md` + `frontend-agent-kickoff.md`
+- Brief template §0 optional "Pre-brief INV dispatch"(when scope audit-derived OR spans workspace boundary OR large-brief band)
+- Agent INV output · structured report 11 section format(setup · Q1-Q9+ · summary)· planning consumes
+
+Reference · Brief #8 B2 observation #158 Pattern F 10th validation · rule candidate #11 formalize · W-B large-scope standard workflow。
+
+### Dead useSocket.ts deletion(frontend micro-PR · workspace lock)
+
+**状态**: `packages/client/src/hooks/useSocket.ts` 100+ LOC · imports 5 non-existent stores(per Frontend INV-3 W2 W-B discovery)· frontend workspace clone `~/CodeLens-v5-frontend/` out of scope this session。
+
+**Action** · V5.0.5 frontend micro-PR · delete file + 5 store import references · typecheck verify · separate brief dispatch to frontend window。
+
+### Mock config scaffold reconcile(重复 reference · 见 B1 V5.0.5 section · 不重复 entry)
+
+Already captured · `e2e/playwright.mock.config.ts` broken refs(full-interview-flow.spec.ts + mock-ai-server.ts 不存)· 3 approaches α/β/γ · 决策 V5.0.5 housekeeping brief。
