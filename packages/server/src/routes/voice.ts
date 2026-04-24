@@ -22,6 +22,7 @@
  */
 
 import { Router } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { requireCandidate } from '../middleware/auth.js';
 import { generateRtcToken } from '../services/rtc-token.service.js';
 import { voiceChatService } from '../services/voice-chat.service.js';
@@ -33,7 +34,11 @@ import { AppError, NotFoundError } from '../middleware/errorHandler.js';
 export const voiceRouter = Router();
 
 /** RTC join token for candidate. */
-voiceRouter.post('/token', requireCandidate, async (req, res, next) => {
+export async function tokenHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const { sessionId } = req.body as { sessionId?: string };
     if (!sessionId) {
@@ -66,7 +71,9 @@ voiceRouter.post('/token', requireCandidate, async (req, res, next) => {
   } catch (error) {
     next(error);
   }
-});
+}
+
+voiceRouter.post('/token', requireCandidate, tokenHandler);
 
 /**
  * Start Emma (AI voice interviewer) for a V5 Module C session.
@@ -77,7 +84,11 @@ voiceRouter.post('/token', requireCandidate, async (req, res, next) => {
  * (Task 11 Step 4D). The welcome message is still pinned here because
  * VERTC requires it at session start.
  */
-voiceRouter.post('/v5/start', requireCandidate, async (req, res, next) => {
+export async function v5StartHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const { sessionId } = req.body as { sessionId?: string };
     if (!sessionId) {
@@ -177,10 +188,16 @@ voiceRouter.post('/v5/start', requireCandidate, async (req, res, next) => {
   } catch (error) {
     next(error);
   }
-});
+}
+
+voiceRouter.post('/v5/start', requireCandidate, v5StartHandler);
 
 /** Stop Emma + cleanup. Reuses V4 contract (voiceTaskId/voiceRoomId in metadata). */
-voiceRouter.post('/stop', requireCandidate, async (req, res, next) => {
+export async function stopHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const { sessionId } = req.body as { sessionId?: string };
     if (!sessionId) {
@@ -202,15 +219,19 @@ voiceRouter.post('/stop', requireCandidate, async (req, res, next) => {
   } catch (error) {
     next(error);
   }
-});
+}
+
+voiceRouter.post('/stop', requireCandidate, stopHandler);
 
 /** Availability probe — no auth, used by frontend to decide whether to show voice UI. */
-voiceRouter.get('/status', (_req, res) => {
+export function statusHandler(_req: Request, res: Response): void {
   res.json({
     available: voiceChatService.isAvailable(),
     mode: env.CP4_LLM_MODE,
   });
-});
+}
+
+voiceRouter.get('/status', statusHandler);
 
 /**
  * Minimal bootstrap system prompt sent to VERTC at /start. The Custom LLM
