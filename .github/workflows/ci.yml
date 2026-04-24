@@ -99,6 +99,8 @@ jobs:
         run: npx prisma migrate deploy --schema=packages/server/prisma/schema.prisma
       - name: Seed database
         run: npm run db:seed --workspace=@codelens-v5/server
+      - name: Seed canonical ExamInstance
+        run: npm run db:seed:canonical --workspace=@codelens-v5/server
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
       - name: Run E2E tests
