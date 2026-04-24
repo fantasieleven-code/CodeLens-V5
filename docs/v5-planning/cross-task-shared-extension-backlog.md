@@ -487,3 +487,22 @@ Added during Task A5(backend Gap 11 Sentry env consumer-half closure · observat
   - 4-green smoke self-attest (same skeleton as A5 · `env.test.ts` absence is acceptable backward-compat signal)
   
   Reference · A5 brief Phase 1 Q5 · observations.md #151 pattern env-declare-discipline. Bundle into one PR (mechanical consumer migration · single narrative · ~10 file touch · ~10 line changes).
+
+## V5.0.1 Housekeeping(A2 voice path drift reconcile · 2026-04-24)
+
+Added during Task A2 (Brief #2 v3 · voice-mount · observation #155):
+
+- **`routes/voice.ts` endpoint path vs header-doc drift**(non-blocking · documented · V5.0.1 reconcile):`voice.ts` L17-21 header-doc advertises 4 endpoints all at `/api/voice/v5/*` but router-prefix `/v5/` is wired to only `/v5/start`. Actual paths mounted at `/api/voice`:
+  1. `POST /api/voice/token`(NOT `/v5/token`)
+  2. `POST /api/voice/v5/start`(matches doc)
+  3. `POST /api/voice/stop`(NOT `/v5/stop`)
+  4. `GET  /api/voice/status`(NOT `/v5/status`)
+  
+  3 reconcile approaches (pick one in V5.0.1 follow-up brief):
+  - **Approach α** · align router · rewrite 3 non-`/v5/` paths to `/v5/*` to match doc(client impact · frontend voice client calls current paths · would break if ported without coordination · check `packages/client/src` for call sites)
+  - **Approach β** · align doc · edit header comment L17-21 to reflect actual mixed-prefix reality · zero client risk · zero test risk · pure doc correction
+  - **Approach γ** · document-but-accept · annotate rationale(e.g. `/v5/start` is the V5-only capable endpoint · others reused as-is from V4 contract · prefix inconsistency acceptable) · converge narrative
+  
+  Recommended · Approach β(lowest risk · highest clarity · preserves V4→V5 reuse semantics that the header's own `Scope discipline` section already signals).
+  
+  Reference · A2 Brief #2 v3 Phase 1 Q1 finding · observations.md #155 · sibling `mc-voice-chat.ts` route prefix uses consistent `/api/v5/mc/*` pattern so voice is the outlier. Fence-preserved during A2 per D-3 revised wording("ZERO voice.ts logic/guard addition"). Pure doc / pure-path-rewrite scope · no CI workflow impact · no Steve review gate.

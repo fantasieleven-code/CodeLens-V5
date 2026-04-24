@@ -1296,3 +1296,29 @@ V5 Release Plan Brief #6 C1 · `CLAUDE.md` narrative `43 信号:40 纯规则 + 3
 Commits: `3abdb90` (C1 · CLAUDE.md + playbook)
 Brief: V5 Release Plan #6 · C1 · 2026-04-22
 Branch: `chore/c1-doc-unify-signal-count` (self-merge pending PR CI)
+
+---
+
+### #155 — `meta-pattern` Pattern F Layer 2 grep · handler export structure catch · voice.ts refactor-for-testability
+
+**trace**: Task A2 (Brief #2 v3) Phase 2 pre-impl Layer 2 grep · agent grepped sibling canonical test (`admin.test.ts`) + target file export structure (`voice.ts`) · surfaced D-3 ("ZERO voice.ts touch") vs D-4 ("canonical DB-free direct-handler test pattern") conflict · `voice.ts` L33 exports `voiceRouter` only · 4 handlers inline anonymous `(req, res, next) => {...}` · canonical test pattern requires named-exported handlers (admin.ts / candidate.ts / candidate-self-view.ts precedent). Stop + report 5 options · Planning Claude ratify v2 · Option A accept (pure structural refactor voice.ts to 4 named handlers · byte-identical logic).
+
+**Root cause** · Phase 1 Q1 verified voice.ts router export shape (`export const voiceRouter = Router()` · caught D-1 named-vs-default drift) but did not follow through to individual handler export shape · ratify-doc D-4 assumed filesystem supports direct handler import · reality blocked it. Layer 1 (planning ratify · 5 ACCEPT based on Phase 1 findings) insufficient; Layer 2 (agent Phase 2 pre-impl grep of target file contents against ratified test pattern) caught the gap before C2 code-write.
+
+**Mitigation** · Pattern G stop at Phase 2 boundary · 5 options surfaced (A refactor · B real-express integration · C router-stack reflection · D mount-smoke-only · E defer). Ratify v2 Option A: refactor voice.ts extract 4 named handlers (`tokenHandler` / `v5StartHandler` / `stopHandler` / `statusHandler`) · byte-identical bodies · test pattern unblocked. LOC fence revised prod cap 20 → 30 · total 210 · C2 actual +29 / -8 = +21 net prod LOC · inside cap.
+
+**V5.0.5 rule candidate #7 strengthened** (test section pre-draft grep):
+1. Grep sibling canonical test file · identify repo convention (mock shape · invocation pattern)
+2. **Grep target file export structure · verify target exports satisfy canonical test import requirements** (new)
+3. If target exports insufficient → ratify decision · refactor target(expose) vs alternative test pattern vs defer
+4. Planning Layer 1 ratify not sufficient standalone · agent Layer 2 grep is final safety net
+
+**V5.0.5 rule candidate #8 new** (Pre-impl Layer 2 grep is final production insurance · not ceremonial): agent Phase 2 pre-impl Layer 2 grep covers (a) typed interfaces in `packages/shared` (b) CI gate scope coverage (c) **target file export structure for test pattern compatibility**. Any assumption-vs-reality gap catches here.
+
+**Pattern F session track record · 7th validation** · cumulative drift-catch via Layer 1 + Layer 2 grep: A1 (5) · A4 Phase 1 (5) · A5 (6) · A4 Phase 2 L2 typed (5) · A4 Phase 2 L3 CI-scope (1) · C1 (6) · **A2 v3 Phase 1 L1 (3 · D-1 named import / D-3 per-endpoint guard / D-4 supertest drift)** · **A2 v3 Phase 2 L2 (1 · handler export structure incompat · Option A ratify)** · total **33 drifts caught pre-code-write · 0 silent push · V5.0 ship quality preserved**.
+
+**Fence preserved (V5.0.1 scope · voice path drift)** · `voice.ts` header doc L17-21 advertises all 4 endpoints at `/api/voice/v5/*` but router prefix `/v5/` only on `/v5/start` (actual paths: `/api/voice/token` · `/api/voice/v5/start` · `/api/voice/stop` · `/api/voice/status`). Scope discipline (D-3 revised wording · zero logic/guard addition) kept path correction out of A2 · surfaced to `cross-task-shared-extension-backlog.md` V5.0.1 section (voice-path-reconcile candidate entry) for post-ship housekeeping brief.
+
+Commits: `3a0bb87` (C2 voice.ts refactor · byte-identical named-export extraction) · `<C3 SHA>` (voice.test.ts + this observation + backlog V5.0.1 entry)
+Brief: V5 Release Plan #2 v3 · A2 voice-mount · 2026-04-24
+Branch: `feat/backend-task-a2-voice-mount` (self-merge pending PR CI)
