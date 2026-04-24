@@ -2,7 +2,7 @@ import { Page } from '@playwright/test';
 
 const MONACO_SELECTOR = '.monaco-editor .view-lines';
 const MONACO_INPUT = '.monaco-editor textarea[aria-label="Editor content"], .monaco-editor textarea.inputarea, .monaco-editor textarea';
-const FILE_TREE_ITEM = '[data-testid="file-tree"] [role="treeitem"], [class*="FileTree"] [class*="file-item"], [class*="file-tree"] [class*="item"]';
+const FILE_TREE_ITEM = '[data-testid="mb-filetree"] [data-testid^="mb-filetree-item-"]';
 
 /**
  * Playwright helper for realistic Monaco editor interaction.
