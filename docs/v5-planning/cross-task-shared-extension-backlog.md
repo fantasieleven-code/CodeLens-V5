@@ -537,3 +537,17 @@ Added during Task A2 (Brief #2 v3 · voice-mount · observation #155):
 - γ · Defer · document + leave · revisit V5.2 if mock-AI flow revived
 
 **Decision deferred V5.0.5 housekeeping brief**。
+
+## V5.0.1 Housekeeping(A3 mc-voice-chat URL doc sweep · 2026-04-24)
+
+Added during Task A3 (Brief #3 · mc-voice-chat-mount · observation #157):
+
+- **`docs/v5-planning/v5-signal-production-coverage.md:84` stale URL reference**(non-blocking · documented · V5.0.1 doc-sweep): line references `/api/moduleC/voice-chat` from V4 naming · actual V5 route is `/api/v5/mc/voice-chat` (per A3 C1 mount + `voice.ts:132` VERTC contract). Pure doc correction, zero code impact.
+
+  Reconcile approaches:
+  - **Approach α** · one-line path edit in `v5-signal-production-coverage.md` · narrative sync only
+  - **Approach β** · broader doc grep for `/api/moduleC/*` or `/api/mc-voice-chat/*` stale references across `docs/v5-planning/` · batch doc sweep
+  
+  Recommended · Approach β (bundle all stale V4-naming references in one doc-only PR · lowest reviewer overhead · highest hygiene delta). Grep pattern: `rg '/api/(moduleC|mc-voice-chat)' docs/` — expected zero hits post-sweep.
+  
+  Reference · A3 Brief #3 Phase 1 Q4 catch · observations.md #157 drift D-4 · scope-fenced during A3 per ratify §2 (C1/C2/C3 touch only index.ts + mc-voice-chat.ts + tests · no doc edits outside observation + this backlog entry). Pure doc scope · no CI workflow impact · no Steve review gate.

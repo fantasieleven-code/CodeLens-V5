@@ -8,7 +8,11 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Request, Response } from 'express';
 import type * as McProbeEngineModule from '../services/mc-probe-engine.js';
+
+const buildSignalSnapshotStub = vi.hoisted(() => vi.fn());
+const analyzeSignalsForProbingStub = vi.hoisted(() => vi.fn());
 
 // mc-voice-chat.ts reads env at module load time (OpenAI client init). The
 // server .env is loaded from packages/server/.env in prod; for unit tests
@@ -32,8 +36,14 @@ vi.mock('../config/db.js', () => ({
   prisma: {
     session: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
     },
   },
+}));
+
+vi.mock('../services/event-bus.service.js', () => ({
+  eventBus: { emit: vi.fn().mockResolvedValue(undefined) },
 }));
 
 // Voice-chat service and LLM clients are imported at module load time;
@@ -45,10 +55,14 @@ vi.mock('../services/voice-chat.service.js', () => ({
 
 vi.mock('../services/mc-probe-engine.js', async (importActual) => {
   const actual = await importActual<typeof McProbeEngineModule>();
-  return { ...actual };
+  return {
+    ...actual,
+    buildSignalSnapshot: buildSignalSnapshotStub,
+    analyzeSignalsForProbing: analyzeSignalsForProbingStub,
+  };
 });
 
-import { getSessionContext } from './mc-voice-chat.js';
+import { getSessionContext, mcVoiceChatHandler } from './mc-voice-chat.js';
 import { prisma } from '../config/db.js';
 import type { V5Submissions } from '@codelens-v5/shared';
 
@@ -214,5 +228,118 @@ describe('getSessionContext — V5Submissions extraction', () => {
     expect(ctx).toContain('P0 L3:');
     expect(ctx).toContain('P0 信心: 60');
     expect(ctx).toContain('P0 决策原文:');
+  });
+});
+
+// ─── mcVoiceChatHandler — direct-invoke DB-free tests (A3 C3) ────────────
+// Pattern: vi.mock env/db/services + fake Req/Res triple · no supertest.
+
+type FakeRes = Response & {
+  _status: number;
+  _json: unknown;
+  _chunks: string[];
+  _ended: boolean;
+};
+
+function fakeReq(opts: {
+  auth?: string;
+  body?: Record<string, unknown>;
+  query?: Record<string, unknown>;
+}): Request {
+  return {
+    headers: opts.auth ? { authorization: opts.auth } : {},
+    body: opts.body ?? {},
+    query: opts.query ?? {},
+  } as unknown as Request;
+}
+
+function fakeRes(): FakeRes {
+  const r: Record<string, unknown> = {
+    _status: 200,
+    _json: undefined,
+    _chunks: [],
+    _ended: false,
+    headersSent: false,
+  };
+  r.status = vi.fn((code: number) => ((r._status = code), r));
+  r.json = vi.fn((p: unknown) => ((r._json = p), r));
+  r.setHeader = vi.fn(() => r);
+  r.write = vi.fn((c: string) => ((r._chunks as string[]).push(c), true));
+  r.end = vi.fn(() => ((r._ended = true), r));
+  return r as unknown as FakeRes;
+}
+
+describe('mcVoiceChatHandler — direct-invoke DB-free', () => {
+  beforeEach(() => {
+    vi.mocked(prisma.session.findUnique).mockReset();
+    vi.mocked(prisma.session.findFirst).mockReset();
+    vi.mocked(prisma.session.update).mockReset();
+    buildSignalSnapshotStub.mockReset();
+    analyzeSignalsForProbingStub.mockReset();
+  });
+
+  it('T1 · rejects invalid Bearer token with 401 JSON', async () => {
+    const req = fakeReq({ auth: 'Bearer wrong-token', body: {} });
+    const res = fakeRes();
+    await mcVoiceChatHandler(req, res);
+    expect(res._status).toBe(401);
+    expect((res._json as { Error: { Code: string } }).Error.Code).toBe('AuthenticationError');
+  });
+
+  it('T2 · valid Bearer + no resolvable sessionId → error SSE', async () => {
+    vi.mocked(prisma.session.findFirst).mockResolvedValueOnce(null as never);
+    const req = fakeReq({
+      auth: 'Bearer test-rtc-callback-secret-123456',
+      body: { messages: [{ role: 'user', content: 'hi' }], custom: '{}' },
+    });
+    const res = fakeRes();
+    await mcVoiceChatHandler(req, res);
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/event-stream');
+    const body = res._chunks.join('');
+    expect(body).toContain('无法识别评估会话');
+    expect(body).toContain('data: [DONE]');
+    expect(res._ended).toBe(true);
+  });
+
+  it('T3 · empty candidate → echo gate drops turn without invoking probe engine', async () => {
+    const req = fakeReq({
+      auth: 'Bearer test-rtc-callback-secret-123456',
+      body: { messages: [], custom: JSON.stringify({ sessionId: 'echo-sess' }) },
+    });
+    const res = fakeRes();
+    await mcVoiceChatHandler(req, res);
+    const body = res._chunks.join('');
+    expect(body).toContain('data: [DONE]');
+    expect(res._ended).toBe(true);
+    expect(buildSignalSnapshotStub).not.toHaveBeenCalled();
+    expect(analyzeSignalsForProbingStub).not.toHaveBeenCalled();
+  });
+
+  it('T4 · no LLM clients → getFallbackResponse SSE', async () => {
+    vi.mocked(prisma.session.findUnique).mockResolvedValue({ metadata: {} } as never);
+    vi.mocked(prisma.session.update).mockResolvedValue({} as never);
+    buildSignalSnapshotStub.mockResolvedValue({});
+    analyzeSignalsForProbingStub.mockResolvedValue({
+      round: 1,
+      probeType: 'weakness',
+      strategyKey: 'weakness',
+      targetDimension: 'technicalJudgment',
+      reason: 'stub',
+      promptGuidance: '',
+    });
+    const req = fakeReq({
+      auth: 'Bearer test-rtc-callback-secret-123456',
+      body: {
+        messages: [{ role: 'user', content: '我认为方案 A 在强一致性场景下更稳。' }],
+        custom: JSON.stringify({ sessionId: 'fb-sess' }),
+      },
+    });
+    const res = fakeRes();
+    await mcVoiceChatHandler(req, res);
+    const body = res._chunks.join('');
+    expect(body).toContain('你在做方案选型时');
+    expect(body).toContain('data: [DONE]');
+    expect(res._ended).toBe(true);
+    expect(analyzeSignalsForProbingStub).toHaveBeenCalled();
   });
 });
