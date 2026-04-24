@@ -31,6 +31,7 @@ import { adminRouter } from './routes/admin.js';
 import { authRouter } from './routes/auth.js';
 import { candidateRouter } from './routes/candidate.js';
 import { candidateSelfViewRouter } from './routes/candidate-self-view.js';
+import { voiceRouter } from './routes/voice.js';
 import { registerSocketHandlers } from './socket/index.js';
 
 const app = express();
@@ -57,6 +58,7 @@ app.use('/api/admin', requireAdmin, adminRouter);
 // prefix first and skips the requireCandidate layer (URL token IS the auth).
 app.use('/api/candidate/self-view', candidateSelfViewRouter);
 app.use('/api/candidate', requireCandidate, candidateRouter);
+app.use('/api/voice', voiceRouter);
 app.use('/auth', authRouter);
 
 app.use(errorHandler);
