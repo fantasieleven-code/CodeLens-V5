@@ -1229,3 +1229,44 @@ Audit `UNDOCUMENTED_IMPL-4` claim "`SENTRY_DSN` / `SENTRY_ENVIRONMENT` NOT decla
 Commit: `a39331d` (Phase 2 C1)
 Brief: V5 Release Plan #5 · A5 · 2026-04-22
 Branch: `chore/a5-sentry-env-schema` (self-merge pending PR CI)
+
+---
+
+### #152 — `architectural-insight` V5 canonical ExamInstance seed · `src/data/` split + ship gate enforcement
+**trace**: Task A4 · Brief #4 · V5 Release Plan 2026-04-22 · OQ-R4 α (reverse-match) · `packages/server/src/data/canonical-v5-exam-data.ts` (440 LOC typed data) + `packages/server/prisma/seed-canonical-v5-exam.ts` (72 LOC thin runner) + 5 vitest cases · 1 ExamInstance + 6 ExamModule rows seeded · admin.ts `POST /admin/sessions/create` 不再 404 (Gap 5 unblocked)
+
+Canonical seed reverse-matches Task 17 Golden Path fixtures (A14a 180 reliability tests validated): 5 module specifics (P0/MA/MB/MC/SE) copy-inline the fixture exam-data shape; MD is crafted fresh against `MDModuleSpecific` shape, aligned with fixture MC R3 100k QPS escalation context. Business scenario `秒杀库存扣减系统` (TypeScript + Express · MySQL + Redis · service-layer · senior) replaces brief D1's proposed `ShopEasy 订单履约 / Go / Postgres / Kafka` after Phase 1 grep surfaced fixtures' actual stack references (Redis SET NX · MySQL · TypeScript class-based code · 0 Kafka mention).
+
+**`src/data/` split pattern · CI gate real enforcement** · second §E E1 stop · agent grep CI gate scope showed brief literal placement (`prisma/`) is outside lint (`eslint packages/*/src`) · typecheck (`tsconfig include 'src'`) · build (`tsc rootDir 'src'`) · vitest (`include 'src/**/*.test.ts'`) — brief literal `prisma/seed-canonical-v5-exam.test.ts` would never be picked up; "4 green + ≥3 tests floor" discipline would be vacuous. Ratify path α split data into `src/data/` (CI-covered) + thin runner in `prisma/` (tsx execution only), ensuring real enforcement. Future V5.1 Generator-produced examInstance fixtures naturally home `src/data/` — pattern established once.
+
+**Reverse-match > forward design** · A14a fixtures already 180 validated · seed reverse-constructs the ExamInstance + ExamModule rows that produce those fixtures as candidate behavior output · zero re-validation needed for the 5 reused modules · only MD craft requires fresh shape conformance (caught by typed `MDModuleSpecific` annotation + dedicated test). V5.1 Generator pipeline can pick up the same reverse-match pattern as a baseline before forward generation.
+
+**Drift fixes applied · 5 typed-shape + 5 brief-narrative** · `BusinessScenario` interface (`packages/shared/src/types/v5-business-scenario.ts:76`) constrains shape differently from brief D1 narrative — `systemName: string` (not `{zh, en}`) · `BusinessEntity.attributes/relationships: string[]` (not `description/relations`) · `TechStackDetail.framework` required (not `runtime`) · `businessFlow/userRoles: string[]` (not object[]) · `V5Level` enum `'junior'|'mid'|'senior'` (not `'mid_senior'`). Schema drifts fixed at runtime · admin.ts:485 `titleZh` consumer now reads valid string. Plus original 5 brief-time drifts: `seed: Int` (not String) · analytics fields excluded from update path · `scenarioRef` namespaced `canonical/{p0..se}` · `orgId: null` cross-org shareable · script name `db:seed:canonical` (not `seed:canonical`).
+
+**Idempotency verified** · seed run 2x · 1 ExamInstance + 6 ExamModule (count unchanged) · upsert by deterministic id + composite key.
+
+Commits: `1642486` (C1 data) · `77b89f9` (C2 runner + tests) · pending C3 (docs)
+Brief: V5 Release Plan #4 · A4 · 2026-04-22
+Branch: `feat/a4-canonical-exam-seed` (self-merge pending PR CI)
+
+---
+
+### #153 — `meta-pattern` Pattern F two-layer + CI-scope grep discipline · 5th session validation
+**trace**: Task A4 Phase 2 · 3 §E E1 stops surfaced 11 drifts pre-code-write (5 brief-narrative · 5 typed-shape · 1 CI gate scope) · zero silent push · ratify-driven correction in three rounds before C1 commit
+
+V5.0.5 checklist rule candidate (累计 5 次 Pattern F validations: A1 · A14a · CI-Green-Up · A5 · A4). Two-layer Pattern F discipline pinnacle:
+
+1. **Phase 1 pre-verify grep** · source-of-truth data (fixtures · Prisma schema · existing patterns · admin.ts consumer) · catches brief-narrative drift (A4: 5 brief D1 fields drifted from fixture-implied 秒杀业务)
+2. **Phase 2 pre-implementation pre-flight grep · typed interfaces** (`packages/shared/src/types`) · catches typed-shape drift before code written (A4: 5 typed drifts in BusinessScenario / BusinessEntity / TechStackDetail / V5Level / businessFlow shapes)
+3. **Phase 2 pre-implementation pre-flight grep · CI gate scope** (eslint configs · tsconfig include · vitest include) · catches placement vacuous before code written (A4: brief literal `prisma/` placement outside all 4 quality gates · would have produced unenforced ship discipline)
+
+**Rule (V5.0.5 checklist v2.x candidate)** · Brief Phase 1 § Q list adds:
+- typed shape grep (`packages/shared/src/types`) for any data-shape proposal
+- CI gate scope grep (lint/tsconfig/vitest configs) for any new file placement proposal
+Phase 2 implementation does not start until both grep results are reconciled with brief narrative. Silent default-acceptance of brief shape claims is a Pattern F precursor.
+
+Cost · 5-10 min per phase · saves the rework cycle (multiple ratify rounds) and zero silent broken-shape data shipping. Benefit measured: A4 caught 11 drifts pre-code-write · 0 lint errors · 0 typecheck errors · 0 test regressions on first commit run (40 LOC writes against typed annotations · TypeScript strict caught any annotation violations at write time).
+
+Commits: A4 C3 (this entry's introducing commit)
+Brief: V5 Release Plan #4 · A4 · 2026-04-22
+Branch: `feat/a4-canonical-exam-seed` (self-merge pending PR CI)
