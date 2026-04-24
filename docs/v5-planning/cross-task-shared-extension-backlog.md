@@ -460,3 +460,26 @@ Added during Task CI-Green-Up(CI infra red-clearance for V5.0 ship · observatio
 - **`playwright.smoke.config.ts` backend-only webServer**(observation F2 from CI-Green-Up Phase 1):root `playwright.config.ts` starts BOTH backend `npm run dev` (:4000) AND frontend `npm run dev:client` (:5173) as webServers — the CI-Green-Up smoke test only exercises the backend, so the frontend spin-up (~30s) is pure CI cost. V5.0.5 housekeeping adds a dedicated `e2e/playwright.smoke.config.ts` with backend-only webServer + updates ci.yml `e2e` step to `npx playwright test --config=e2e/playwright.smoke.config.ts`. Not done in CI-Green-Up itself because it would have required workflow touches (scope fence #6). Candidate to bundle with the first real Task 17 Playwright follow-up so the workflow edit pays for multiple tests.
 - **Docker V5.2 handoff**(CI_KNOWN_RED.md sole remaining row):`packages/server/Dockerfile` + trivy-compatible multi-stage build + base image pin + optional registry push. V5.2 scope per Steve 2026-04-22 ratify. Not a V5.0 blocker because production uses E2B sandbox rather than docker for candidate code execution. When picked up, also remove the CI_KNOWN_RED.md docker row and confirm the `if: github.ref == 'refs/heads/main'` gate in ci.yml remains appropriate (currently docker only runs on main push, not PR).
 - **Shared `BilingualText` interface** (surfaced by A15 Frontend Phase 1 Q2 · non-blocking · cross-ref from Frontend workstream · duplicate of A15 entry above — consolidate when picked up):consolidate ad-hoc `{ en, zh }` / `{ zh, en }` shapes scattered across content files into a single `packages/shared/src/types/bilingual.ts` export. Non-blocking cosmetic cleanup — tracking here so it does not get re-surfaced in each subsequent content-adjacent task Phase 1.
+
+---
+
+## V5.0.5 Housekeeping(A5 process.env → env.X batch migration · 2026-04-24)
+
+Added during Task A5(backend Gap 11 Sentry env consumer-half closure · observation #151):
+
+- **`process.env → env.X` batch migration audit(8 items · NODE_ENV × 7 + LOG_LEVEL × 1)**(observation #151 · Phase 1 Q5 surface):8 remaining `process.env.X` bypass sites in `packages/server/src` outside `env.ts` + dynamic-import guards. Inventory from A5 Phase 1 Q5 grep (2026-04-24):
+  1. `config/db.ts:8` · `NODE_ENV` (in schema · consumer bypass)
+  2. `lib/sentry.ts:28` · `NODE_ENV` (in schema · **Case B fence kept as-is during A5** · tracesSampleRate branch)
+  3. `lib/logger.ts:10` · `LOG_LEVEL` (**NOT in schema · needs declaration first** · most urgent of the 8)
+  4. `lib/logger.ts:11` · `NODE_ENV` (in schema · consumer bypass)
+  5. `middleware/csrf.ts:39` · `NODE_ENV` (in schema · consumer bypass)
+  6. `middleware/csrf.ts:56` · `NODE_ENV` (in schema · consumer bypass)
+  7. `middleware/rateLimiter.ts:4` · `NODE_ENV` (in schema · consumer bypass)
+  
+  Tasks:
+  - Add `LOG_LEVEL` to `env.ts` schema (`z.enum(['debug', 'info', 'warn', 'error']).default('info')` — consult `lib/logger.ts` for actual accepted levels)
+  - Migrate 7 `NODE_ENV` consumers to `env.NODE_ENV`
+  - Remove any redundant fallbacks (like A5 fallback `|| 'development'` drop)
+  - 4-green smoke self-attest (same skeleton as A5 · `env.test.ts` absence is acceptable backward-compat signal)
+  
+  Reference · A5 brief Phase 1 Q5 · observations.md #151 pattern env-declare-discipline. Bundle into one PR (mechanical consumer migration · single narrative · ~10 file touch · ~10 line changes).
