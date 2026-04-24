@@ -1350,3 +1350,23 @@ Branch: `feat/backend-task-a2-voice-mount` (self-merge pending PR CI)
 Commits: `64f1a91` (C1 · golden-path config + CI seed + script hygiene · rebased post-A2) · `<C2 SHA>` (this observation + V5.0.5 backlog rule #9 entry)
 Brief: V5 Release Plan #7 · B1 · 2026-04-24
 Branch: `feat/backend-task-b1-playwright-config` (Steve review pending · CI workflow touch per kickoff Line 91)
+
+---
+
+### #157 — `discipline` V5.0.5 Rule #9 first full-cycle validation · pre-commit branch verify caught E6 before any write op
+
+**trace**: Task A3 (Brief #3) Phase 1 session start · agent ran `git branch --show-current` before creating A3 branch per V5.0.5 Rule #9 · returned `feat/backend-task-b1-playwright-config` (W2 specialist's parallel branch, not main) · if unchecked, `git checkout -b feat/backend-task-a3-mc-voice-chat-mount` would have forked off B1's HEAD `5ee07d9` rather than main's `190a753` · §E E6 stop trigger fired · reported to user · recovered cleanly (`git checkout main && git pull && git branch -D ... && git checkout -b ...`) · zero data loss · zero cherry-pick. This is the second race-condition episode in the same session (first was W2 B1 commit `8cc9a5a` landing on a2 branch — observation #156); Rule #9 caught both but A3 caught its episode **before** any write op (pure prevention) while B1's was caught post-commit (recovery via cherry-pick).
+
+**Root cause** · shared `~/Projects/CodeLens-v5/` filesystem with single `.git` state across parallel W1/W2 windows · the prior interactive `git checkout` in a sibling window left the shell's current branch pointing at B1 when A3 session resumed from summary · Rule #9 explicitly designed for this class of race.
+
+**Mitigation** · Pattern G stop-and-report · recovery without `git cherry-pick` or `git reset --hard` (which Rule #10 candidate flags as destructive-by-default · requires explicit user authorization) · user acknowledged · A3 proceeded from main.
+
+**V5.0.5 Rule #10 new candidate** (planning-side pre-brief backlog scan): Brief #3 proposed mount URL options a `/api/mc` or b `/api/mc-voice-chat` · neither matched the load-bearing VERTC contract at `voice.ts:132` (`${serverBase}/api/v5/mc/voice-chat`) · option c `/api/v5/mc` required. Layer 1 (Planning Claude) did not grep existing URL consumers during brief authoring → drift D-3 surfaced only at Phase 1 Q2 by agent. Rule #10 formalizes: **brief author MUST grep all inbound URL references to the target route before fixing mount prefix options**; agent Layer 2 grep is final safety net, not primary line of defense.
+
+**Pattern F session track record · 9th validation** · cumulative drift-catch: baseline 34 (W1 A2 33 + W2 B1 race 1 per #156) + **A3 P1 L1 4 (D-1 HMAC-vs-Bearer / D-2 runtime-vs-module-init fallback / D-3 mount URL option c / D-4 doc-sweep stale path)** + **A3 P1 L0 Rule #9 pre-write 1 (E6 wrong-branch)** = **39 drifts caught pre-code-write · 0 silent push · W-A ship quality preserved**.
+
+**W-A workstream milestone** · A3 closes audit Gap 3 (mc-voice-chat.ts unmounted route) · W-A 5/5 complete: A1 (Gap 5 err boundary) · A2 (Gap 1 voice-mount) · A3 (Gap 3 mc-voice-chat-mount) · A4 (Gap 2 e2e smoke) · A5 (Gap 11 env zod-schema) · all audit-red routes green on main.
+
+Commits: `40ad21b` (C1 index.ts mount `/api/v5/mc`) · `9d6c99f` (C2 mc-voice-chat.ts Option A named export) · `<C3 SHA>` (mc-voice-chat.test.ts T1-T4 + this observation + V5.0.1 backlog)
+Brief: V5 Release Plan #3 · A3 mc-voice-chat-mount · 2026-04-24
+Branch: `feat/backend-task-a3-mc-voice-chat-mount` (self-merge pending PR CI)

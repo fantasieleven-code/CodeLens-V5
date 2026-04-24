@@ -32,6 +32,7 @@ import { authRouter } from './routes/auth.js';
 import { candidateRouter } from './routes/candidate.js';
 import { candidateSelfViewRouter } from './routes/candidate-self-view.js';
 import { voiceRouter } from './routes/voice.js';
+import { mcVoiceChatRouter } from './routes/mc-voice-chat.js';
 import { registerSocketHandlers } from './socket/index.js';
 
 const app = express();
@@ -59,6 +60,7 @@ app.use('/api/admin', requireAdmin, adminRouter);
 app.use('/api/candidate/self-view', candidateSelfViewRouter);
 app.use('/api/candidate', requireCandidate, candidateRouter);
 app.use('/api/voice', voiceRouter);
+app.use('/api/v5/mc', mcVoiceChatRouter);
 app.use('/auth', authRouter);
 
 app.use(errorHandler);

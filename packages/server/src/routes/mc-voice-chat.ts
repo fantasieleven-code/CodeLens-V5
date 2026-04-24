@@ -26,7 +26,7 @@
  */
 
 import crypto from 'crypto';
-import { Router, type Response as ExpressResponse } from 'express';
+import { Router, type Request, type Response as ExpressResponse } from 'express';
 import OpenAI from 'openai';
 import { logger } from '../lib/logger.js';
 import { env } from '../config/env.js';
@@ -102,7 +102,7 @@ function authenticateRequest(authHeader?: string): boolean {
 
 // ─── Main endpoint ───────────────────────────────────────────────────────
 
-mcVoiceChatRouter.post('/voice-chat', async (req, res) => {
+export async function mcVoiceChatHandler(req: Request, res: ExpressResponse): Promise<void> {
   const startTime = Date.now();
   const requestId = crypto.randomUUID();
 
@@ -325,7 +325,9 @@ mcVoiceChatRouter.post('/voice-chat', async (req, res) => {
     }
     sendErrorSSE(res, requestId, '请再说一遍，我没有完全听清。');
   }
-});
+}
+
+mcVoiceChatRouter.post('/voice-chat', mcVoiceChatHandler);
 
 // ─── SSE helpers (identical shape to V4; VERTC parses this verbatim) ─────
 
