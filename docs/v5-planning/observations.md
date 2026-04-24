@@ -1207,3 +1207,25 @@ V4-era REST session lifecycle endpoints (`routes/session.ts` · 8 endpoints · 1
 Commit: `91a7e39` (Phase 2 C1)
 Brief: V5 Release Plan #1 · A1 · 2026-04-22
 Branch: `chore/a1-delete-session-route` (self-merge pending PR CI)
+
+---
+
+### #151 — `pattern` env var zod-schema-declare discipline · Gap 11 consumer-half closure · audit-stale meta
+**trace**: Task A5 · Brief #5 · V5 Release Plan 2026-04-22 · Gap 11 · `packages/server/src/lib/sentry.ts` consumer swap (3 lines: dsn@17, environment@27, log@41) · `env.ts:108-110` already declared `SENTRY_DSN: z.string().url().optional()` + `SENTRY_ENVIRONMENT: z.string().default('development')` prior to audit writing
+
+Audit `UNDOCUMENTED_IMPL-4` claim "`SENTRY_DSN` / `SENTRY_ENVIRONMENT` NOT declared in zod schema" was **stale at audit time** — `env.ts` 108-110 had already declared both fields before V5 Release Plan drafting. A5 Phase 1 pre-verify grep exposed the staleness; A5 scope narrowed from "schema append + consumer swap + .env.example verify" to **consumer-only swap**. Three prod lines migrated; dead fallback `|| 'development'` dropped at line 27 since zod `.default('development')` now guarantees the field is always defined.
+
+**Pattern · env var zod-schema-declare discipline**:
+- New env var → declare in `env.ts` zod schema **first**
+- Consumer code `env.VAR_NAME` (not `process.env.VAR_NAME`)
+- Exceptions · `env.ts` itself · dynamic-import guards loaded before `env` parse completes
+
+**Audit-staleness meta** · audit docs snapshot code state at audit time · repos change · re-verify before implementing audit-derived Tasks · Phase 1 grep is mandatory defense per Pattern F. Had Phase 1 been skipped, C1 would have appended two already-present fields to `env.ts` (zod duplicate-key error would have been loud; but equivalent "already-closed" claims on silent fields would slip past).
+
+**Case B surgical kept** · `NODE_ENV` at `sentry.ts:28` intentionally not migrated · V5.0.5 batch audit migrates all 7 `NODE_ENV` consumers in one dedicated brief (see cross-task-shared-extension-backlog.md `process.env → env.X batch migration audit`). 1 `LOG_LEVEL` occurrence at `lib/logger.ts:10` surfaces as truly bypass (undeclared) — more urgent than `NODE_ENV` batch; still deferred to V5.0.5 per A5 scope fence (SENTRY_* narrative).
+
+**Zero test changes** · `env.test.ts` + `sentry.test.ts` both absent (Q2/Q4 grep) · brief §2 D3 skip path · behavior backward-compat (`env.SENTRY_*` and `process.env.SENTRY_*` both sourced from same `.env` parse · value identical) · 4-green smoke (`lint` 0-err · `typecheck` 0-err · `test` 1326 pass · `build` 0-err) was the self-attest gate.
+
+Commit: `a39331d` (Phase 2 C1)
+Brief: V5 Release Plan #5 · A5 · 2026-04-22
+Branch: `chore/a5-sentry-env-schema` (self-merge pending PR CI)

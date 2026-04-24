@@ -7,6 +7,7 @@
  * The module is dynamically imported to avoid build errors when @sentry/node
  * is not installed (optional peer dependency).
  */
+import { env } from '../config/env.js';
 import { logger } from './logger.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,7 +15,7 @@ let _sentry: any = null;
 let _initialized = false;
 
 export async function initSentry(): Promise<void> {
-  const dsn = process.env.SENTRY_DSN;
+  const dsn = env.SENTRY_DSN;
   if (!dsn) {
     logger.info('Sentry: disabled (no SENTRY_DSN)');
     return;
@@ -24,7 +25,7 @@ export async function initSentry(): Promise<void> {
     _sentry = await import('@sentry/node' as string);
     _sentry.init({
       dsn,
-      environment: process.env.SENTRY_ENVIRONMENT || 'development',
+      environment: env.SENTRY_ENVIRONMENT,
       tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.2 : 1.0,
       beforeSend(event: Record<string, unknown>) {
         // Scrub sensitive headers
@@ -38,7 +39,7 @@ export async function initSentry(): Promise<void> {
       },
     });
     _initialized = true;
-    logger.info('Sentry: initialized', { environment: process.env.SENTRY_ENVIRONMENT });
+    logger.info('Sentry: initialized', { environment: env.SENTRY_ENVIRONMENT });
   } catch (err) {
     logger.warn('Sentry: failed to initialize — install @sentry/node to enable', err);
   }
