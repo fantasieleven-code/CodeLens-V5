@@ -1186,3 +1186,24 @@ Second task in a row (A14a was first · observation #139) to pre-declare OQs at 
 Brief §5 Q5 framed main CI as "3 red" matching F-A10-lite report, implying `prompt-regression` was in the red bucket. Actual `gh` query returned conclusion = `skipped` for that job on main pushes. Pattern-F 第 22 次: brief text narrative ≠ CI-observed state; agent grep of `gh run view --json` caught the distinction before C2 was designed. Impact: C2's mock-provider baseline was designed knowing the job is dormant on main push (path gate) but **live on every PR event** (`github.event_name == 'pull_request'` condition) — the PR CI run is the real verification gate, not a theoretical pass.
 
 **Rule reinforcement**: any "CI red" claim in a brief should be cross-checked via `gh run view --json conclusion,jobs` for the exact conclusion string. `skipped` / `cancelled` / `failure` / `success` are four distinct states with four distinct implications for the follow-up fix. Self-merge gate was extended per ratify §F2: post-PR-open check requires "e2e + prompt-regression jobs run AND green" (not assumed green via SKIP).
+
+---
+
+### #150 — `architectural-insight` V5 canonical socket-driven · `routes/session.ts` removed · 6-day-stale exclusion promoted to delete
+**trace**: Task A1 · Brief #1 · V5 Release Plan 2026-04-22 · OQ-R1 γ · `git rm packages/server/src/routes/session.ts` (136 LOC · 8 REST endpoints) · Case B surgical cleanup of index.ts + tsconfig + TYPECHECK_EXCLUDES.md · zero-consumer verified via Phase 1 grep
+
+V4-era REST session lifecycle endpoints (`routes/session.ts` · 8 endpoints · 136 LOC) were never wired in V5 `index.ts` · `TYPECHECK_EXCLUDES` recorded since V5 init (2026-04-17 · commit `c6c2417`) without any re-enable progress (6 days · 0 owner activity · 1 touching commit total). V5 `ExamRouter` is socket-driven (frontend `App.tsx:106-136` switch on `currentModule` state from socket broadcasts) · REST session lifecycle is architecturally redundant.
+
+**Decision** · OQ-R1 γ (V5 Release Plan 2026-04-22 · three-view consensus Karpathy / Gemini / Claude Code lead) · delete `routes/session.ts` · V5 canonical single-axis socket architecture preserved. Not a rewrite deferred to later · not an archive branch · git history retains the file for recovery if a future V5.x needs REST session API (new Task).
+
+**Implication** · Task 11 scope redefined = MC SSE via `mc-voice-chat.ts` (A3 brief) + candidate profile/consent via B-A12 (shipped 2026-04-20). No further REST session work planned V5.0.x. `TYPECHECK_EXCLUDES.md` Task re-enable 清单 row 20 converted to strikethrough + amendment note · historical provenance preserved.
+
+**Zero-consumer verified via Phase 1 grep** · 0 backend `ts/js` imports of `routes/session` (sessionRouter symbol only self-references inside the deleted file) · 0 frontend `/session/` URL calls · 0 test files referring to `routes/session`. Service layer (`services/session.service.ts` + its callers) is independent and unchanged — the route depended on the service, not vice versa.
+
+**Rule candidate (V5.0.5 housekeeping checklist)**: when a `TYPECHECK_EXCLUDES` entry has no owner progress for >N days AND the architecture has diverged (V5 canonical decided), promote to a **"delete vs rewrite"** decision rather than leaving as indefinite exclusion. The 6-day window applied here · the stale `Task 11 re-enable` item was the tell. Silent persistence would have: (a) encouraged new code to reference the unregistered route, (b) masked ongoing V5 architectural drift, (c) carried CI noise (tsc exclude comment carries editorial cost).
+
+**Pattern G** preserved throughout · Phase 1 report surfaced 5 drifts (D-A path / D-B LOC / D-C table shape / D-D backlog no-entry / D-E Case B fence) before any edit · ratify round resolved all 5 · no silent fill · Case B surgical cleanup kept fence #6 intact (Task 10 job-models comment untouched).
+
+Commit: `91a7e39` (Phase 2 C1)
+Brief: V5 Release Plan #1 · A1 · 2026-04-22
+Branch: `chore/a1-delete-session-route` (self-merge pending PR CI)
