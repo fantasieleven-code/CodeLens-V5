@@ -32,7 +32,7 @@
  */
 
 import { type Page, expect } from '@playwright/test';
-import type { ScoreSessionInput, V5Submissions } from '@codelens-v5/shared';
+import type { ScoreSessionInput, V5Grade, V5Submissions } from '@codelens-v5/shared';
 
 import { MonacoHelper } from './monaco-helper.js';
 import { TerminalHelper } from './terminal-helper.js';
@@ -51,7 +51,7 @@ import {
 // ────────────────────────── Types ──────────────────────────
 
 export interface GoldenPathDriverFixture extends ScoreSessionInput {
-  grade: 'S' | 'A' | 'B' | 'C';
+  grade: V5Grade;
   candidate: {
     name: string;
     email: string;
