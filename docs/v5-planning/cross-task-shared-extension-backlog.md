@@ -506,3 +506,34 @@ Added during Task A2 (Brief #2 v3 · voice-mount · observation #155):
   Recommended · Approach β(lowest risk · highest clarity · preserves V4→V5 reuse semantics that the header's own `Scope discipline` section already signals).
   
   Reference · A2 Brief #2 v3 Phase 1 Q1 finding · observations.md #155 · sibling `mc-voice-chat.ts` route prefix uses consistent `/api/v5/mc/*` pattern so voice is the outlier. Fence-preserved during A2 per D-3 revised wording("ZERO voice.ts logic/guard addition"). Pure doc / pure-path-rewrite scope · no CI workflow impact · no Steve review gate.
+
+### 分支验证 pre-commit 纪律 + worktree 隔离(V5.0.5)
+
+**来源**: Brief #7 B1 race condition 2026-04-24 · W2 commit 错落 W1 分支因共享 filesystem · post-commit 抓到 · cherry-pick 恢复 · 0 损失 · W1 A2 PR 独立 ship 干净(orphan local-only pre-W1-push)· observation #156 formalize。
+
+**V5.0.5 修**:
+- Rule #9 加入 `backend/frontend-agent-kickoff.md` · pre-commit `git branch --show-current` 验证 mandatory
+- §E trigger E6 "wrong-branch at commit" 传播到所有 brief 模板(A3 · B2 · B3 立即 apply · 已随 B1 dispatch 生效)
+- 可选 · `git worktree add ../CodeLens-v5-<window>` 基础设施 for parallel windows · 每 window 独立 working tree · 共享 `.git` objects · 0 filesystem 冲突 · 比完全独立 clone 更优(npm install 重复成本高)
+
+**优先级**: 高 · 防止未来 parallel 工作 data corruption / cross-window contamination。
+
+**Session evidence**: B1 session 内 2 race episodes · first 导致 commit 错落 a2 branch(post-commit `git branch --show-current` caught · cherry-pick 恢复)· second pre-write caught 由 Rule #9 apply(pre-commit verify 显 HEAD `main` · checkout B1 前 0 mutation)。Rule #9 validated as working safety net · 不 ceremonial。
+
+### Mock config scaffold reconcile(V5.0.5)
+
+**来源**: Brief #7 B1 W2 Brief #INV-2 discovery 2026-04-24 · `e2e/playwright.mock.config.ts` 73 LOC shipped V5 init `c6c2417` · broken refs surface during B1 Phase 1
+
+**State**:
+- `e2e/playwright.mock.config.ts` 73 LOC · V5 init era · V4 port scaffold · references missing:
+  - `full-interview-flow.spec.ts`(spec 不存)
+  - `e2e/fixtures/mock-ai-server.ts`(server 不存)
+- Root `package.json` 仍 has `test:e2e:mock` script referencing 此 config
+- Intent unclear · likely mock-AI interview flow for offline dev
+
+**V5.0.5 reconcile approaches**(pick one):
+- α · Fix · create missing spec + mock-ai-server · complete scaffold(scope explosion · ~500+ LOC · V5.0.5 full brief)
+- β · Delete · remove config + script + refs · clean orphan(~5 LOC · safe · recommended)
+- γ · Defer · document + leave · revisit V5.2 if mock-AI flow revived
+
+**Decision deferred V5.0.5 housekeeping brief**。

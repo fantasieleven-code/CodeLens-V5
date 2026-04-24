@@ -1322,3 +1322,31 @@ Branch: `chore/c1-doc-unify-signal-count` (self-merge pending PR CI)
 Commits: `3a0bb87` (C2 voice.ts refactor · byte-identical named-export extraction) · `<C3 SHA>` (voice.test.ts + this observation + backlog V5.0.1 entry)
 Brief: V5 Release Plan #2 v3 · A2 voice-mount · 2026-04-24
 Branch: `feat/backend-task-a2-voice-mount` (self-merge pending PR CI)
+
+---
+
+### #156 — `meta-pattern` 跨 window git 状态共享 · race condition · V5.0.5 rule #9 formalize
+
+**trace**: Brief #7 B1 Phase 2 · W2 commit `8cc9a5a` 错落 `feat/backend-task-a2-voice-mount` 而非 B1 分支 · cherry-pick 到 SHA `80b1164`(后 rebase onto A2-merged main · final SHA `64f1a91`)· 0 数据损失 · W1 A2 PR #92 独立干净 ship(orphan commit 仅 local · W1 push 前未传播到 remote)
+
+**根因**: 共享 `~/Projects/CodeLens-v5/` filesystem · 单 `.git` state · W2 bash_tool 看到 W1 刚 switch 的分支 · pre-commit 分支验证缺失 · commit 落错分支。reflog 显示 `checkout: moving from feat/backend-task-b1-playwright-config to feat/backend-task-a2-voice-mount` 发生在 W1 active 期间 · W2 下一 write op 继承该 HEAD。
+
+**Agent 纪律坚守**: post-commit `git branch --show-current` 抓到 · stop + surface · Pattern G 守则保持 · 0 silent push。Cherry-pick 恢复 · a2 branch 现由 W1 清理(orphan commit `8cc9a5a` 保留在 reflog 30-day 窗口 · 可回溯)。
+
+**V5.0.5 rule candidate #9**(new · formalize):
+- 每个 write op(commit · push · branch create · rebase · reset · stash pop)必 preceded by `git branch --show-current` 验证
+- Mismatch → §E stop · report · 不 silent proceed
+- Pattern H 风格 · state verification before mutation
+- 加入 backend/frontend-agent-kickoff.md + 所有 brief §E triggers · V5.0.5 housekeeping brief 落地
+
+**V5.0.5 基础设施选项**: `git worktree add ../CodeLens-v5-<window>` 为每 parallel window 独立 worktree · 共享 `.git` objects · 0 filesystem 冲突 · 比完全独立 clone 更优(后者 npm install 重复成本高)。
+
+**V5.0 战术应对**: §E "wrong-branch at commit time"(E6)trigger 加入所有剩余 briefs(A3 · B2 · B3)dispatch blocks · 立即 discipline。Rule #9 从 B1 C2 commit 起生效 · B1 C2 pre-write verify caught second race episode(reflog `HEAD@{1}` checkout B1→main + `HEAD@{0}` pull origin main · 发生在 user 两条 message 间 · 若 silent proceed 会 commit 到 main 或 rebased-away-B1-branch)。
+
+**Pattern F 累计**: 34 drifts caught(W1 A2 33 + W2 B1 race 1)· 0 silent push 全 session 维持。
+
+**本地 orphan 清理**(V5.0.5 housekeeping): pruning local `a2` branch 含 `8cc9a5a` orphan · `git branch -D feat/backend-task-a2-voice-mount` · W-A 完成后 · SHA reflog 30-day 窗口保留 recovery 余地。
+
+Commits: `64f1a91` (C1 · golden-path config + CI seed + script hygiene · rebased post-A2) · `<C2 SHA>` (this observation + V5.0.5 backlog rule #9 entry)
+Brief: V5 Release Plan #7 · B1 · 2026-04-24
+Branch: `feat/backend-task-b1-playwright-config` (Steve review pending · CI workflow touch per kickoff Line 91)
