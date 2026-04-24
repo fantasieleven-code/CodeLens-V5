@@ -1270,3 +1270,29 @@ Cost · 5-10 min per phase · saves the rework cycle (multiple ratify rounds) an
 Commits: A4 C3 (this entry's introducing commit)
 Brief: V5 Release Plan #4 · A4 · 2026-04-22
 Branch: `feat/a4-canonical-exam-seed` (self-merge pending PR CI)
+
+---
+
+### #154 — `pattern` doc signal count narrative sync · 48 canonical + playbook State B greenfield create
+**trace**: Task C1 · Brief #6 · V5 Release Plan 2026-04-22 · W-C DOC_DRIFT-5 + DOC_DRIFT-0 · `CLAUDE.md:11` single-line replacement (43→48 + dimension breakdown) + `docs/v5-planning/steve-playbook.md` greenfield create (108 LOC skeleton) · Phase 1 Q0 `find -iname "*playbook*"` returned 0 repo-wide · audit authoritative · project knowledge "playbook exists" claim stale
+
+V5 Release Plan Brief #6 C1 · `CLAUDE.md` narrative `43 信号:40 纯规则 + 3 LLM 白名单（仅 MD）` updated to `48 信号:45 纯规则 + 3 LLM 白名单（MD 模块 · sAiOrchestrationQuality / sDesignDecomposition / sTradeoffArticulation）` + dimension sub-bullet `P0 5 · MA 10 · MB 23 · MD 4 (3 LLM + 1 pure) · MC 4 · SE 2 = 48` per audit Area 4 implementation truth (signal registry `EXPECTED_SIGNAL_COUNT=48` shipped A14a · 45 pure-rule + 3 LLM whitelist · `sConstraintIdentification` is pure-rule per A14a Phase 1 finding).
+
+**steve-playbook.md State B confirmed · greenfield create** · audit was authoritative · Phase 1 Q0 broad grep (`find -iname "steve-playbook*"` · `find -iname "*playbook*"` · `grep -r steve-playbook **/*.md`) all returned 0 · project knowledge "playbook exists" claim was stale (brief §2 D2 surfaced the claim; Phase 1 Q0 killed it). Skeleton includes canonical source docs (V5 Release Plan · backend-agent-tasks · cross-task-backlog · audit · observations · TYPECHECK_EXCLUDES) + 5 pattern library (F / G / B / E / H) + ship gate 6 items + self-merge authority + brief lifecycle flowchart + Cold Start pointer + 5 V5.0.5 rule candidates (#1 stale TYPECHECK · #2 audit re-verify · #3 typed > narrative · #4 CI gate scope · **#5 本 observation** · doc signal count grep before update).
+
+**Meta-pattern** · plan doc narrative numbers are snapshot 可 stale · audit is snapshot 可 stale · implementation (signal registry · `env.ts` · Prisma schema · fixtures) 是 source of truth. Cross-ref via grep before update. Pattern F extension · V5.0.5 rule candidate #5 now formalized in playbook skeleton.
+
+**Pattern F session track record · 6th validation** · cumulative drift-catch via Phase 1 grep: A1 (5) · A4 Phase 1 (5) · A5 (6) · A4 Phase 2 L2 typed (5) · A4 Phase 2 L3 CI-scope (1) · **C1 (6 · State B confirm + D-5 backlog discovery + D-6 其他 "43" mentions outside CLAUDE.md)** · total **28 drifts caught pre-code-write · 0 silent push · V5.0 ship quality preserved**.
+
+**Fence preserved (V5.0 scope discipline)**:
+- fence #2 · `TransparencyStatement.tsx` "43 个信号" literal · V5.0.5 content-only PR (already in `cross-task-shared-extension-backlog.md:448` amended with partial-closure note by C2)
+- fence #3 · `v5-design-reference.md:711,713` + `design-reference-p0.md` (50K+ LOC historical brainstorm) "43" occurrences · V5.0.1 comprehensive doc-drift sweep candidate
+- fence #5 · `CLAUDE.md:18` `exam-generator/` directory claim (directory truly missing · DOC_DRIFT-1) · V5.0.1 defer per severity Minor
+
+**V5.0 narrative coherence** · `TransparencyPage` A15 frontend (48 count · shipped PR ?) + `CLAUDE.md` (48 now aligned · this PR) + `steve-playbook.md` (no inline drift · points to canonical) · candidate / HR / dev 读 doc 一致 at surface level (fence-preserved residual drift 是 documented V5.0.1 / V5.0.5 scope · not silent).
+
+**Cross-ref** · `cross-task-shared-extension-backlog.md:448` A15-era "signal-count literal unify" entry amended with partial-closure note by C2 (CLAUDE.md surface closed · TransparencyStatement.tsx + other drift surfaces remain V5.0.5 / V5.0.1 scope · clear handoff for future housekeeping brief picker-upper).
+
+Commits: `3abdb90` (C1 · CLAUDE.md + playbook)
+Brief: V5 Release Plan #6 · C1 · 2026-04-22
+Branch: `chore/c1-doc-unify-signal-count` (self-merge pending PR CI)
