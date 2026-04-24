@@ -595,3 +595,92 @@ Reference · Brief #8 B2 observation #158 Pattern F 10th validation · rule cand
 ### Mock config scaffold reconcile(重复 reference · 见 B1 V5.0.5 section · 不重复 entry)
 
 Already captured · `e2e/playwright.mock.config.ts` broken refs(full-interview-flow.spec.ts + mock-ai-server.ts 不存)· 3 approaches α/β/γ · 决策 V5.0.5 housekeeping brief。
+
+## V5.0.1 Housekeeping brief(pre-ship consolidate · B3 post-merge draft)
+
+**Origin**: Brief #9 B3 · W-B 3/3 ship · V5.0 automation closure · V5.0.1 micro-PRs consolidate pre-ship · observation #159。
+
+**Scope**(single planning-drafted brief · doc-only + small frontend touches · merge pre-ship):
+- **A2 voice.ts header doc vs actual path drift reconcile** · 3 approaches α/β/γ per backlog:495 A2 section · recommend β(header doc align actual mixed-prefix · lowest risk · zero client impact)
+- **A3 mc-voice-chat `/api/v5/mc/*` doc sweep** · grep all `docs/**.md` for stale `/api/moduleC/*` or `/api/voice/v5/*` patterns · unified correct to `/api/v5/mc/*` + `/api/voice/*` actual · v5-signal-production-coverage.md:84 已 surfaced · 其他 unknown
+- **Frontend micro-PR · dead `packages/client/src/hooks/useSocket.ts` deletion** · 100+ LOC · 5 non-existent store imports per Frontend INV-3 · workspace lock · separate frontend brief dispatch to frontend window
+- **Rule #11 INV-pattern formalize** · add to backend/frontend-agent-kickoff.md planning-side section · brief template §0 optional pre-brief INV dispatch · 3x validated INV-1/INV-2/INV-3
+
+**Priority**: Medium-High · clean pre-ship housekeeping · not V5.0 blocker · consolidates 4 post-W-A/W-B surfaces。
+
+## V5.0.5 Housekeeping brief(ship 后 2+ week · expansion · B3 post-merge draft)
+
+**Origin**: Brief #9 B3 observation #159 · W-B complete · V5.0.5 rule candidates + expansion needs consolidated。
+
+**Scope**:
+
+### Rule #10 strengthened formalize (new · B3 session surface)
+
+Pre-brief planning-side **3-thing scan** (15-30 sec per brief · saves 20-30 min ratify round-trip per occurrence):
+1. `cross-task-shared-extension-backlog.md` (original rule #10)
+2. **Shared types / interfaces** (`packages/shared/src/types/**.ts`) · grep brief-topic types before writing code expectations
+3. **Data structure files** (fixtures · config · schema) · `head -50` / `cat` to verify shape before writing brief skeleton
+
+**Failure mode cost 3 examples from session** (re-validated · rule maturing):
+- A3 brief miss · backlog:508 + voice.ts:132 cross-ref (agent caught Phase 1 Q2)
+- B3 brief miss · expectations.ts shape cat (agent caught Phase 1 Q2 · D1 + D3)
+- B2 brief miss · V5Grade shared type grep (agent caught B3 Layer 2 · B2 narrow-literal unchallenged prior)
+
+**Action**: add to planning-side checklist in `backend-agent-kickoff.md` + brief template 前置 discipline section。
+
+### Rule #12 e2e/ CI scope systematic fix (high priority · B2+B3 precedent)
+
+**Evidence · 5 typecheck drifts caught via ad-hoc Layer 2** (B2 4 + B3 1 · cumulative W-B runway):
+- B2 · V5MBPlanning shape (decomposition/dependencies/fallbackStrategy not single text)
+- B2 · V5ModuleDSubmission.interfaceDefinitions string[] not string
+- B2 · TerminalHelper.clickRun ordering dependency
+- B2 · unused P0ModuleSpecific import
+- B3 · GoldenPathDriverFixture.grade narrow-literal vs V5Grade canonical
+
+**Systematic fix** (V5.0.5 scope · single brief · CI workflow touch · Steve review gate):
+- Add `e2e/tsconfig.json` extending `tsconfig.base.json` · include `e2e/**/*.ts`
+- Add CI step `npx tsc --noEmit -p e2e/tsconfig.json` in `lint-and-typecheck` job
+- Verify existing e2e/ files pass (smoke · driver · helpers · testids · spec · 2 configs)
+- Lint scope extension · `eslint e2e --ext .ts` (optional · V5.0.5 scope decision)
+
+### expectations.ts extension (B3 D3 scope gap)
+
+**Origin**: B3 brief expected per-dim + per-signal bounds for assertions · `FixtureExpectation` interface (123 LOC) only provides grade + composite + capability labels + sCalibration。
+
+**V5.0.5 scope** (separate brief · Task 17 extension):
+- Expand `FixtureExpectation` interface · add `dimensionScores: Record<V5Dimension, [number, number]>` + `keySignals: Array<{ id, range }>`
+- Recalibrate 4 archetype entries (liam/steve/emma/max) · source from current calibrated values · extend bands
+- B3 spec extension (follow-up micro-PR) · add per-dim + per-signal assertions using expanded expectations
+
+**Priority**: Medium · ship gate #2 passes with current narrow assertions · V5.0.5 adds fine-grained regression coverage。
+
+### testids.ts admin report group migration (B3 D5 scope gap)
+
+**Origin**: B3 inline `REPORT_TESTIDS` const in spec · fence #9 B3 narrow-reading · testids.ts scope frozen post-B2。
+
+**V5.0.5 scope**:
+- Move `REPORT_TESTIDS` from spec to `testids.ts` · `ADMIN_REPORT_TESTIDS` group
+- Enumerate full INV-3 report catalog · `signalRow(id)` · `signalGroup(dim)` · `capabilityProfile(id)` · `hero-*` variants
+- B3 spec follow-up · replace inline const with import
+
+**Priority**: Low · shared source hygiene · current inline const works · V5.0.5 cleanup。
+
+### max-c-grade.ts fixture rename ('D' grade alignment)
+
+**Origin**: Task 17 · V4-era naming · fixture file `max-c-grade.ts` + export `maxCGradeFixture` · actual expectations bucket Max in 'D' grade per Task A1 recalibration。
+
+**V5.0.5 scope** (micro-PR · all-touching rename):
+- `max-c-grade.ts` → `max-d-grade.ts`
+- `maxCGradeFixture` export → `maxDGradeFixture`
+- B3 spec import + describe name update
+- In-process `golden-path.test.ts` import update
+
+**Priority**: Low · cosmetic alignment · current spec comment notes discrepancy · V5.0.5 hygiene。
+
+### Rule #9 git worktree infra
+
+Per B1+B2+A3 race condition incidents (observation #156/#157) · `git worktree add ../CodeLens-v5-<window>` for parallel windows · shared `.git` objects · 0 filesystem conflict · alternative to shared working tree。
+
+### Helper test coverage + other items
+
+Per B2 backlog entry · `monaco-helper.test.ts` + `terminal-helper.test.ts` direct unit tests · V5.0.5 nice-to-have。

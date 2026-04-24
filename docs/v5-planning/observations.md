@@ -1420,3 +1420,71 @@ B2 Playwright golden-path driver greenfield rewrite · 709 insertions / 333 dele
 Commits: `8c7444f` (C1+C2 merged · driver + testids + helper refresh) · `<C3 SHA>` (this observation + V5.0.5 backlog)
 Brief: V5 Release Plan #8 · B2 golden-path-driver · 2026-04-24
 Branch: `feat/backend-task-b2-golden-path-driver` (self-merge authorized per A2/A3/A5/B1 precedent · no CI workflow touch)
+
+---
+
+### #159 — `design-insight` B3 golden-path spec · W-B 3/3 COMPLETE · V5.0 ship gate #5 automation closure
+
+**trace**: Brief #9 B3 · PR #<N> · post-W-A-5/5 (54bd438) + post-B1 (1a97caf) + post-B2 (a57f200)
+
+W-B runway final brief · 4 fixtures (Liam S · Steve A · Emma B · Max D) replay the full 13-step candidate golden path via B2 `GoldenPathDriver` · assert on `/admin/sessions/{id}` report surface. V5.0 ship gate #2 Grade Confidence (4-grade monotonicity automated) + gate #5 Golden Path Automation (7/8 modules · MC voice remains Cold Start Tier 2 manual) simultaneously closed.
+
+**Phase 1 drift catches · 5 all α accept**:
+- **D1** · `FIXTURE_EXPECTATIONS` is `Record<'liam'|'steve'|'emma'|'max', FixtureExpectation>` map not per-grade named exports · spec access pattern adjusted
+- **D2** · grade labels S/A/B/**D** (not S/A/B/C as brief assumed) · Liam `['S','S+']` + Emma `['B','C']` boundary arrays · assertion `expected.grades.includes(actual)` · describe name "Max D-grade"
+- **D3** CRITICAL · `FixtureExpectation` shape only provides grade bucket + composite band + capability labels × 4 + sCalibration range · NO per-dim scores + NO keySignals · assertion scope reduced to documented fields · V5.0.5 housekeeping brief `expectations.ts` extension candidate (per-dim + per-signal bounds)
+- **D4** · admin email default `admin@codelens.dev` (env.ts:117 · CI workflow aligned) not `admin@codelens.test` brief assumed
+- **D5** · testids.ts lacks report surface testids (B2 scope driver-only · didn't migrate INV-3 catalog) · inline `REPORT_TESTIDS` const in spec (fence #9 narrow-reading · V5.0.5 housekeeping migrate to testids.ts admin report group)
+
+**Phase 2 Layer 2 ad-hoc typecheck catch · 1 drift**:
+- **L2-1** · B2 driver `GoldenPathDriverFixture.grade` narrow-literal `'S'|'A'|'B'|'C'` vs V5Grade canonical `'D'|'C'|'B'|'B+'|'A'|'S'|'S+'` · Max D-grade assignment `grade: 'D'` failed typecheck pre-write · α widen to V5Grade ratified · fence #1 narrow-reading precedent 3rd (A2 D-3 + B1 fence #2 + 本) · 1-line type widening + 1 V5Grade import · pure type · zero behavior change
+
+**Rule #12 production validation 3rd**: Brief #9 B3 C1 Layer 2 ad-hoc typecheck caught B2 driver grade narrow-vs-canonical drift pre-write · α widen accepted · fence #1 narrow-reading per precedent. Cumulative across W-B runway · B2 caught 4 typecheck drifts (V5MBPlanning shape / interfaceDefinitions array / clickRun ordering / unused import) · B3 caught 1 (grade narrow) · **5 Layer 2 catches across 3 briefs · 0 silent push**. Systematic fix (e2e/tsconfig.json + CI step · Steve review gate) V5.0.5 housekeeping high priority.
+
+**V5.0.5 rule candidate #10 strengthened · re-validated 3rd**:
+- A3 brief miss · backlog:508 + voice.ts:132 cross-ref (agent caught Phase 1)
+- B3 brief miss · expectations.ts shape cat (agent caught Phase 1)
+- **B2 brief miss** · V5Grade shared type grep (本 brief Layer 2 caught · B2 narrow-literal choice was unchallenged prior)
+
+Pattern · planning-side **pre-brief 3-thing scan** formalize V5.0.5 housekeeping:
+1. `cross-task-shared-extension-backlog.md`(existing rule #10)
+2. **Shared types / interfaces(`packages/shared/src/types/**.ts`)**(new)
+3. **Data structure files(fixtures · config · schema)**(new)
+
+15-30 sec per brief · saves 1 Phase 2 ratify round-trip (20-30 min per occurrence).
+
+**V5.0 ship gate status post-B3**:
+- **Gate #2 Grade Confidence** · 4-grade monotonicity automated (S > A > B > D composite band ordering · boundary-tolerant assertions) · CI first-run validates
+- **Gate #5 Golden Path Automation** · 7/8 modules covered (P0 · MA · MB · MC text-fallback · MD · SE · admin flow · completion poll) · MC voice Module = Cold Start Tier 2 manual · real Volcano RTC not mock-able
+- **Gate #6 Cold Start** · Tier 2 runbook draft invocation trigger · planning scope post-B3 merge
+
+**Pattern F cumulative · 11th validation** · baseline 47 (per #158) + **B3 P1 drift 5** + **B3 P2 L2 typecheck 1** = **53 drifts caught pre-code-write · 0 silent push · W-B complete ship quality preserved**.
+
+**Rule #9 discipline** · 2 pre-commit verifications this brief · all `feat/backend-task-b3-golden-path-spec` · clean · post-Rule-#9-formalization 2nd clean sprint (B2 first · B3 second · muscle memory established for parallel-window briefs).
+
+**W-B 3/3 COMPLETE**:
+- **B1 config** ✅ (1a97caf · PR #93 · golden-path config + CI seed + scope isolation)
+- **B2 driver** ✅ (a57f200 · PR #95 · 590 LOC driver + 164 testids + helper refresh)
+- **B3 spec** ✅ (this PR · 253 spec + 1 B2 widen)
+
+V5.0 ship gate #5 automation closure achieved · Cold Start Tier 2 prep ready · sprint 收官。
+
+**V5.0.1 housekeeping brief scope** (ship gate 前):
+- A2 voice.ts header vs actual path drift reconcile (3 approaches α/β/γ)
+- A3 mc-voice-chat `/api/v5/mc/*` doc sweep (v5-signal-production-coverage.md:84 stale + grep all docs/)
+- Frontend micro-PR · dead `hooks/useSocket.ts` deletion (workspace lock · separate frontend brief)
+- **Rule #11 INV-pattern formalize** in kickoff.md
+
+**V5.0.5 housekeeping brief scope** (ship 后 2+ week):
+- **Rule #10 strengthened formalize** (3-thing scan · type/backlog/structure)
+- **Rule #12 e2e/ CI scope systematic fix** (e2e/tsconfig.json + CI step)
+- **expectations.ts extension** · per-dim + per-signal bounds (B3 D3 gap)
+- **testids.ts admin report group migration** (B3 inline REPORT_TESTIDS → shared · B2 scope expand)
+- **max-c-grade.ts fixture rename** ('D' grade · file + export symbol align)
+- Mock config scaffold reconcile · `e2e/playwright.mock.config.ts`
+- Helper test coverage (monaco + terminal · direct unit tests)
+- Rule #9 git worktree infra
+
+Commits: `21c417b` (C1 · spec greenfield + B2 grade widen) · `<C2 SHA>` (this observation + V5.0.1/V5.0.5 backlog consolidate)
+Brief: V5 Release Plan #9 · B3 golden-path-spec · 2026-04-24
+Branch: `feat/backend-task-b3-golden-path-spec` (self-merge authorized per A2/A3/A5/B1/B2 precedent · no CI workflow touch)
