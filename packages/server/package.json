@@ -10,6 +10,7 @@
     "lint": "eslint src --ext .ts",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:canonical": "tsx prisma/seed-canonical-v5-exam.ts",
     "demo": "tsx prisma/demo-seed.ts",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
