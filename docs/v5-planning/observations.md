@@ -1370,3 +1370,53 @@ Branch: `feat/backend-task-b1-playwright-config` (Steve review pending · CI wor
 Commits: `40ad21b` (C1 index.ts mount `/api/v5/mc`) · `9d6c99f` (C2 mc-voice-chat.ts Option A named export) · `<C3 SHA>` (mc-voice-chat.test.ts T1-T4 + this observation + V5.0.1 backlog)
 Brief: V5 Release Plan #3 · A3 mc-voice-chat-mount · 2026-04-24
 Branch: `feat/backend-task-a3-mc-voice-chat-mount` (self-merge pending PR CI)
+
+---
+
+### #158 — `design-insight` B2 driver greenfield · W-B 2/3 · INV-3 informed + Layer 2 typecheck catch 4 drifts · commit structure typecheck-forced merge
+
+**trace**: Brief #8 B2 · PR #<N> · post-W-A-5/5 (54bd438) + post-B1 (1a97caf) · W-B 2/3 runway.
+
+B2 Playwright golden-path driver greenfield rewrite · 709 insertions / 333 deletions net +376 prod · 4 files (new driver 590 LOC · new testids 164 LOC · monaco-helper +1 const swap · terminal-helper 67→38 LOC simplification). Frontend INV-3 read-only discovery (2026-04-24 · 15-25 min · 428 testids cataloged · 7 Q comprehensive) pre-validated ~80% of B2 architecture decisions · Phase 1 (4 Q · 10-15 min) surfaced 4 drifts A/B/C/D · planning ratify α for all · Phase 2 Layer 2 grep caught additional 4 type-level issues pre-commit.
+
+**Phase 1 drift catches (4 · all α resolved)**:
+- **Drift A** · fixture shape is `ScoreSessionInput` (Task 17 shared type) not `GoldenPathFixture` · α accepted · `GoldenPathDriverFixture extends ScoreSessionInput + { grade, candidate, examId }` · B3 compose pattern
+- **Drift B** · helpers are class static methods · brief proposed function exports would fail · α accepted · driver imports `MonacoHelper` / `TerminalHelper` class · no helper refactor
+- **Drift C** · `GOLDEN_PATH_PARTICIPATING_MODULES` has 5 entries · no `moduleD` · α accepted · driver has `runMD()` · orchestrator `participatingModules.includes('moduleD')` conditional · forward-compat for V5.0.5 fixture extension
+- **Drift D** · testids.ts 80 LOC projection grew to 164 LOC for full 6-module enumeration · accept · margin within 1200 cap
+
+**Phase 2 Layer 2 grep (socket.io events)** · 0 drift · `v5:mb:chat_stream` + `v5:mb:chat_complete` confirmed at `packages/shared/src/types/ws.ts:243-244` · INV-3 match · driver observes via DOM-render (mb-chat-stream-active + mb-chat-message-{i}) not socket emit · fragile upgrade path avoided.
+
+**Phase 2 Layer 2 typecheck (ad-hoc `tsc --noEmit`)** · 4 additional drifts caught before commit (e2e/ is outside workspace tsconfig scope per B1 Phase 1 CI-scope finding; ad-hoc tsc is real validation):
+- **L2-1** · `V5MBPlanning` has `decomposition` / `dependencies` / `fallbackStrategy` · NOT a single `text` field · testids expanded to 3 planning fields · driver runMB fills 3 textareas
+- **L2-2** · `V5ModuleDSubmission.interfaceDefinitions` is `string[]` not `string` · driver joins with `'\n'` for single textarea fill
+- **L2-3** · `TerminalHelper.clickRun` consumed by driver but not defined in C2 scope · typecheck dependency forced commit structure adjustment · C1+C2 merged for atomic buildability
+- **L2-4** · unused `P0ModuleSpecific` import silenced via `void`
+
+**Commit structure adjustment**(typecheck-forced merge · brief ratify compliance preserved):
+- Brief ratify · C1 driver + C2 helper refresh + C3 docs
+- Actual · C1 driver + merged helper refresh (atomic) + C2 docs (this commit)
+- Rationale · TerminalHelper.clickRun is new API consumed by driver · separate commit order would break typecheck when Playwright loads e2e/ files · merge is the minimum deviation to maintain each-commit-buildable discipline
+- Explicit callout in C1 commit message body · no silent deviation
+
+**Pattern F cumulative · 10th validation** · baseline 39 per #157 + **B2 P1 drift 4 (A/B/C/D)** + **B2 P2 L2 grep socket 0 drift confirm** + **B2 P2 L2 typecheck 4 (V5MBPlanning shape / interfaceDefinitions array / clickRun ordering / unused import)** = **47 drifts caught pre-code-write · 0 silent push · W-B 2/3 ship quality preserved**.
+
+**V5.0.5 rule candidate #11 · INV-pattern formalize** (new):
+- Pre-brief external-data discovery pattern (INV-1 audit ground-truth · INV-2 B1 scope · INV-3 B2 scope · all 15-25 min read-only · structured report) proven 3 times
+- Formalize · backend/frontend agent workspace-boundary discovery brief template · standard W-B large-scope workflow
+- Benefits · Phase 1 scope precisely locked · avoid multi-round-trip ratify · ~80% unknown reduction
+- Add to backend/frontend-agent-kickoff.md + brief template · V5.0.5 housekeeping
+
+**V5.0.5 rule candidate #12 · e2e/ CI scope gap** (new):
+- `e2e/` directory outside `packages/*/tsconfig.json` includes + `eslint packages/*/src` lint scope · real validation only via ad-hoc `tsc --noEmit` + Playwright runtime TS loader
+- B2 caught 4 Layer 2 type issues only via ad-hoc `tsc --noEmit` · CI gate would have missed
+- Fix options · α add `e2e/tsconfig.json` + workspace extends · β move helpers into `packages/e2e/` workspace · γ add pre-commit hook running ad-hoc tsc on e2e/**.ts
+- V5.0.5 housekeeping brief · decision deferred
+
+**W-B 2/3 milestone** · B1 config ✅ · B2 driver ✅ · B3 spec pending dispatch. Cold Start Tier 2 prep complete per B2 ship (admin setup + candidate flow + completion poll fully codified · B3 spec consumes).
+
+**Rule #9 discipline** · 3 pre-commit `git branch --show-current` verifications this brief · all `feat/backend-task-b2-golden-path-driver` · clean (no race episodes this brief · first post-Rule-#9-formalization brief)
+
+Commits: `8c7444f` (C1+C2 merged · driver + testids + helper refresh) · `<C3 SHA>` (this observation + V5.0.5 backlog)
+Brief: V5 Release Plan #8 · B2 golden-path-driver · 2026-04-24
+Branch: `feat/backend-task-b2-golden-path-driver` (self-merge authorized per A2/A3/A5/B1 precedent · no CI workflow touch)
