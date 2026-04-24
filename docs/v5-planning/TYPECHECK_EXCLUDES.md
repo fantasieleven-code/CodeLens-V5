@@ -4,7 +4,6 @@
 
 | 文件 | 原因 | Task owner | Tracking |
 |---|---|---|---|
-| `src/routes/session.ts` | `SessionService.create` 已删，route 未改 V5 流 | Task 11 | #10 |
 | `src/config/job-models/index.ts` | 依赖未实现的 `exam-generator.service`（等待 Task 10 Generator 落地） | Task 10 | #10 |
 
 另见 `src/services/event-bus.service.ts` 中 3 个 `@ts-expect-error`：`behaviorSignal` Prisma 模型（×2）+ `workers/signal-analysis.worker.js` 动态 import。Task 13 信号注册落地时一并移除。
@@ -17,7 +16,7 @@
 
 - ~~**Task 5（SandboxProvider）**：re-enable `routes/health.ts` + `services/e2b-health.service.ts`~~ ✅ PR Task 5
 - **Task 10（exam-generator）**：re-enable `config/job-models/index.ts`
-- **Task 11（MC 后端）**：re-enable `routes/session.ts`
+- ~~**Task 11（MC 后端）**：re-enable `routes/session.ts`~~ ✅ V5 canonical socket-driven · session.ts removed 2026-04-22 per V5 Release Plan OQ-R1 γ · Task 11 scope redefined = MC SSE via mc-voice-chat.ts mount (A3 brief) + candidate profile/consent via B-A12 (shipped)
 - **Task 13（signal registry 信号落地）**：移除 `event-bus.service.ts` 的 3 个 `@ts-expect-error`
 - ~~**Task 15（Admin API / Prisma V5 字段）**：re-enable `routes/shared-report.ts`~~ ✅ Task 15b β-delete
 

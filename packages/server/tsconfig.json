@@ -9,7 +9,6 @@
     "src/**/*.test.ts",
     "src/**/__tests__/**",
     // V4 leftovers — re-enable per docs/v5-planning/TYPECHECK_EXCLUDES.md
-    "src/routes/session.ts", // TODO(task-11): re-enable after MC backend rewrite
     "src/config/job-models/index.ts" // TODO(task-10): re-enable after exam-generator.service lands
   ]
 }
