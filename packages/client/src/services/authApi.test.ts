@@ -17,14 +17,8 @@ function jsonResponse(status: number, body: unknown): Response {
 }
 
 describe('postLogin', () => {
-  beforeEach(() => {
-    (import.meta.env as Record<string, string | undefined>).VITE_API_URL =
-      'http://api.test';
-  });
-
   afterEach(() => {
     globalThis.fetch = ORIGINAL_FETCH;
-    delete (import.meta.env as Record<string, string | undefined>).VITE_API_URL;
     vi.restoreAllMocks();
   });
 
@@ -48,7 +42,7 @@ describe('postLogin', () => {
       expiresIn: 28_800,
     });
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe('http://api.test/auth/login');
+    expect(calls[0].url).toBe('/auth/login');
     expect(calls[0].init.method).toBe('POST');
     expect(JSON.parse(String(calls[0].init.body))).toEqual({
       email: 'a@b.com',

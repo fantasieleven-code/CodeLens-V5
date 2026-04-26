@@ -40,26 +40,18 @@ export class LoginError extends Error {
   }
 }
 
-declare global {
-  interface ImportMeta {
-    readonly env?: Record<string, string | undefined>;
-  }
-}
-
-function requireApiUrl(): string {
-  const env = (import.meta.env ?? {}) as Record<string, string | undefined>;
-  const base = env.VITE_API_URL;
-  if (!base) throw new Error('VITE_API_URL not configured');
-  return base.replace(/\/$/, '');
-}
-
 export async function postLogin(
   email: string,
   password: string,
 ): Promise<LoginSuccess> {
   let res: Response;
   try {
-    res = await fetch(`${requireApiUrl()}/auth/login`, {
+    // Relative URL · vite dev proxies /auth → backend :4000 (matches /api ·
+    // /health · /socket.io pattern). Eliminates the lone cross-origin path
+    // that exposed the chromium-vs-Node fetch asymmetry in CI (Brief #11
+    // §E E5 H1+H3 disproved). Production serves frontend + backend
+    // same-origin via reverse proxy, so relative URL works there too.
+    res = await fetch('/auth/login', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email, password }),
