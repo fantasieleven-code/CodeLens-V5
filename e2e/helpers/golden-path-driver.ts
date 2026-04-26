@@ -99,14 +99,20 @@ export class GoldenPathDriver {
   async createSession(
     fx: GoldenPathDriverFixture,
   ): Promise<CreateSessionResult> {
-    await this.page.goto('/admin/sessions/create');
+    // AdminLayoutPage mounts the wizard at `/admin/create`, not under
+    // `/admin/sessions/...`. Navigating to `/admin/sessions/create` matches
+    // the `sessions/:sessionId` route with sessionId='create' →
+    // AdminSessionDetailPage 404s with "加载失败:session create not found".
+    // (Backend endpoint POST /admin/sessions/create is a separate namespace.)
+    await this.page.goto('/admin/create');
 
     // Step 1 · position (default to first available · exam creation doesn't
     // require specific position semantics for Golden Path flow).
+    // The wizard auto-advances on selection (pickPosition → setStep(2)) ·
+    // there is no "next step" button between steps 1↔2 or 2↔3.
     await this.page
       .locator(byTestId(ADMIN_TESTIDS.createStep1Position(0)))
       .click();
-    await this.page.locator(byTestId(ADMIN_TESTIDS.createNextStep)).click();
 
     // Step 2 · level (derive from grade · S/A → senior · B → mid · C → junior).
     const level = fx.grade === 'S' || fx.grade === 'A' ? 'senior'
@@ -115,7 +121,6 @@ export class GoldenPathDriver {
     await this.page
       .locator(byTestId(ADMIN_TESTIDS.createStep2Level(level)))
       .click();
-    await this.page.locator(byTestId(ADMIN_TESTIDS.createNextStep)).click();
 
     // Step 3 · suite + exam + candidate.
     await this.page
@@ -147,15 +152,6 @@ export class GoldenPathDriver {
           .textContent()
           .then((t) => t ?? ''),
       );
-    const candidateToken = await this.page
-      .locator(byTestId(ADMIN_TESTIDS.createCandidateToken))
-      .inputValue()
-      .catch(() =>
-        this.page
-          .locator(byTestId(ADMIN_TESTIDS.createCandidateToken))
-          .textContent()
-          .then((t) => t ?? ''),
-      );
 
     const sessionId = shareableLink.replace(/^.*\/exam\//, '').trim();
     if (!sessionId) {
@@ -163,6 +159,11 @@ export class GoldenPathDriver {
         `Failed to parse sessionId from shareableLink: ${shareableLink}`,
       );
     }
+
+    // sessionToken ≡ sessionId per CandidateGuard's Phase 1 ratify [B] · the
+    // step-4 success card surfaces only the shareable link; the candidate
+    // token IS the sessionId baked into that link.
+    const candidateToken = sessionId;
 
     return { sessionId, shareableLink, candidateToken };
   }

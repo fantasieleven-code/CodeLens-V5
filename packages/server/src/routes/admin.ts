@@ -57,7 +57,6 @@ import {
   NotFoundError,
   ValidationError,
 } from '../middleware/errorHandler.js';
-import { signShareToken } from '../services/auth.service.js';
 import { scoringHydratorService } from '../services/scoring-hydrator.service.js';
 import { SignalRegistryImpl } from '../services/signal-registry.service.js';
 import { registerAllSignals } from '../signals/index.js';
@@ -105,11 +104,15 @@ function parsePositiveInt(value: unknown, fallback: number, max = 200): number {
 }
 
 function shareableUrl(req: Request, sessionId: string): string {
-  const token = signShareToken(sessionId);
+  // sessionToken ≡ sessionId per CandidateGuard / ConsentPage ratified design
+  // (Phase 1 [B]). The signShareToken/verifyShareToken indirection in
+  // auth.service.ts is currently dead code — no /shared/:token route handler
+  // exists on either side — so emitting `/shared/<token>` produced links that
+  // 404'd everywhere. Match the actual route graph: `/exam/:sessionId`.
   const origin =
     (typeof req.headers.origin === 'string' && req.headers.origin) ||
     `${req.protocol}://${req.get('host') ?? 'localhost'}`;
-  return `${origin}/shared/${token}`;
+  return `${origin}/exam/${sessionId}`;
 }
 
 function readSuiteIdFromMetadata(metadata: unknown): SuiteId | null {

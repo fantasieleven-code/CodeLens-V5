@@ -164,7 +164,7 @@ describe('POST /admin/sessions/create', () => {
     const payload = status.mock.results[0]!.value.json.mock.calls[0][0];
     expect(payload.session.id).toBe('sess-1');
     expect(payload.session.candidate.email).toBe('alice@example.com');
-    expect(payload.shareableLink).toBe('https://app.test/shared/mock-share-token');
+    expect(payload.shareableLink).toBe('https://app.test/exam/sess-1');
     expect(sessionCreate).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ orgId: 'org-1' }) }),
     );
@@ -254,7 +254,7 @@ describe('POST /admin/sessions/create', () => {
 
     const payload = status.mock.results[0]!.value.json.mock.calls[0][0];
     expect(payload.selfViewUrl).not.toBe(payload.shareableLink);
-    expect(payload.shareableLink).toMatch(/\/shared\//);
+    expect(payload.shareableLink).toMatch(/\/exam\//);
     expect(payload.selfViewUrl).toMatch(/\/candidate\/self-view\//);
   });
 
