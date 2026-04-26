@@ -1488,3 +1488,52 @@ V5.0 ship gate #5 automation closure achieved · Cold Start Tier 2 prep ready ·
 Commits: `21c417b` (C1 · spec greenfield + B2 grade widen) · `<C2 SHA>` (this observation + V5.0.1/V5.0.5 backlog consolidate)
 Brief: V5 Release Plan #9 · B3 golden-path-spec · 2026-04-24
 Branch: `feat/backend-task-b3-golden-path-spec` (self-merge authorized per A2/A3/A5/B1/B2 precedent · no CI workflow touch)
+
+---
+
+### #160 — `meta-pattern` B1/B2/B3 paper CI gate · admin bootstrap + CI invocation 双 gap · Brief #11 hotfix
+
+**trace**: Brief #10 Cold Start Tier 2 §E E3 stop · admin login fail across 3/4 grades (Liam/Steve/Emma) all failing identically at `loginAdmin` → `waitForURL(/\/admin/)` 180s timeout. Direct probe `POST /auth/login {admin@codelens.dev, …}` → 401 AUTH_INVALID. DB query: zero `OrgMember` rows match `admin@codelens.dev` (only legacy smoke fixture + a phone-login user). Root cause cascade revealed B1/B2/B3 papered a CI gate that never actually exercised the spec.
+
+**Two compounding root causes**:
+1. **No admin bootstrap** — `prisma/seed.ts` only seeds prompts; `prisma/seed-canonical-v5-exam.ts` only seeds ExamInstance + 6 ExamModule; `prisma/demo-seed.ts` creates `demo@codelens.dev` (not `admin`); no `scripts/`; no server-boot bootstrap. The hardcoded `admin@codelens.dev` / `ci-test-password-1234` in `e2e/golden-path.spec.ts` had no upstream provisioning.
+2. **CI invocation drift** — `.github/workflows/ci.yml:107` runs `npx playwright test` (no `--config` flag). Root `playwright.config.ts:5` is `testMatch: 'smoke.spec.ts'`. B1's `e2e/playwright.golden-path.config.ts` is therefore **never invoked in CI**. The 4-grade golden-path spec was merged green because CI's e2e job only validates `GET /health` (smoke.spec.ts:23), not the real candidate flow.
+
+**3-layer planning gap** (Pattern F-class · brief-time):
+- Layer 1 · B1 brief introduced the new config but did not pair it with a CI invocation step
+- Layer 2 · B2 brief reviewed driver shape but did not grep the workflow yaml for the new config's invocation
+- Layer 3 · B3 brief Phase 1 Q3 grepped env-var presence (`ADMIN_EMAIL` set) but did not grep DB for `admin@codelens.dev` row existence — env-var presence ≠ user provisioned
+
+**Pattern H direct evidence** (CI green ≠ test actually runs):
+- W2 ad-hoc Layer 2 typecheck caught typecheck-level drift across B2 (4) + B3 (1)
+- W2 Layer 2 grep caught field-naming and shared-extension drift across all 6 W-A briefs
+- Layer 2 grep does **not** catch execution-scope drift — config file shipping ≠ CI step invoking it
+- Brief #10 Section 1.4 first execution surface = first time anyone ran the spec end-to-end against a live stack
+
+**Hotfix scope (Brief #11)**:
+- C1 · `prisma/seed-admin.ts` NEW (~50 LOC) · idempotent upsert Organization{id:'org-default'} + OrgMember{role:OWNER} · bcrypt 12 · ADMIN_PASSWORD-empty guard · `db:seed:admin` script
+- C2 · `.github/workflows/ci.yml` · add `Seed admin user` step (after canonical seed) + rename existing `Run E2E tests` → `Run E2E smoke tests` + add `Run E2E golden-path tests` step with `--config=e2e/playwright.golden-path.config.ts`
+- C3 · This observation
+
+**Local hotfix verification** (Steve's dev DB, pre-PR):
+- `npm run db:seed:admin` → OrgMember upserted, idempotent on re-run (same id)
+- `curl POST /auth/login {admin@codelens.dev, <env password>}` → 200 + JWT + `orgRole:OWNER`
+
+**V5.0.5 rule candidate #13 (NEW)** · Pre-brief CI invocation grep:
+> When a brief introduces a new playwright/test config or any new CI-scoped artifact, planning must grep the workflow yaml for an invocation step matching the artifact (e.g. `--config=<new>.config.ts`). Config-file presence does not imply CI executes it. Brief acceptance gate: artifact + invocation + (where applicable) seed/fixture provisioning all three present.
+
+**V5.0.5 rule candidate #10 strengthening** · Pre-brief DB seed completeness:
+> Existing rule #10 covers env-var grep. Strengthen with a 4th dimension: when a brief depends on a database fixture user (admin, candidate, smoke), grep the seed scripts for that user's email/identifier. Env-var presence ≠ row provisioned. Specifically: `prisma/*seed*.ts` and any custom bootstrap scripts.
+
+**Pattern F cumulative**: 54 → **55** drifts caught (W2 §E E3 stop · Pattern G no-silent maintained even at validation phase). 0 silent push streak intact across 10 briefs + this hotfix.
+
+**Post-hotfix · Brief #10 resume amendment**:
+- Section 1.2 amended · add `npm run db:seed:admin` after `db:seed:canonical`
+- Section 1.4 re-run B3 · expect 4/4 green
+- Sections 2-5 unchanged
+
+**Sign-off doc impact**: Gates #2 (Grade Confidence) and #5 (Golden Path Automation) automation portions cannot be signed until the hotfix's first CI run produces real green. Brief #10 ship-signoff doc deferred until post-hotfix CI green.
+
+Commits: `ac6cd6a` (C1 · seed-admin + script) · `9dcd1d2` (C2 · CI yaml seed step + golden-path invocation) · `<C3 SHA>` (this observation)
+Brief: Brief #11 · Hotfix · Admin bootstrap + CI golden-path invocation · 2026-04-25
+Branch: `fix/admin-bootstrap-and-ci-golden-path` (β self-merge delegated by Steve · three-view ratify + 4-green pre-PR + local login curl 200 conditions all met · A5 env-schema bypass precedent)

@@ -15,7 +15,13 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './',
-  testMatch: '**/golden-path.spec.ts',
+  // Smoke + golden-path share one playwright invocation so the e2e job
+  // spawns a single backend/frontend webServer pair. Two back-to-back
+  // `npx playwright test` invocations in the same CI step raced on port
+  // 4000 lifecycle (smoke teardown overlapping golden-path spawn) which
+  // surfaced as a "无法连接到服务器" network error in the golden-path
+  // login step. Hotfix #11 §E E4 root-cause fix.
+  testMatch: ['**/golden-path.spec.ts', '**/smoke.spec.ts'],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,

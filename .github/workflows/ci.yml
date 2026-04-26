@@ -101,10 +101,12 @@ jobs:
         run: npm run db:seed --workspace=@codelens-v5/server
       - name: Seed canonical ExamInstance
         run: npm run db:seed:canonical --workspace=@codelens-v5/server
+      - name: Seed admin user
+        run: npm run db:seed:admin --workspace=@codelens-v5/server
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
-      - name: Run E2E tests
-        run: npx playwright test
+      - name: Run E2E tests (smoke + golden-path · single playwright invocation)
+        run: npx playwright test --config=e2e/playwright.golden-path.config.ts
       - name: Upload E2E report
         if: always()
         uses: actions/upload-artifact@v4
