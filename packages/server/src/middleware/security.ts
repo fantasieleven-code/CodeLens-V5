@@ -9,7 +9,7 @@ export function securityMiddleware(app: Express) {
     cors({
       origin: env.CORS_ORIGIN,
       credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   );
