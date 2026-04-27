@@ -33,6 +33,7 @@ import { candidateRouter } from './routes/candidate.js';
 import { candidateSelfViewRouter } from './routes/candidate-self-view.js';
 import { voiceRouter } from './routes/voice.js';
 import { mcVoiceChatRouter } from './routes/mc-voice-chat.js';
+import { sessionRouter } from './routes/session.js';
 import { registerSocketHandlers } from './socket/index.js';
 
 const app = express();
@@ -61,6 +62,10 @@ app.use('/api/candidate/self-view', candidateSelfViewRouter);
 app.use('/api/candidate', requireCandidate, candidateRouter);
 app.use('/api/voice', voiceRouter);
 app.use('/api/v5/mc', mcVoiceChatRouter);
+// Brief #13 D17 · candidate-facing session-metadata read · sessionId-as-id
+// per ratified design (Hotfix #12 + Brief #13 C7) · no auth gate · response
+// shape narrowed to candidate-facing fields only (no scoringResult/grade).
+app.use('/api/v5/session', sessionRouter);
 app.use('/auth', authRouter);
 
 app.use(errorHandler);
