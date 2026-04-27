@@ -55,7 +55,10 @@ describe('submitConsent', () => {
       consentAcceptedAt: '2026-04-20T10:00:00.000Z',
     });
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe('http://api.test/api/candidate/profile/submit');
+    // Brief #13 C5 · candidateApi refactored to relative URLs (vite proxy /api
+    // → :4000). VITE_API_URL is no longer prepended; its presence is
+    // informational only.
+    expect(calls[0].url).toBe('/api/candidate/profile/submit');
     expect(calls[0].init.method).toBe('POST');
     expect(JSON.parse(String(calls[0].init.body))).toEqual({
       sessionToken: 'sess-abc',
@@ -155,7 +158,7 @@ describe('submitProfile', () => {
     expect(out.ok).toBe(true);
     expect(out.sessionId).toBe('sess-abc');
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe('http://api.test/api/candidate/profile/submit');
+    expect(calls[0].url).toBe('/api/candidate/profile/submit');
     expect(calls[0].init.method).toBe('POST');
     expect(JSON.parse(String(calls[0].init.body))).toEqual({
       sessionToken: 'sess-abc',
@@ -274,9 +277,7 @@ describe('fetchCandidateSelfView', () => {
     const out = await fetchCandidateSelfView('sess-sv', 'tok-abc');
     expect(out).toEqual(VALID_VIEW);
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe(
-      'http://api.test/api/candidate/self-view/sess-sv/tok-abc',
-    );
+    expect(calls[0].url).toBe('/api/candidate/self-view/sess-sv/tok-abc');
     expect(calls[0].init.method).toBe('GET');
     expect(calls[0].init.body).toBeUndefined();
   });
