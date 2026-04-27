@@ -189,6 +189,8 @@ export interface MBCandidateScaffold {
 export interface MBCandidateViolationExample {
   exampleIndex: number;
   code: string;
+  /** Optional · server canonical doesn't carry this · mock fixture does. */
+  aiClaimedReason?: string;
 }
 
 export interface MBCandidateView {

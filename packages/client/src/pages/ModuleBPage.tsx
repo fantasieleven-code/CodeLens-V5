@@ -58,30 +58,42 @@ import { MB3StandardsPanel } from '../components/mb/MB3StandardsPanel.js';
 import { ViolationAuditPanel } from '../components/mb/ViolationAuditPanel.js';
 import { CursorModeLayout } from '../components/mb/CursorModeLayout.js';
 import { getSocket } from '../lib/socket.js';
-import { MB_MOCK_FIXTURE, type MBMockModule } from './moduleB/mock.js';
+import { useModuleContent } from '../hooks/useModuleContent.js';
+import type { MBCandidateView } from '@codelens-v5/shared';
 import type { MultiFileEditorFile } from '../components/editors/MultiFileEditor.js';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../lib/tokens.js';
 
 type Stage = 'planning' | 'execution' | 'standards' | 'audit' | 'complete';
 
 export interface ModuleBPageProps {
-  module?: MBMockModule;
+  /**
+   * Optional · storybook / preview / unit-test escape hatch. Real candidate
+   * mount path goes through ExamRouter (no prop) and fetches via
+   * `useModuleContent` (Brief #15 L2 swap).
+   */
+  module?: MBCandidateView;
   onSubmit?: (submission: V5MBSubmission) => void;
   bare?: boolean;
 }
 
 export const ModuleBPage: React.FC<ModuleBPageProps> = ({
-  module: moduleContent = MB_MOCK_FIXTURE,
+  module: moduleProp,
   onSubmit,
   bare = false,
 }) => {
   const advance = useModuleStore((s) => s.advance);
   const setSubmission = useSessionStore((s) => s.setModuleSubmissionLocal);
   const sessionIdFromStore = useSessionStore((s) => s.sessionId);
+  const examInstanceId = useSessionStore((s) => s.examInstanceId);
   // sessionId can be null in test/storybook harness where loadSession was never
   // called. Fall back to a deterministic placeholder so the socket payloads keep
   // a string field — the server-side handler ignores unknown sessionIds anyway.
   const sessionId = sessionIdFromStore ?? 'mb-pending';
+
+  // Brief #15 · skip fetch when prop is provided (storybook/preview/unit test).
+  const fetchState = useModuleContent(moduleProp ? null : examInstanceId, 'mb');
+  const moduleContent: MBCandidateView | null =
+    moduleProp ?? (fetchState.status === 'loaded' ? fetchState.data : null);
 
   const tracker = useBehaviorTracker(sessionId, 'mb');
   // Children expect a stable `track` reference; pull the same one tracker uses.
@@ -91,9 +103,13 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
   const [stage, setStage] = useState<Stage>('planning');
   const [planning, setPlanning] = useState<V5MBPlanning | null>(null);
   const [standards, setStandards] = useState<V5MBStandards | null>(null);
-  const [files, setFiles] = useState<MultiFileEditorFile[]>(
-    () => moduleContent.scaffold.files,
-  );
+  const [files, setFiles] = useState<MultiFileEditorFile[]>([]);
+
+  // Hydrate `files` once content lands · empty until then · stages render
+  // loading/error UX before this fires.
+  useEffect(() => {
+    if (moduleContent) setFiles(moduleContent.scaffold.files);
+  }, [moduleContent]);
   // Latest test_result.passRate folded into the final submission. Starts at 0
   // because "never ran" and "ran but failed all" both deserve a 0 finalTestPassRate.
   const [latestPassRate, setLatestPassRate] = useState(0);
@@ -258,6 +274,25 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
     };
     return labels[stage];
   }, [stage]);
+
+  // Brief #15 · loading / error gates before stage render. Fires only when no
+  // module prop was supplied (test/storybook path skips this branch entirely).
+  if (!moduleContent) {
+    if (fetchState.status === 'error') {
+      const inner = (
+        <div style={styles.gateCard} data-testid="mb-content-error">
+          <p style={styles.gateText}>{fetchState.message}</p>
+        </div>
+      );
+      return bare ? inner : <ModuleShell>{inner}</ModuleShell>;
+    }
+    const inner = (
+      <div style={styles.gateCard} data-testid="mb-content-loading">
+        <p style={styles.gateText}>正在加载 Module B 内容…</p>
+      </div>
+    );
+    return bare ? inner : <ModuleShell>{inner}</ModuleShell>;
+  }
 
   const body = (
     <div style={styles.root} data-testid="mb-page-root">
@@ -437,4 +472,6 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontFamily: 'inherit',
   },
+  gateCard: { padding: spacing.xl, textAlign: 'center' },
+  gateText: { fontSize: fontSizes.sm, color: colors.subtext0, margin: 0 },
 };
