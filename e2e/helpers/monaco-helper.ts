@@ -2,7 +2,6 @@ import { Page } from '@playwright/test';
 
 const MONACO_SELECTOR = '.monaco-editor .view-lines';
 const MONACO_INPUT = '.monaco-editor textarea[aria-label="Editor content"], .monaco-editor textarea.inputarea, .monaco-editor textarea';
-const FILE_TREE_ITEM = '[data-testid="mb-filetree"] [data-testid^="mb-filetree-item-"]';
 
 /**
  * Playwright helper for realistic Monaco editor interaction.
@@ -80,10 +79,16 @@ export class MonacoHelper {
     ).waitFor({ state: 'visible', timeout: timeoutMs });
   }
 
-  /** Click a file in the file tree by its display name. */
-  static async clickFile(page: Page, filename: string): Promise<void> {
-    const item = page.locator(FILE_TREE_ITEM).filter({ hasText: filename }).first();
-    await item.click();
+  /**
+   * Click a file in the file tree by its full path.
+   *
+   * Brief #14 D22 · page testid encodes full path (`mb-filetree-item-${path}`)
+   * but visible button text is basename only (FileTree.tsx:39). Earlier
+   * `.filter({ hasText })` with the full path matched zero buttons. Switch
+   * to testid-direct lookup — the testid contract is unambiguous.
+   */
+  static async clickFile(page: Page, filePath: string): Promise<void> {
+    await page.locator(`[data-testid="mb-filetree-item-${filePath}"]`).click();
     // Brief wait for Monaco to load the file model
     await page.waitForTimeout(300);
   }
