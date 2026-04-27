@@ -1537,3 +1537,66 @@ Branch: `feat/backend-task-b3-golden-path-spec` (self-merge authorized per A2/A3
 Commits: `ac6cd6a` (C1 · seed-admin + script) · `9dcd1d2` (C2 · CI yaml seed step + golden-path invocation) · `<C3 SHA>` (this observation)
 Brief: Brief #11 · Hotfix · Admin bootstrap + CI golden-path invocation · 2026-04-25
 Branch: `fix/admin-bootstrap-and-ci-golden-path` (β self-merge delegated by Steve · three-view ratify + 4-green pre-PR + local login curl 200 conditions all met · A5 env-schema bypass precedent)
+
+### #161 — `meta-pattern` Brief #13 driver-frontend alignment audit · 14 drifts batched · main GREEN closure
+
+**trace**: Brief #13 PR #<N> · post Hotfix #11 + #12 · sprint continuation 2026-04-27
+
+Phase 1 audit was the load-bearing step. Initial Phase 1 grep scoped only
+`ModuleBPage.tsx` + `CursorModeLayout.tsx` and reported MB as a wholesale
+structural gap (0/17 driver-expected testids present). Three-view §E ratify
+gate paused for re-audit; deeper grep across the 8 panel sub-components
+(MB1PlanningPanel · CursorModeLayout · MultiFileEditor · EditorTabs · FileTree ·
+MBTerminalPanel · AIChatPanel · MB3StandardsPanel · ViolationAuditPanel) revised
+the gap to **13/20 matched + 5 testid renames + 1 dead call**. Brief scope
+returned to the brief's original 30-80 LOC estimate.
+
+**Drift catalog** (15 confirmed, all small):
+- D1 · ProfileSetup `field-name` driver fill dropped (name captured by admin in createSession step 3)
+- D2/D3/D4 · P0 testid renames (`phase0-ai-judgment-{1|2}-...` 1-indexed · `ai-` infix · `reason` not `reasoning`)
+- D5 · P0 `phase0-l3-confidence` driver dead call dropped (testid not on page)
+- D6 · MA r2 driver loop **structural** adjusted to single-defect-cycle UX matching page (click `ma-r2-review-line-${i+1}` → fill SHARED `ma-r2-review-{type|comment|fix}` → click "保存评论" via role+name locator since the save button has no testid)
+- D7 · MA r3 testid rename (`ma-r3-correct-choice-${v}`)
+- D8 · MC `module-c-page` (no `modulec-` prefix)
+- D9 · MD `md-data-flow`
+- D10/D11 · SE `selfassess-root` + single shared `selfassess-slider`
+- MB · 5 testid renames (`mb-page-root` · `mb-standards-rules` · `mb-standards-agent` · `mb-violation-toggle-${i}` · `mb-violation-rule-select-${i}`) + 1 driver substitution (`mb-submit` does not exist; `mb-audit-submit` transitions stage to 'complete' but page does NOT auto-progress · `mb-advance` is the user-actuated next-module trigger)
+- D12 · `adminApi.ts` absolute URL → relative · same Hotfix #11 C7 pattern as authApi · vite proxy `/api` forwards same-origin → :4000 · production reverse-proxy same-origin · drops cross-origin CORS surface
+
+**Hidden CI gap caught during Phase 2**: playwright golden-path config's
+client `webServer` did not inherit `VITE_API_URL`; CI `shouldUseMock()`
+returned true; mock fixtures lack the canonical exam UUID
+(`e0000000-0000-0000-0000-000000000001`); `admin-create-step3-exam-${id}`
+testid never rendered. Fix: explicit `env: { VITE_ADMIN_API_MOCK: 'false',
+VITE_API_URL: 'http://localhost:4000' }` on the client webServer.
+
+**V5.0.5 rule candidate #20 · honest re-audit pattern**:
+> Phase 1 audit grep must enumerate the full sub-component import tree before
+> declaring a structural gap. A top-level page that delegates rendering to
+> stage-specific panels (MB's 4-stage state machine is the canonical example)
+> hides testids in children. Symptom: an "0/N matched" finding on a feature
+> that obviously ships in production and has working tests. Mitigation:
+> recursive grep through all imports of the orchestrator before any "structural
+> gap" claim.
+
+**V5.0 ship gate #5 closure**: Brief #13 merge → main GREEN on 4-grade
+golden-path automation → Brief #10 Cold Start Tier 2 unblocked → Steve MC
+voice + sign-off → Tag v5.0.0.
+
+**V5.0.5 housekeeping brief candidates emerging from Brief #13**:
+- `candidateApi.ts` same absolute-URL pattern (driver doesn't currently consume directly · post-V5.0 batch fix)
+- `signShareToken` / `verifyShareToken` dead code removal (Hotfix #12 Path A backlog)
+- Inline `REPORT_TESTIDS` migration to `e2e/helpers/testids.ts` (B3 spec scope-fence #9)
+- `max-c-grade.ts` fixture file rename to `max-d-grade.ts` (V4-era naming · D bucket per Task A1 recalibration)
+- `expectations.ts` per-dim + per-signal bounds extension
+- ProfileSetup per-field testid review (`field-name` was a phantom · audit other modules for similar phantoms)
+- MA r2 + similar multi-step UI patterns: driver assumption audit (page may not match implicit per-id-keyed loop assumption)
+- adminApi `shouldUseMock` semantics: VITE_API_URL value is no longer a URL prefix · either rename the toggle or document the dual-meaning (presence = real-mode toggle; value ignored)
+
+**Pattern F cumulative**: ~70 catches · 0 silent push 20h+ across 11 briefs +
+2 hotfixes + this Brief #13. Honest re-audit pattern (initial over-estimate
+corrected without over-reaction) is the sprint discipline expression.
+
+Commits: `<C1 SHA>` (testids + driver) · `<C2 SHA>` (adminApi + playwright env + this observation)
+Brief: Brief #13 · Driver-frontend alignment audit · 2026-04-27
+Branch: `fix/driver-frontend-alignment-audit` (β self-merge delegated by Steve · three-view α-minimal ratify + 4-green pre-PR + local fresh-spawn 4-grade pass conditions met)
