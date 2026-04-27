@@ -21,8 +21,10 @@ const submissions: V5Submissions = {
       l1Answer: 'Redis 互斥锁防止同 SKU 并发下单',
       l2Answer:
         '这里用 Redis SET NX 做一个互斥锁,让同一个 SKU 同时只能有一个人处理。TTL 30s 是防止进程崩溃后锁留着。',
+      // Brief #14 D20 · padded to ≥60 char threshold · hedge restatement
+      // preserves shallow analysis depth (still B-grade signal).
       l3Answer:
-        'QPS 10k 的时候 Redis 本身应该没问题,但是 finally 里的 GET + DEL 有竞争条件。',
+        'QPS 10k 的时候 Redis 本身应该没问题,但是 finally 里的 GET + DEL 有竞争条件。具体在哪个量级会出问题我不太确定,需要看下监控数据再判断。',
       confidence: 0.5,
     },
     aiOutputJudgment: [
