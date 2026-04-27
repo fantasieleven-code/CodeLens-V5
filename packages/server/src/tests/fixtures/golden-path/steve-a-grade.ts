@@ -24,7 +24,8 @@ const submissions: V5Submissions = {
     },
     aiOutputJudgment: [
       { choice: 'A', reasoning: 'A 看起来更完整一点,有 redis 调用,B 没有。' },
-      { choice: 'A', reasoning: 'A 更直接。' }, // wrong — groundTruth is B
+      // Brief #14 D19 · padded to ≥20 char threshold · semantic vacancy preserved (still wrong choice)
+      { choice: 'A', reasoning: 'A 更直接,看起来更简单一点,我倾向选 A。' }, // wrong — groundTruth is B
     ],
     aiClaimVerification: {
       response: 'AI 说用了 MULTI,但我觉得代码里好像没有 MULTI 这种写法?',
@@ -60,9 +61,11 @@ const submissions: V5Submissions = {
       ].join('\n'),
     },
     round2: {
+      // Brief #14 D19 · per-defect comment padded to ≥10 char threshold ·
+      // hedge style preserves shallow review depth signal.
       markedDefects: [
-        { defectId: 'd1', commentType: 'bug', comment: '这里返回值没检查' },
-        { defectId: 'd3', commentType: 'bug', comment: '日志不够' },
+        { defectId: 'd1', commentType: 'bug', comment: '这里返回值没检查,可能有问题' },
+        { defectId: 'd3', commentType: 'bug', comment: '日志不够,看着不太够用' },
       ],
     },
     round3: {
