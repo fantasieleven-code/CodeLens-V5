@@ -89,7 +89,9 @@ export const P0_TESTIDS = {
 
 export const MA_TESTIDS = {
   container: 'moduleA-container',
-  r1Scheme: (id: 'A' | 'B' | 'C') => `ma-r1-scheme-${id}`,
+  // Brief #14 D18 · page renders `ma-r1-scheme-${s.id.toLowerCase()}` ·
+  // driver normalize lowercase to match page truth.
+  r1Scheme: (id: 'A' | 'B' | 'C') => `ma-r1-scheme-${id.toLowerCase()}`,
   r1Reasoning: 'ma-r1-reasoning',
   r1StructuredScenario: 'ma-r1-structured-scenario',
   r1StructuredTradeoff: 'ma-r1-structured-tradeoff',
