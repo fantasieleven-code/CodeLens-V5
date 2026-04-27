@@ -1663,3 +1663,97 @@ Commits (final): `ea18a77` C1 testids/driver · `ddd5218` C2 adminApi ·
 `9faa5ae` C6 consumer tests · `45b0237` C7 Path B sessionId ·
 `08f7115` C8 fillProfile fields · `9fab11c` C9 session route ·
 `5094d58` C10 loadSession swap · `124b196` C11 intro test fetch-mock
+
+---
+
+### #162 — `meta-pattern` Brief #14 module-content alignment audit · D18 driver case + D19/D20/D21 fixture-vs-threshold drift · V5.0 ship gate #5 真 closure
+
+**trace**: Brief #14 PR #<N> · post-Brief #13 squash merge `09be003` · 2026-04-27
+
+Brief #13 closed driver/transport/auth/migration foundation but the final CI
+run surfaced 4 distinct module-content failures that Brief #13's testid +
+URL + auth catalog could not catch. Brief #14 ran a three-dimension
+cross-product audit (page state machine × fixture content × driver method)
+across Phase0 / ModuleA r1-r4 / ModuleC / SelfAssess and isolated two
+qualitatively different drift categories.
+
+**Drift catalog (4 confirmed, asymmetric)**:
+
+- **D18** · driver/testids case-mismatch · `ma-r1-scheme-${id}` driver expected
+  uppercase; page renders `ma-r1-scheme-${s.id.toLowerCase()}` (`ModuleAPage.tsx:387`).
+  Affects ALL 4 fixtures at MA r1 scheme click. **Pure driver-side fix**
+  (1-line `.toLowerCase()` in `testids.ts:92`). Driver normalizes to page truth.
+- **D19** · Steve fixture · 3 sub-fields below UI threshold (P0 j2.reasoning len
+  5 < 20 · MA r2 markedDefects[0/1].comment len 8/4 < 10).
+- **D20** · Emma fixture · 1 sub-field below threshold (P0 l3Answer len 42 < 60).
+  Cascades because Phase0Page progressive reveal hides judgments + decision +
+  aiClaim sections until `l3Done` (`Phase0Page.tsx:185-193`).
+- **D21** · Max fixture · 13 sub-fields below thresholds across P0 + MA r1-r4 +
+  MC r1-r4 + SE. Pervasive because the C-grade archetype was drafted as
+  intentionally minimal/wrong/lazy answers with no awareness of UI gates.
+
+**The structural insight** · D18 vs D19/D20/D21 are different work:
+
+- D18 is a driver/spec adapt-to-page-truth fix (driver had wrong assumption).
+- D19/D20/D21 are **V5 design-time gap** · fixture content was drafted
+  independently of UI validation thresholds. Real candidates would never
+  submit fields that thin because the page enforces minimums; the mocked
+  C-grade archetype was thinner than any real C-grade candidate.
+
+**Three remediation options surfaced** for D19/D20/D21:
+
+- **Option A** (chosen) · pad fixture content with hedge / restatement that
+  reaches threshold but preserves semantic vacancy. Scoring signals remain
+  near-zero for shallow fields because the padding adds no domain content.
+  Cost: per-field design discipline + post-edit scoring band re-verify.
+- Option B · lower UI thresholds. UX regression; out of scope.
+- Option C · driver-side bypass. Brittle; hard to reason about.
+
+**Padding pattern** for Option A · `'我不太懂...'` / `'具体不太清楚...'` /
+`'看不出来什么...'` style hedge. The padded fields express the same shallow
+analytical stance with more words; they do NOT introduce real concepts that
+would nudge `sCodeReadingDepth`, `sDesignDecomposition`, or other rule-based
+signals toward a higher grade.
+
+**Validation evidence**:
+- `integration/golden-path.test.ts` (30 tests · per-archetype grade-band
+  assertions + monotonicity check Liam ≥ Steve ≥ Emma ≥ Max) · all green
+  post-edit.
+- `pure-rule-signals.test.ts` reliability suite (184 tests) · all green.
+- Server typecheck clean.
+- FIXTURE_EXPECTATIONS bands held for all 4 archetypes; padding did not
+  distort grade differentiation.
+
+**V5.0.5 rule candidate #25 · fixture-vs-UI-threshold gap**:
+> Fixture content design must reference UI validation thresholds. A C-grade
+> fixture cannot be thinner than the page's minimum-character gates allow,
+> because real candidates physically can't type that little. Mitigation:
+> add `validate-fixtures.test.ts` that imports page constants
+> (`L2_MIN_CHARS`, `L3_MIN_CHARS`, `R1_REASONING_MIN`, etc.) from a shared
+> module and lints fixture field lengths against them at CI time. Symptom
+> this catches: a passing server-side scoring test on fixtures that are
+> physically un-typeable into the actual page.
+
+**MB Cursor flow** intentionally not audited in Brief #14 — 4 fixtures'
+driver flow does not reach MB editor interaction (driver replays
+editorBehavior events without typing into Monaco; no length gates exist on
+that path). Spot-check deferred to V5.0.5 housekeeping.
+
+**V5.0 ship gate #5 真 closure path**:
+- Brief #13 (driver/transport/auth/migration) merged → `09be003`
+- Brief #14 (module-content alignment) merged → main GREEN on 4-grade
+  golden-path automation → Brief #10 Cold Start Tier 2 unblocked → Tag v5.0.0.
+
+**Sprint discipline cumulative**:
+- Pattern F · ~78 + 4 = ~82 drifts caught pre-code-write across 13 briefs +
+  2 hotfixes.
+- 0 silent push 24h+.
+- 12 §E stops in Brief #14 + #13 combined.
+- 15+ V5.0.5 rule candidates enshrined.
+- "都完成再 ship · 时间不是问题" product judgment honored to cascade end.
+
+Commits: `95b10c7` C1 D18 driver case · `9d087a9` C2 D19 Steve pad ·
+`b6abb4e` C3 D20 Emma pad · `9c62f72` C4 D21 Max pad · `<C5 SHA>` obs #162
+Brief: Brief #14 · Module-content alignment audit · 2026-04-27
+Branch: `fix/module-content-alignment-audit` (β self-merge delegated · α-extend
+accept · D18 separate commit + D19/D20/D21 Option A · single-PR closure 真)
