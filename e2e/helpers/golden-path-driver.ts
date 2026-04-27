@@ -189,9 +189,8 @@ export class GoldenPathDriver {
     await this.page
       .locator(byTestId(CANDIDATE_TESTIDS.profile.setup))
       .waitFor({ state: 'visible', timeout: 15_000 });
-    await this.page
-      .locator(byTestId(CANDIDATE_TESTIDS.profile.name))
-      .fill(fx.candidate.name);
+    // Brief #13 D1 · candidate name was captured in admin createSession step 3 ·
+    // ProfileSetup.tsx omits a name field by design (no `field-name` testid).
     await this.page
       .locator(byTestId(CANDIDATE_TESTIDS.profile.yearsOfExperience))
       .fill(String(fx.candidate.yearsOfExperience));
@@ -238,11 +237,8 @@ export class GoldenPathDriver {
 
     await this.page.locator(byTestId(P0_TESTIDS.l2Answer)).fill(p0.codeReading.l2Answer);
     await this.page.locator(byTestId(P0_TESTIDS.l3Answer)).fill(p0.codeReading.l3Answer);
-    if (p0.codeReading.confidence !== undefined) {
-      await this.page
-        .locator(byTestId(P0_TESTIDS.l3Confidence))
-        .fill(String(p0.codeReading.confidence));
-    }
+    // Brief #13 D5 · `phase0-l3-confidence` not present in Phase0Page · driver
+    // dead call removed.
 
     // AI output judgment · 2 items.
     for (let i = 0; i < p0.aiOutputJudgment.length; i++) {
@@ -300,19 +296,29 @@ export class GoldenPathDriver {
       .fill(ma.round1.challengeResponse);
     await this.page.locator(byTestId(MA_TESTIDS.r1Submit)).click();
 
-    // Round 2 · defect annotation.
-    for (const defect of ma.round2.markedDefects) {
+    // Round 2 · defect annotation · single-defect-cycle UX (Brief #13 D6).
+    // Page renders one shared review form scoped via `ma-r2-review-line-${N}`
+    // line-marker click. Fixture defectId ('d1','d2',...) doesn't map to page
+    // line numbers, so we click line `i+1` deterministically — golden-path
+    // scoring only cares that N reviews are submitted, not which lines.
+    // The "保存评论" save button has no testid; locate via role+name.
+    for (let i = 0; i < ma.round2.markedDefects.length; i++) {
+      const defect = ma.round2.markedDefects[i];
       await this.page
-        .locator(byTestId(MA_TESTIDS.r2DefectComment(defect.defectId)))
-        .fill(defect.comment);
+        .locator(byTestId(MA_TESTIDS.r2ReviewLine(i + 1)))
+        .click();
       await this.page
-        .locator(byTestId(MA_TESTIDS.r2DefectType(defect.defectId)))
+        .locator(byTestId(MA_TESTIDS.r2ReviewType))
         .selectOption(defect.commentType);
+      await this.page
+        .locator(byTestId(MA_TESTIDS.r2ReviewComment))
+        .fill(defect.comment);
       if (defect.fixSuggestion) {
         await this.page
-          .locator(byTestId(MA_TESTIDS.r2DefectFix(defect.defectId)))
+          .locator(byTestId(MA_TESTIDS.r2ReviewFix))
           .fill(defect.fixSuggestion);
       }
+      await this.page.getByRole('button', { name: '保存评论' }).click();
     }
     await this.page.locator(byTestId(MA_TESTIDS.r2Submit)).click();
 
@@ -404,7 +410,13 @@ export class GoldenPathDriver {
       await this.page.locator(byTestId(MB_TESTIDS.auditSubmit)).click();
     }
 
-    await this.page.locator(byTestId(MB_TESTIDS.submit)).click();
+    // Brief #13 · `mb-audit-submit` transitions stage to 'complete' but does
+    // NOT auto-progress to the next module. Wait for the complete card and
+    // click `mb-advance` (which calls useModuleStore.advance) to proceed.
+    await this.page
+      .locator(byTestId(MB_TESTIDS.complete))
+      .waitFor({ state: 'visible', timeout: 15_000 });
+    await this.page.locator(byTestId(MB_TESTIDS.advance)).click();
   }
 
   // ─── Step 10 · MC module (text-fallback mode) ───────────
@@ -491,14 +503,14 @@ export class GoldenPathDriver {
       .locator(byTestId(SE_TESTIDS.container))
       .waitFor({ state: 'visible', timeout: 15_000 });
 
-    // Dimension sliders · fixture confidence maps to unified confidence value
-    // (V5 selfAssess typically has single confidence 0-1 rather than per-
-    // dimension · driver fills single slider if available).
+    // Dimension sliders · fixture confidence maps to unified confidence value.
+    // Brief #13 D11 · page renders a single shared `selfassess-slider`; per-
+    // dim split is V5.0.5 housekeeping.
     await this.page
-      .locator(byTestId(SE_TESTIDS.dimensionSlider('overall')))
+      .locator(byTestId(SE_TESTIDS.dimensionSlider))
       .fill(String(Math.round(se.confidence * 100)))
       .catch(() => {
-        // Per-dim fallback · some UI variants have 6 sliders; skip if absent.
+        // Slider may be absent in some UI variants — non-fatal.
       });
 
     await this.page.locator(byTestId(SE_TESTIDS.reasoning)).fill(se.reasoning);

@@ -53,6 +53,12 @@ export default defineConfig({
       port: 5173,
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
+      // adminApi.shouldUseMock() returns mock when VITE_API_URL is unset;
+      // mock fixtures don't include the canonical exam ID, so the driver's
+      // `admin-create-step3-exam-${CANONICAL_EXAM_ID}` click would fail.
+      // Explicit toggle forces real mode through the vite /api proxy
+      // (Brief #13 D12 · adminApi relative URL refactor).
+      env: { VITE_ADMIN_API_MOCK: 'false', VITE_API_URL: 'http://localhost:4000' },
     },
   ],
 });
