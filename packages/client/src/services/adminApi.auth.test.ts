@@ -99,7 +99,12 @@ describe('adminFetch', () => {
     expect(useAuthStore.getState().token).toBe('jwt-ok');
   });
 
-  it('joins the path onto VITE_API_URL exactly once', async () => {
+  it('uses the relative path as-is so requests share the page origin', async () => {
+    // Brief #13 D12 · adminApi was refactored to relative URLs to match
+    // authApi's Hotfix #11 C7 pattern · the vite proxy (dev/CI) and a
+    // production reverse proxy forward /api/* to the backend, eliminating
+    // cross-origin CORS overhead. VITE_API_URL is preserved only as a
+    // mock/real toggle in shouldUseMock(); its value is no longer prepended.
     seedAuth();
     let capturedUrl = '';
     globalThis.fetch = vi.fn(async (url) => {
@@ -110,6 +115,6 @@ describe('adminFetch', () => {
     (import.meta.env as Record<string, string | undefined>).VITE_API_URL =
       'http://api.test/';
     await __adminFetch__('/api/admin/suites');
-    expect(capturedUrl).toBe('http://api.test/api/admin/suites');
+    expect(capturedUrl).toBe('/api/admin/suites');
   });
 });

@@ -183,16 +183,15 @@ async function mockGetSuites(): Promise<V5AdminSuite[]> {
 
 // ── Real implementations (Task 12 Layer 2 cutover) ───────────────────
 
-function requireApiUrl(): string {
-  const env = (import.meta.env ?? {}) as Record<string, string | undefined>;
-  const base = env.VITE_API_URL;
-  if (!base) throw new Error('VITE_API_URL not configured');
-  return base.replace(/\/+$/, '');
-}
-
 /**
  * Centralized fetch wrapper for `/api/admin/*`.
  *
+ * - Uses RELATIVE paths so the request hits the same origin as the page (the
+ *   vite dev/CI proxy forwards `/api` → :4000; production is reverse-proxied
+ *   same-origin). This mirrors authApi's Hotfix #11 C7 pattern and avoids
+ *   cross-origin CORS overhead. `VITE_API_URL` is preserved as the
+ *   mock/real toggle in `shouldUseMock()` but its value is no longer used as
+ *   a URL prefix.
  * - Injects `Authorization: Bearer …` from the auth store so every admin call
  *   carries the admin JWT without the call sites threading the token through.
  * - Flips the auth store to logged-out on 401 so AdminGuard's next render
@@ -208,7 +207,7 @@ async function adminFetch(path: string, init: RequestInit = {}): Promise<Respons
   if (init.body !== undefined && !headers.has('content-type')) {
     headers.set('content-type', 'application/json');
   }
-  const res = await fetch(`${requireApiUrl()}${path}`, { ...init, headers });
+  const res = await fetch(path, { ...init, headers });
   if (res.status === 401) {
     useAuthStore.getState().logout();
   }
