@@ -42,11 +42,14 @@ const submissions: V5Submissions = {
       // Brief #14 D21 · MA fields padded to UI thresholds · hedge style ·
       // wrong scheme + shallow reasoning preserved (sDesignDecomposition ≈ 0).
       reasoning: 'B 简单一点,所以我选 B,但是我不太懂为什么 A 和 C 不好,具体看不出来。',
+      // Brief #14 D24 · MA r1 structuredForm 4 sub-fields gated inline ≥20 each
+      // (ModuleAPage.tsx:131-135 · no named MIN constant). Padded with hedge
+      // style preserving D-grade vacancy · no domain content addition.
       structuredForm: {
-        scenario: '秒杀',
-        tradeoff: '',
-        decision: 'B',
-        verification: '',
+        scenario: '秒杀场景吧,具体细节我不太懂,看起来跟并发有关。',
+        tradeoff: '不太清楚有什么 tradeoff,可能性能或者一致性吧。',
+        decision: '选 B,但是我不太确定,看起来 B 简单一点。',
+        verification: '不知道怎么验证,可能跑一下看看吧,具体没思路。',
       },
       challengeResponse:
         '不知道。我感觉我之前的选择应该是对的吧,但是我也不太确定为什么,具体哪里有问题我看不出来。',
