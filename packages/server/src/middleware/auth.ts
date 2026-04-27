@@ -58,7 +58,14 @@ export async function requireCandidate(req: Request, _res: Response, next: NextF
     }
   }
 
-  // Path B — no header · body-token fallback via Session.candidateToken.
+  // Path B — no header · body-token fallback. Accepts either the
+  // randomly-generated `Session.candidateToken` (the original V5.0 contract)
+  // OR `Session.id` (the sessionId-as-token contract introduced by Hotfix
+  // #12 Path A's `shareableUrl = /exam/${sessionId}` change). The candidate
+  // URL exposes only sessionId, so the frontend's ConsentPage/ProfileSetup
+  // pass that into the request body. Without the OR clause, the body-token
+  // path becomes unreachable from the new URL shape — Brief #13 §E E5
+  // diagnosis. JWT Bearer (Path A) is unaffected.
   const bodyToken =
     typeof req.body?.sessionToken === 'string' && req.body.sessionToken.length > 0
       ? req.body.sessionToken
@@ -68,7 +75,7 @@ export async function requireCandidate(req: Request, _res: Response, next: NextF
   }
   try {
     const session = await prisma.session.findFirst({
-      where: { candidateToken: bodyToken },
+      where: { OR: [{ candidateToken: bodyToken }, { id: bodyToken }] },
       select: { id: true },
     });
     if (!session) {

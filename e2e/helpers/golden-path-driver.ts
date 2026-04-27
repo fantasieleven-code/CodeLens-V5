@@ -114,12 +114,18 @@ export class GoldenPathDriver {
       .locator(byTestId(ADMIN_TESTIDS.createStep1Position(0)))
       .click();
 
-    // Step 2 · level (derive from grade · S/A → senior · B → mid · C → junior).
-    const level = fx.grade === 'S' || fx.grade === 'A' ? 'senior'
-      : fx.grade === 'B' ? 'mid'
-      : 'junior';
+    // Step 2 · level. The admin wizard filters step-3 exam options by the
+    // selected level, and the canonical seeded exam (e0000000-...) is
+    // `level: 'senior'`. All 4 grade fixtures must select 'senior' so the
+    // canonical-exam testid renders — selecting `mid`/`junior` would filter
+    // the canonical exam out and step 3 would time out waiting for
+    // `admin-create-step3-exam-${CANONICAL_EXAM_ID}`. The grade bucket
+    // (S/A/B/D) is independent of the wizard's level filter; scoring
+    // computes grade from submission content. V5.0.5 housekeeping: seed
+    // additional canonical exams at mid/junior levels OR thread an explicit
+    // level field through GoldenPathDriverFixture.
     await this.page
-      .locator(byTestId(ADMIN_TESTIDS.createStep2Level(level)))
+      .locator(byTestId(ADMIN_TESTIDS.createStep2Level('senior')))
       .click();
 
     // Step 3 · suite + exam + candidate.
@@ -177,6 +183,14 @@ export class GoldenPathDriver {
       .waitFor({ state: 'visible', timeout: 15_000 });
     await this.page.locator(byTestId(CANDIDATE_TESTIDS.consent.checkbox)).check();
     await this.page.locator(byTestId(CANDIDATE_TESTIDS.consent.submit)).click();
+    // ConsentPage.onSubmit awaits a backend submitConsent call before setting
+    // the consentStorageKey localStorage flag and navigating to /exam.
+    // ProfileGuard reads that flag and redirects back to /consent if it's
+    // missing, so the driver MUST wait for the post-submit URL change before
+    // navigating elsewhere — otherwise fillProfile's subsequent
+    // `goto('/profile')` races the async submit and lands while the flag is
+    // still unset.
+    await this.page.waitForURL(`**/exam/${candidateToken}`, { timeout: 15_000 });
   }
 
   // ─── Step 5 · Candidate profile ─────────────────────────
@@ -189,9 +203,8 @@ export class GoldenPathDriver {
     await this.page
       .locator(byTestId(CANDIDATE_TESTIDS.profile.setup))
       .waitFor({ state: 'visible', timeout: 15_000 });
-    await this.page
-      .locator(byTestId(CANDIDATE_TESTIDS.profile.name))
-      .fill(fx.candidate.name);
+    // Brief #13 D1 · candidate name was captured in admin createSession step 3 ·
+    // ProfileSetup.tsx omits a name field by design (no `field-name` testid).
     await this.page
       .locator(byTestId(CANDIDATE_TESTIDS.profile.yearsOfExperience))
       .fill(String(fx.candidate.yearsOfExperience));
@@ -203,7 +216,34 @@ export class GoldenPathDriver {
         .locator(byTestId(CANDIDATE_TESTIDS.profile.primaryTechStackAdd))
         .click();
     }
+    // Brief #13 D16 · 5 additional CandidateProfileSchema-required fields.
+    // ProfileSetup.tsx runs `safeParse` client-side BEFORE submitProfile, so
+    // omitting any of these blocks the request from ever reaching the
+    // backend. Hard-coded defaults match ProfileSetup.test.tsx's fixture
+    // pattern; profile metadata doesn't influence grade scoring (submission
+    // content drives that), so identical values across all 4 fixtures are
+    // sound. Threading per-fixture profile metadata is V5.0.5 housekeeping.
+    await this.page
+      .locator(byTestId(CANDIDATE_TESTIDS.profile.currentRole))
+      .selectOption('fullstack');
+    await this.page
+      .locator(byTestId(CANDIDATE_TESTIDS.profile.companySize))
+      .selectOption('medium');
+    await this.page
+      .locator(byTestId(CANDIDATE_TESTIDS.profile.aiToolYears))
+      .selectOption('1');
+    await this.page
+      .locator(byTestId(CANDIDATE_TESTIDS.profile.primaryAiTool))
+      .selectOption('claude_code');
+    await this.page
+      .locator(byTestId(CANDIDATE_TESTIDS.profile.dailyAiUsageHours))
+      .selectOption('1_3');
     await this.page.locator(byTestId(CANDIDATE_TESTIDS.profile.submit)).click();
+    // Same race-defense as fillConsent · ProfileSetup.onSubmit awaits the
+    // submitProfile API call before setting the profile flag and navigating
+    // to /exam. Wait for the URL change so the next module's `goto` doesn't
+    // race the in-flight submit (could lose the profile record server-side).
+    await this.page.waitForURL(`**/exam/${candidateToken}`, { timeout: 15_000 });
   }
 
   // ─── Step 6 · Evaluation intro ──────────────────────────
@@ -238,11 +278,8 @@ export class GoldenPathDriver {
 
     await this.page.locator(byTestId(P0_TESTIDS.l2Answer)).fill(p0.codeReading.l2Answer);
     await this.page.locator(byTestId(P0_TESTIDS.l3Answer)).fill(p0.codeReading.l3Answer);
-    if (p0.codeReading.confidence !== undefined) {
-      await this.page
-        .locator(byTestId(P0_TESTIDS.l3Confidence))
-        .fill(String(p0.codeReading.confidence));
-    }
+    // Brief #13 D5 · `phase0-l3-confidence` not present in Phase0Page · driver
+    // dead call removed.
 
     // AI output judgment · 2 items.
     for (let i = 0; i < p0.aiOutputJudgment.length; i++) {
@@ -300,19 +337,29 @@ export class GoldenPathDriver {
       .fill(ma.round1.challengeResponse);
     await this.page.locator(byTestId(MA_TESTIDS.r1Submit)).click();
 
-    // Round 2 · defect annotation.
-    for (const defect of ma.round2.markedDefects) {
+    // Round 2 · defect annotation · single-defect-cycle UX (Brief #13 D6).
+    // Page renders one shared review form scoped via `ma-r2-review-line-${N}`
+    // line-marker click. Fixture defectId ('d1','d2',...) doesn't map to page
+    // line numbers, so we click line `i+1` deterministically — golden-path
+    // scoring only cares that N reviews are submitted, not which lines.
+    // The "保存评论" save button has no testid; locate via role+name.
+    for (let i = 0; i < ma.round2.markedDefects.length; i++) {
+      const defect = ma.round2.markedDefects[i];
       await this.page
-        .locator(byTestId(MA_TESTIDS.r2DefectComment(defect.defectId)))
-        .fill(defect.comment);
+        .locator(byTestId(MA_TESTIDS.r2ReviewLine(i + 1)))
+        .click();
       await this.page
-        .locator(byTestId(MA_TESTIDS.r2DefectType(defect.defectId)))
+        .locator(byTestId(MA_TESTIDS.r2ReviewType))
         .selectOption(defect.commentType);
+      await this.page
+        .locator(byTestId(MA_TESTIDS.r2ReviewComment))
+        .fill(defect.comment);
       if (defect.fixSuggestion) {
         await this.page
-          .locator(byTestId(MA_TESTIDS.r2DefectFix(defect.defectId)))
+          .locator(byTestId(MA_TESTIDS.r2ReviewFix))
           .fill(defect.fixSuggestion);
       }
+      await this.page.getByRole('button', { name: '保存评论' }).click();
     }
     await this.page.locator(byTestId(MA_TESTIDS.r2Submit)).click();
 
@@ -404,7 +451,13 @@ export class GoldenPathDriver {
       await this.page.locator(byTestId(MB_TESTIDS.auditSubmit)).click();
     }
 
-    await this.page.locator(byTestId(MB_TESTIDS.submit)).click();
+    // Brief #13 · `mb-audit-submit` transitions stage to 'complete' but does
+    // NOT auto-progress to the next module. Wait for the complete card and
+    // click `mb-advance` (which calls useModuleStore.advance) to proceed.
+    await this.page
+      .locator(byTestId(MB_TESTIDS.complete))
+      .waitFor({ state: 'visible', timeout: 15_000 });
+    await this.page.locator(byTestId(MB_TESTIDS.advance)).click();
   }
 
   // ─── Step 10 · MC module (text-fallback mode) ───────────
@@ -491,14 +544,14 @@ export class GoldenPathDriver {
       .locator(byTestId(SE_TESTIDS.container))
       .waitFor({ state: 'visible', timeout: 15_000 });
 
-    // Dimension sliders · fixture confidence maps to unified confidence value
-    // (V5 selfAssess typically has single confidence 0-1 rather than per-
-    // dimension · driver fills single slider if available).
+    // Dimension sliders · fixture confidence maps to unified confidence value.
+    // Brief #13 D11 · page renders a single shared `selfassess-slider`; per-
+    // dim split is V5.0.5 housekeeping.
     await this.page
-      .locator(byTestId(SE_TESTIDS.dimensionSlider('overall')))
+      .locator(byTestId(SE_TESTIDS.dimensionSlider))
       .fill(String(Math.round(se.confidence * 100)))
       .catch(() => {
-        // Per-dim fallback · some UI variants have 6 sliders; skip if absent.
+        // Slider may be absent in some UI variants — non-fatal.
       });
 
     await this.page.locator(byTestId(SE_TESTIDS.reasoning)).fill(se.reasoning);

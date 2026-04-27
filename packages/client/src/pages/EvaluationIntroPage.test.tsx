@@ -1,8 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import { EvaluationIntroPage } from './EvaluationIntroPage.js';
 import { useModuleStore } from '../stores/module.store.js';
 import { useSessionStore } from '../stores/session.store.js';
+
+const ORIGINAL_FETCH = globalThis.fetch;
 
 describe('<EvaluationIntroPage />', () => {
   beforeEach(() => {
@@ -10,7 +12,11 @@ describe('<EvaluationIntroPage />', () => {
     useSessionStore.getState().reset();
   });
 
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    globalThis.fetch = ORIGINAL_FETCH;
+    vi.restoreAllMocks();
+  });
 
   it('renders suite name, estimated minutes, and module list', () => {
     useModuleStore
@@ -83,10 +89,26 @@ describe('<EvaluationIntroPage />', () => {
     );
   });
 
-  it('renders the intro after loadSession resolves a real fixture id', async () => {
-    await useSessionStore.getState().loadSession('sess-00001');
+  it('renders the intro after loadSession resolves a real session id', async () => {
+    // Brief #13 D17 · loadSession is now Layer 2 (real fetch via
+    // /api/v5/session/:id). Mock fetch to assert the page hydrates from the
+    // backend response shape.
+    globalThis.fetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          id: 'sess-uuid-1',
+          candidate: { id: 'cand-1', name: 'Liam', email: 'liam@test' },
+          suiteId: 'full_stack',
+          examInstanceId: 'e0000000-0000-0000-0000-000000000001',
+          status: 'CREATED',
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    ) as typeof fetch;
+
+    await useSessionStore.getState().loadSession('sess-uuid-1');
     render(<EvaluationIntroPage />);
-    // sess-00001 → full_stack suite → 5 modules, 60 minutes
+    // full_stack suite → 5 modules, 60 minutes
     expect(screen.getByTestId('evaluation-intro-container')).toBeInTheDocument();
     expect(screen.getByTestId('evaluation-intro-suite-name')).toHaveTextContent(
       '全面评估',

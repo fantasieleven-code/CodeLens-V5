@@ -1537,3 +1537,129 @@ Branch: `feat/backend-task-b3-golden-path-spec` (self-merge authorized per A2/A3
 Commits: `ac6cd6a` (C1 · seed-admin + script) · `9dcd1d2` (C2 · CI yaml seed step + golden-path invocation) · `<C3 SHA>` (this observation)
 Brief: Brief #11 · Hotfix · Admin bootstrap + CI golden-path invocation · 2026-04-25
 Branch: `fix/admin-bootstrap-and-ci-golden-path` (β self-merge delegated by Steve · three-view ratify + 4-green pre-PR + local login curl 200 conditions all met · A5 env-schema bypass precedent)
+
+### #161 — `meta-pattern` Brief #13 driver-frontend alignment audit · 14 drifts batched · main GREEN closure
+
+**trace**: Brief #13 PR #<N> · post Hotfix #11 + #12 · sprint continuation 2026-04-27
+
+Phase 1 audit was the load-bearing step. Initial Phase 1 grep scoped only
+`ModuleBPage.tsx` + `CursorModeLayout.tsx` and reported MB as a wholesale
+structural gap (0/17 driver-expected testids present). Three-view §E ratify
+gate paused for re-audit; deeper grep across the 8 panel sub-components
+(MB1PlanningPanel · CursorModeLayout · MultiFileEditor · EditorTabs · FileTree ·
+MBTerminalPanel · AIChatPanel · MB3StandardsPanel · ViolationAuditPanel) revised
+the gap to **13/20 matched + 5 testid renames + 1 dead call**. Brief scope
+returned to the brief's original 30-80 LOC estimate.
+
+**Drift catalog** (15 confirmed, all small):
+- D1 · ProfileSetup `field-name` driver fill dropped (name captured by admin in createSession step 3)
+- D2/D3/D4 · P0 testid renames (`phase0-ai-judgment-{1|2}-...` 1-indexed · `ai-` infix · `reason` not `reasoning`)
+- D5 · P0 `phase0-l3-confidence` driver dead call dropped (testid not on page)
+- D6 · MA r2 driver loop **structural** adjusted to single-defect-cycle UX matching page (click `ma-r2-review-line-${i+1}` → fill SHARED `ma-r2-review-{type|comment|fix}` → click "保存评论" via role+name locator since the save button has no testid)
+- D7 · MA r3 testid rename (`ma-r3-correct-choice-${v}`)
+- D8 · MC `module-c-page` (no `modulec-` prefix)
+- D9 · MD `md-data-flow`
+- D10/D11 · SE `selfassess-root` + single shared `selfassess-slider`
+- MB · 5 testid renames (`mb-page-root` · `mb-standards-rules` · `mb-standards-agent` · `mb-violation-toggle-${i}` · `mb-violation-rule-select-${i}`) + 1 driver substitution (`mb-submit` does not exist; `mb-audit-submit` transitions stage to 'complete' but page does NOT auto-progress · `mb-advance` is the user-actuated next-module trigger)
+- D12 · `adminApi.ts` absolute URL → relative · same Hotfix #11 C7 pattern as authApi · vite proxy `/api` forwards same-origin → :4000 · production reverse-proxy same-origin · drops cross-origin CORS surface
+
+**Hidden CI gap caught during Phase 2**: playwright golden-path config's
+client `webServer` did not inherit `VITE_API_URL`; CI `shouldUseMock()`
+returned true; mock fixtures lack the canonical exam UUID
+(`e0000000-0000-0000-0000-000000000001`); `admin-create-step3-exam-${id}`
+testid never rendered. Fix: explicit `env: { VITE_ADMIN_API_MOCK: 'false',
+VITE_API_URL: 'http://localhost:4000' }` on the client webServer.
+
+**V5.0.5 rule candidate #20 · honest re-audit pattern**:
+> Phase 1 audit grep must enumerate the full sub-component import tree before
+> declaring a structural gap. A top-level page that delegates rendering to
+> stage-specific panels (MB's 4-stage state machine is the canonical example)
+> hides testids in children. Symptom: an "0/N matched" finding on a feature
+> that obviously ships in production and has working tests. Mitigation:
+> recursive grep through all imports of the orchestrator before any "structural
+> gap" claim.
+
+**V5.0 ship gate #5 closure**: Brief #13 merge → main GREEN on 4-grade
+golden-path automation → Brief #10 Cold Start Tier 2 unblocked → Steve MC
+voice + sign-off → Tag v5.0.0.
+
+**V5.0.5 housekeeping brief candidates emerging from Brief #13**:
+- `candidateApi.ts` same absolute-URL pattern (driver doesn't currently consume directly · post-V5.0 batch fix)
+- `signShareToken` / `verifyShareToken` dead code removal (Hotfix #12 Path A backlog)
+- Inline `REPORT_TESTIDS` migration to `e2e/helpers/testids.ts` (B3 spec scope-fence #9)
+- `max-c-grade.ts` fixture file rename to `max-d-grade.ts` (V4-era naming · D bucket per Task A1 recalibration)
+- `expectations.ts` per-dim + per-signal bounds extension
+- ProfileSetup per-field testid review (`field-name` was a phantom · audit other modules for similar phantoms)
+- MA r2 + similar multi-step UI patterns: driver assumption audit (page may not match implicit per-id-keyed loop assumption)
+- adminApi `shouldUseMock` semantics: VITE_API_URL value is no longer a URL prefix · either rename the toggle or document the dual-meaning (presence = real-mode toggle; value ignored)
+
+**Pattern F cumulative**: ~70 catches · 0 silent push 20h+ across 11 briefs +
+2 hotfixes + this Brief #13. Honest re-audit pattern (initial over-estimate
+corrected without over-reaction) is the sprint discipline expression.
+
+Commits: `<C1 SHA>` (testids + driver) · `<C2 SHA>` (adminApi + playwright env + this observation)
+Brief: Brief #13 · Driver-frontend alignment audit · 2026-04-27
+Branch: `fix/driver-frontend-alignment-audit` (β self-merge delegated by Steve · three-view α-minimal ratify + 4-green pre-PR + local fresh-spawn 4-grade pass conditions met)
+
+---
+
+**Brief #13 closure note · 2026-04-27**:
+
+Brief #13 cumulative 11 commits · ~207 prod LOC · D1-D17 closed (structural ·
+auth · transport · migration · session endpoint Layer 2). D18-D21
+module-content drifts surfaced in the final CI run (e2e 13m40s · all 4 grades
+flowed deep through admin/consent/profile/intro/exam-router) but are NOT in
+Brief #13 Phase 1 audit scope (testid + URL + auth catalog · not per-fixture
+per-page state machine traversal). Deferred to Brief #14 per Steve product
+judgment "继续修 直到 修完 所有 bug · 早 发现 早 修复" · audit truly
+valuable, true closure.
+
+Brief #13 ship-gate-#5 structural foundation closed:
+- D1-D11 driver/testids align (C1 · `ea18a77`)
+- D12 adminApi cross-origin → relative URL via vite proxy (C2 · `ddd5218`)
+- D13 wizard level filter · canonical exam senior-only (C4 · `d70631c`)
+- D14 consent/profile waitForURL race-defense (C4 · `d70631c`)
+- C5 candidateApi cross-origin → relative URL (`b988e65` · D14 cascade unblock)
+- C6 ConsentPage / ProfileSetup consumer test fetch-mock (`9faa5ae`)
+- D15 backend Path B sessionId align · Hotfix #12 closure (C7 · `45b0237`)
+- D16 driver fillProfile 5 required CandidateProfileSchema fields (C8 · `08f7115`)
+- D17 session.store.loadSession Layer 2 swap · NEW GET /api/v5/session/:id
+  endpoint + client wiring (C9 · `9fab11c` + C10 · `5094d58`)
+- C11 EvaluationIntroPage consumer test fetch-mock (`124b196` · D17 follow-up)
+
+Brief #14 scope preview (separate audit layer · per-fixture × per-page-state-
+machine cross-product · qualitatively different from Brief #13's testid catalog):
+- D18 Liam (S) · MA r1 `ma-r1-scheme-A` not visible (driver vs page state machine)
+- D19 Steve (A) · P0 `phase0-submit` button disabled at click time (fixture
+  content vs page submit-enable validation gate)
+- D20 Emma (B) · P0 `phase0-ai-judgment-1-choice-A` not visible
+  (per-grade fixture mismatch vs conditional-render gate)
+- D21 Max (D) · P0 `phase0-l3-answer` not visible (similar conditional-gate
+  category)
+- Likely additional surface · MA r2/r3, MB (if fixtures exercise it), MC,
+  MD, SE, scoring assertions, admin report assertions · per-fixture per-
+  module audit comprehensive
+
+Phase 1 audit reach limit acknowledged: Brief #13 catalog enumerated container
+testid presence + URL pattern + auth contract. It did NOT enumerate
+conditional-render gates (when does `phase0-submit` enable? when does
+`ma-r1-scheme-A` mount?). Modeling each page's interaction state machine is
+a separate audit layer. V5.0.5 housekeeping rule #25 candidate · Phase 1
+audit checklist must include "per-page state machine + per-fixture content
+× driver method" 三-dimension cross-product when the brief targets
+golden-path 4-grade closure.
+
+Ship gate #5 真 closure pending Brief #14 merge. Sprint discipline preserved
+("都完成再 ship · 时间不是问题"). Ship V5.0 真 work 真 product, not paper
+integration.
+
+Pattern F cumulative ~78 catches · 0 silent push 24h+ · 11 §E stops in this
+brief alone · 14+ V5.0.5 rule candidates emerging. β-self-merge precedent
+upheld: structural work in PR #99 is correct and shouldn't be held hostage
+to the next audit layer's depth.
+
+Commits (final): `ea18a77` C1 testids/driver · `ddd5218` C2 adminApi ·
+`3451958` obs #161 · `d70631c` C4 D13/D14 · `b988e65` C5 candidateApi ·
+`9faa5ae` C6 consumer tests · `45b0237` C7 Path B sessionId ·
+`08f7115` C8 fillProfile fields · `9fab11c` C9 session route ·
+`5094d58` C10 loadSession swap · `124b196` C11 intro test fetch-mock

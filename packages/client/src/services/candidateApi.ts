@@ -59,21 +59,16 @@ export interface SubmitProfileRequest {
   readonly consentAccepted?: boolean;
 }
 
-declare global {
-  interface ImportMeta {
-    readonly env?: Record<string, string | undefined>;
-  }
-}
-
-function requireApiUrl(): string {
-  const env = (import.meta.env ?? {}) as Record<string, string | undefined>;
-  const base = env.VITE_API_URL;
-  if (!base) throw new Error('VITE_API_URL not configured');
-  return base.replace(/\/+$/, '');
-}
-
 /**
  * Centralised fetch wrapper for `/api/candidate/*`.
+ *
+ * Uses RELATIVE paths so the request hits the same origin as the page (the
+ * vite dev/CI proxy forwards `/api` → :4000; production is reverse-proxied
+ * same-origin). Mirrors authApi's Hotfix #11 C7 + adminApi's Brief #13 C2
+ * pattern and avoids cross-origin CORS overhead. Brief #13 §E E5: the
+ * absolute-URL pattern was load-bearing here — when the driver gained a
+ * `waitForURL` after consent submit (C4), the silent candidateApi failure
+ * surfaced as the next blocking step.
  *
  * No Bearer header — the body-level `sessionToken` is the candidate
  * credential in V5.0; `requireCandidate` middleware consumes it when no
@@ -87,7 +82,7 @@ async function candidateFetch(
   if (init.body !== undefined && !headers.has('content-type')) {
     headers.set('content-type', 'application/json');
   }
-  return fetch(`${requireApiUrl()}${path}`, { ...init, headers });
+  return fetch(path, { ...init, headers });
 }
 
 /**

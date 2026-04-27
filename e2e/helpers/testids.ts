@@ -38,10 +38,20 @@ export const CANDIDATE_TESTIDS = {
   },
   profile: {
     setup: 'profile-setup',
-    name: 'field-name',
+    // Brief #13 D1 · candidate name is captured in admin createSession step 3 ·
+    // ProfileSetup.tsx intentionally omits a name field · driver must NOT
+    // attempt to fill it on the profile page.
     yearsOfExperience: 'field-yearsOfExperience',
     primaryTechStackInput: 'field-primaryTechStack-input',
     primaryTechStackAdd: 'field-primaryTechStack-add',
+    // Brief #13 D16 · CandidateProfileSchema requires 7 fields ·
+    // ProfileSetup.tsx runs `safeParse` before the API call, so driver must
+    // fill all of them or validation rejects client-side.
+    currentRole: 'field-currentRole',
+    companySize: 'field-companySize',
+    aiToolYears: 'field-aiToolYears',
+    primaryAiTool: 'field-primaryAiTool',
+    dailyAiUsageHours: 'field-dailyAiUsageHours',
     submit: 'profile-submit',
   },
   evaluationIntro: {
@@ -61,11 +71,16 @@ export const P0_TESTIDS = {
   l1Option: (idx: number) => `phase0-l1-option-${idx}`,
   l2Answer: 'phase0-l2-answer',
   l3Answer: 'phase0-l3-answer',
-  l3Confidence: 'phase0-l3-confidence',
-  judgmentChoice: (i: number, choice: 'A' | 'B') => `phase0-judgment-${i}-choice-${choice}`,
-  judgmentReasoning: (i: number) => `phase0-judgment-${i}-reasoning`,
+  // Brief #13 D5 · phase0-l3-confidence does not exist on Phase0Page · driver
+  // dead call removed.
+  // Brief #13 D2/D3 · page uses `phase0-ai-judgment-{1|2}-...` (1-indexed,
+  // `ai-` infix, `reason` not `reasoning`). Driver still passes 0-indexed `i`;
+  // helper translates.
+  judgmentChoice: (i: number, choice: 'A' | 'B') => `phase0-ai-judgment-${i + 1}-choice-${choice}`,
+  judgmentReasoning: (i: number) => `phase0-ai-judgment-${i + 1}-reason`,
   decisionChoice: (id: string) => `phase0-decision-choice-${id}`,
-  decisionReasoning: 'phase0-decision-reasoning',
+  // Brief #13 D4 · page uses `phase0-decision-reason` not `-reasoning`.
+  decisionReasoning: 'phase0-decision-reason',
   aiClaimResponse: 'phase0-ai-claim-response',
   submit: 'phase0-submit',
 } as const;
@@ -82,11 +97,18 @@ export const MA_TESTIDS = {
   r1StructuredVerification: 'ma-r1-structured-verification',
   r1ChallengeResponse: 'ma-r1-challenge-response',
   r1Submit: 'ma-r1-submit',
-  r2DefectComment: (defectId: string) => `ma-r2-defect-${defectId}-comment`,
-  r2DefectType: (defectId: string) => `ma-r2-defect-${defectId}-type`,
-  r2DefectFix: (defectId: string) => `ma-r2-defect-${defectId}-fix`,
+  // Brief #13 D6 · MA r2 has single-defect-cycle UX · click `ma-r2-review-line-{N}`
+  // to scope, fill SHARED `ma-r2-review-{type|comment|fix}`, click 保存评论
+  // button (no testid · text-locator) to save and close the form. Driver
+  // iterates fixture's markedDefects[], clicking line `i+1` deterministically
+  // since fixture defectId ('d1','d2',...) doesn't map to page line numbers.
+  r2ReviewLine: (line: number) => `ma-r2-review-line-${line}`,
+  r2ReviewType: 'ma-r2-review-type',
+  r2ReviewComment: 'ma-r2-review-comment',
+  r2ReviewFix: 'ma-r2-review-fix',
   r2Submit: 'ma-r2-submit',
-  r3VersionChoice: (v: 'success' | 'failed') => `ma-r3-version-${v}`,
+  // Brief #13 D7 · page uses `ma-r3-correct-choice-{success|failed}`.
+  r3VersionChoice: (v: 'success' | 'failed') => `ma-r3-correct-choice-${v}`,
   r3DiffAnalysis: 'ma-r3-diff-analysis',
   r3Diagnosis: 'ma-r3-diagnosis',
   r3Submit: 'ma-r3-submit',
@@ -96,8 +118,15 @@ export const MA_TESTIDS = {
 
 // ────────────────────────── MB module (Cursor mode) ──────────────────────────
 
+// Brief #13 · MB testids distributed across 8 panel sub-components
+// (MB1PlanningPanel · CursorModeLayout · MultiFileEditor · EditorTabs ·
+// FileTree · MBTerminalPanel · AIChatPanel · MB3StandardsPanel ·
+// ViolationAuditPanel). 13/20 driver-expected testids matched directly;
+// 5 renamed to page reality + 1 `submit` replaced with `advance` (page does
+// NOT auto-progress after `mb-audit-submit` · sets stage='complete' and
+// surfaces the `mb-advance` button which calls `useModuleStore.advance`).
 export const MB_TESTIDS = {
-  container: 'moduleB-container',
+  container: 'mb-page-root',
   planningDecomposition: 'mb-planning-decomposition',
   planningDependencies: 'mb-planning-dependencies',
   planningFallback: 'mb-planning-fallback',
@@ -110,19 +139,23 @@ export const MB_TESTIDS = {
   chatSend: 'mb-chat-send',
   chatStreamActive: 'mb-chat-stream-active',
   chatMessage: (i: number) => `mb-chat-message-${i}`,
-  standardsRulesTextarea: 'mb-standards-rules-textarea',
-  standardsAgentTextarea: 'mb-standards-agent-textarea',
+  standardsRulesTextarea: 'mb-standards-rules',
+  standardsAgentTextarea: 'mb-standards-agent',
   standardsSubmit: 'mb-standards-submit',
-  auditViolation: (i: number) => `mb-audit-violation-${i}`,
-  auditRuleId: (i: number) => `mb-audit-rule-${i}`,
+  auditViolation: (i: number) => `mb-violation-toggle-${i}`,
+  auditRuleId: (i: number) => `mb-violation-rule-select-${i}`,
   auditSubmit: 'mb-audit-submit',
-  submit: 'mb-submit',
+  // mb-audit-submit transitions stage to 'complete'; `mb-advance` is the
+  // user-actuated progression to the next module.
+  complete: 'mb-complete',
+  advance: 'mb-advance',
 } as const;
 
 // ────────────────────────── MC module (voice + text-fallback) ──────────────────────────
 
 export const MC_TESTIDS = {
-  container: 'modulec-container',
+  // Brief #13 D8 · page uses `module-c-page`.
+  container: 'module-c-page',
   preflight: 'modulec-preflight',
   modeVoice: 'modulec-mode-voice',
   modeText: 'modulec-mode-text',
@@ -142,7 +175,8 @@ export const MD_TESTIDS = {
   submoduleName: (i: number) => `md-submodule-${i}-name`,
   submoduleResponsibility: (i: number) => `md-submodule-${i}-responsibility`,
   interfaceDefinitions: 'md-interface-definitions',
-  dataflowDescription: 'md-dataflow-description',
+  // Brief #13 D9 · page uses `md-data-flow`.
+  dataflowDescription: 'md-data-flow',
   constraint: (key: string) => `md-constraint-${key}`,
   tradeoffText: 'md-tradeoff-text',
   aiOrchestration: (i: number) => `md-ai-orchestration-${i}`,
@@ -152,8 +186,12 @@ export const MD_TESTIDS = {
 // ────────────────────────── SE module ──────────────────────────
 
 export const SE_TESTIDS = {
-  container: 'selfassess-container',
-  dimensionSlider: (dim: string) => `selfassess-slider-${dim}`,
+  // Brief #13 D10 · page uses `selfassess-root`.
+  container: 'selfassess-root',
+  // Brief #13 D11 · page renders a single shared slider · not per-dimension.
+  // Driver fills with the fixture's overall confidence; per-dim split is a
+  // V5.0.5 housekeeping candidate.
+  dimensionSlider: 'selfassess-slider',
   reasoning: 'selfassess-reasoning',
   submit: 'selfassess-submit',
 } as const;

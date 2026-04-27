@@ -94,7 +94,8 @@ describe('<ConsentPage />', () => {
 
     expect(localStorage.getItem(consentStorageKey('sess-abc'))).toBe('1');
     expect(captured).not.toBeNull();
-    expect(captured!.url).toBe('http://api.test/api/candidate/profile/submit');
+    // Brief #13 C5 · candidateApi uses relative URLs (vite proxy /api → :4000).
+    expect(captured!.url).toBe('/api/candidate/profile/submit');
     expect(JSON.parse(String(captured!.init.body))).toEqual({
       sessionToken: 'sess-abc',
       consentAccepted: true,

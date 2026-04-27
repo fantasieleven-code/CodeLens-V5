@@ -23,7 +23,14 @@ import type {
 } from '@codelens-v5/shared';
 import { SUITES } from '@codelens-v5/shared';
 import { useModuleStore } from './module.store.js';
-import { findSessionById } from '../pages/admin/mock/admin-sessions-fixtures.js';
+
+interface CandidateSessionResponse {
+  id: string;
+  candidate: { id: string; name: string; email: string };
+  suiteId: string;
+  examInstanceId: string;
+  status: string;
+}
 
 export interface DecisionSummary {
   ma?: { schemeId: string; reasoning: string };
@@ -99,16 +106,27 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   setToken: (token) => set({ token }),
 
   loadSession: async (sessionId) => {
-    // Layer-1 mock: resolve the session from the admin fixtures so the
-    // candidate flow is walkable end-to-end without a backend. Task 12
-    // Layer 2 swaps this for a real `/api/v5/session/:id` fetch.
+    // Brief #13 D17 · Layer 2 swap shipped · GET /api/v5/session/:id resolves
+    // sessionId from the shareable URL into the real DB record (vite proxy
+    // /api → :4000 in dev/CI, same-origin reverse proxy in production).
     set({ loadStatus: 'loading', loadError: null });
-    const session = findSessionById(sessionId);
-    if (!session) {
-      set({ loadStatus: 'error', loadError: `未找到会话 ${sessionId}` });
+    let session: CandidateSessionResponse;
+    try {
+      const response = await fetch(`/api/v5/session/${sessionId}`);
+      if (response.status === 404) {
+        set({ loadStatus: 'error', loadError: `未找到会话 ${sessionId}` });
+        return;
+      }
+      if (!response.ok) {
+        set({ loadStatus: 'error', loadError: `加载会话失败 (${response.status})` });
+        return;
+      }
+      session = (await response.json()) as CandidateSessionResponse;
+    } catch {
+      set({ loadStatus: 'error', loadError: '网络错误' });
       return;
     }
-    const suite = SUITES[session.suiteId];
+    const suite = SUITES[session.suiteId as SuiteId];
     if (!suite) {
       set({ loadStatus: 'error', loadError: `未知套件 ${session.suiteId}` });
       return;
@@ -117,7 +135,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set({
       sessionId: session.id,
       candidateId: session.candidate.id,
-      suiteId: session.suiteId,
+      suiteId: session.suiteId as SuiteId,
       examInstanceId: session.examInstanceId,
       moduleOrder,
       loadStatus: 'loaded',
@@ -125,7 +143,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     });
     // Prime module.store so ExamRouter renders the intro (currentModule
     // becomes 'intro') and Start button is enabled.
-    useModuleStore.getState().setSuite(session.suiteId, moduleOrder);
+    useModuleStore.getState().setSuite(session.suiteId as SuiteId, moduleOrder);
   },
 
   setModuleSubmissionLocal: (moduleKey, data) => {
