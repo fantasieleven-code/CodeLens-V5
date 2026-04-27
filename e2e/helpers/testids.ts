@@ -44,6 +44,14 @@ export const CANDIDATE_TESTIDS = {
     yearsOfExperience: 'field-yearsOfExperience',
     primaryTechStackInput: 'field-primaryTechStack-input',
     primaryTechStackAdd: 'field-primaryTechStack-add',
+    // Brief #13 D16 · CandidateProfileSchema requires 7 fields ·
+    // ProfileSetup.tsx runs `safeParse` before the API call, so driver must
+    // fill all of them or validation rejects client-side.
+    currentRole: 'field-currentRole',
+    companySize: 'field-companySize',
+    aiToolYears: 'field-aiToolYears',
+    primaryAiTool: 'field-primaryAiTool',
+    dailyAiUsageHours: 'field-dailyAiUsageHours',
     submit: 'profile-submit',
   },
   evaluationIntro: {

@@ -216,6 +216,28 @@ export class GoldenPathDriver {
         .locator(byTestId(CANDIDATE_TESTIDS.profile.primaryTechStackAdd))
         .click();
     }
+    // Brief #13 D16 · 5 additional CandidateProfileSchema-required fields.
+    // ProfileSetup.tsx runs `safeParse` client-side BEFORE submitProfile, so
+    // omitting any of these blocks the request from ever reaching the
+    // backend. Hard-coded defaults match ProfileSetup.test.tsx's fixture
+    // pattern; profile metadata doesn't influence grade scoring (submission
+    // content drives that), so identical values across all 4 fixtures are
+    // sound. Threading per-fixture profile metadata is V5.0.5 housekeeping.
+    await this.page
+      .locator(byTestId(CANDIDATE_TESTIDS.profile.currentRole))
+      .selectOption('fullstack');
+    await this.page
+      .locator(byTestId(CANDIDATE_TESTIDS.profile.companySize))
+      .selectOption('medium');
+    await this.page
+      .locator(byTestId(CANDIDATE_TESTIDS.profile.aiToolYears))
+      .selectOption('1');
+    await this.page
+      .locator(byTestId(CANDIDATE_TESTIDS.profile.primaryAiTool))
+      .selectOption('claude_code');
+    await this.page
+      .locator(byTestId(CANDIDATE_TESTIDS.profile.dailyAiUsageHours))
+      .selectOption('1_3');
     await this.page.locator(byTestId(CANDIDATE_TESTIDS.profile.submit)).click();
     // Same race-defense as fillConsent · ProfileSetup.onSubmit awaits the
     // submitProfile API call before setting the profile flag and navigating
