@@ -87,6 +87,10 @@ describe('requireCandidate middleware', () => {
   });
 
   it('T2 · no header · valid body.sessionToken → session resolved · req.auth set', async () => {
+    // Brief #13 D15 · Path B body-token now accepts either the random
+    // `candidateToken` field OR the `sessionId` (Hotfix #12 Path A URL
+    // contract). Test exercises the OR clause; T2b covers the sessionId
+    // branch explicitly.
     sessionFindFirst.mockResolvedValue({ id: 'sess-42' });
 
     const req = makeReq({
@@ -97,11 +101,39 @@ describe('requireCandidate middleware', () => {
 
     expect(jwtVerify).not.toHaveBeenCalled();
     expect(sessionFindFirst).toHaveBeenCalledWith({
-      where: { candidateToken: 'opaque-token-xyz' },
+      where: {
+        OR: [
+          { candidateToken: 'opaque-token-xyz' },
+          { id: 'opaque-token-xyz' },
+        ],
+      },
       select: { id: true },
     });
     expect(next).toHaveBeenCalledWith();
     expect(req.auth).toEqual({ sub: 'sess-42', role: 'candidate', sessionId: 'sess-42' });
+  });
+
+  it('T2b · no header · body.sessionToken === sessionId → resolved via id branch (Hotfix #12 Path A contract)', async () => {
+    // The frontend's candidate URL is /candidate/${sessionId}/consent · the
+    // consent page passes that param verbatim into the request body, so
+    // body-token equals the sessionId, NOT the random candidateToken field.
+    // Backend Path B's OR clause makes this lookup succeed.
+    sessionFindFirst.mockResolvedValue({ id: 'sess-abc' });
+
+    const req = makeReq({
+      body: { sessionToken: 'sess-abc', consentAccepted: true },
+    });
+    const next = makeNext();
+    await requireCandidate(req, makeRes(), next);
+
+    expect(sessionFindFirst).toHaveBeenCalledWith({
+      where: {
+        OR: [{ candidateToken: 'sess-abc' }, { id: 'sess-abc' }],
+      },
+      select: { id: true },
+    });
+    expect(next).toHaveBeenCalledWith();
+    expect(req.auth).toEqual({ sub: 'sess-abc', role: 'candidate', sessionId: 'sess-abc' });
   });
 
   it('T3 · no header · invalid body.sessionToken → next(AuthenticationError)', async () => {
