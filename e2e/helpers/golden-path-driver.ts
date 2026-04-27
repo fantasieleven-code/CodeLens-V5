@@ -114,12 +114,18 @@ export class GoldenPathDriver {
       .locator(byTestId(ADMIN_TESTIDS.createStep1Position(0)))
       .click();
 
-    // Step 2 · level (derive from grade · S/A → senior · B → mid · C → junior).
-    const level = fx.grade === 'S' || fx.grade === 'A' ? 'senior'
-      : fx.grade === 'B' ? 'mid'
-      : 'junior';
+    // Step 2 · level. The admin wizard filters step-3 exam options by the
+    // selected level, and the canonical seeded exam (e0000000-...) is
+    // `level: 'senior'`. All 4 grade fixtures must select 'senior' so the
+    // canonical-exam testid renders — selecting `mid`/`junior` would filter
+    // the canonical exam out and step 3 would time out waiting for
+    // `admin-create-step3-exam-${CANONICAL_EXAM_ID}`. The grade bucket
+    // (S/A/B/D) is independent of the wizard's level filter; scoring
+    // computes grade from submission content. V5.0.5 housekeeping: seed
+    // additional canonical exams at mid/junior levels OR thread an explicit
+    // level field through GoldenPathDriverFixture.
     await this.page
-      .locator(byTestId(ADMIN_TESTIDS.createStep2Level(level)))
+      .locator(byTestId(ADMIN_TESTIDS.createStep2Level('senior')))
       .click();
 
     // Step 3 · suite + exam + candidate.
@@ -177,6 +183,14 @@ export class GoldenPathDriver {
       .waitFor({ state: 'visible', timeout: 15_000 });
     await this.page.locator(byTestId(CANDIDATE_TESTIDS.consent.checkbox)).check();
     await this.page.locator(byTestId(CANDIDATE_TESTIDS.consent.submit)).click();
+    // ConsentPage.onSubmit awaits a backend submitConsent call before setting
+    // the consentStorageKey localStorage flag and navigating to /exam.
+    // ProfileGuard reads that flag and redirects back to /consent if it's
+    // missing, so the driver MUST wait for the post-submit URL change before
+    // navigating elsewhere — otherwise fillProfile's subsequent
+    // `goto('/profile')` races the async submit and lands while the flag is
+    // still unset.
+    await this.page.waitForURL(`**/exam/${candidateToken}`, { timeout: 15_000 });
   }
 
   // ─── Step 5 · Candidate profile ─────────────────────────
@@ -203,6 +217,11 @@ export class GoldenPathDriver {
         .click();
     }
     await this.page.locator(byTestId(CANDIDATE_TESTIDS.profile.submit)).click();
+    // Same race-defense as fillConsent · ProfileSetup.onSubmit awaits the
+    // submitProfile API call before setting the profile flag and navigating
+    // to /exam. Wait for the URL change so the next module's `goto` doesn't
+    // race the in-flight submit (could lose the profile record server-side).
+    await this.page.waitForURL(`**/exam/${candidateToken}`, { timeout: 15_000 });
   }
 
   // ─── Step 6 · Evaluation intro ──────────────────────────
