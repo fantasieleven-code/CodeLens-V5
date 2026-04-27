@@ -234,7 +234,8 @@ describe('<ProfileSetup />', () => {
     });
     expect(localStorage.getItem(profileStorageKey('sess-abc'))).toBe('1');
     expect(captured).not.toBeNull();
-    expect(captured!.url).toBe('http://api.test/api/candidate/profile/submit');
+    // Brief #13 C5 · candidateApi uses relative URLs (vite proxy /api → :4000).
+    expect(captured!.url).toBe('/api/candidate/profile/submit');
     const body = JSON.parse(String(captured!.init.body));
     expect(body.sessionToken).toBe('sess-abc');
     expect(body.profile).toEqual({
