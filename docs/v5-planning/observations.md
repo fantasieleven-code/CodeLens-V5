@@ -1760,85 +1760,41 @@ accept · D18 separate commit + D19/D20/D21 Option A · single-PR closure 真)
 
 ---
 
-### #163 — `meta-pattern` Brief #15 MB scaffold L2 swap · D17 family 2nd instance · groundTruth strip invariant + fence math correction
+### #163 — `meta-pattern` Brief #15 MB scaffold L2 swap · D17 family 2nd instance · groundTruth invariant + fence math
 
 **trace**: Brief #15 · sub-branch `fix/mb-scaffold-l2-swap` off Brief #14 closure · 2026-04-27
 
-V5.0 architectural gap diagnosed in Brief #14 §E E7 was the unwired client→
-server module-content pipeline. ModuleBPage hydrated from a Python placeholder
-(`MB_MOCK_FIXTURE.scaffold = main.py / util.py / test_main.py`) because no
-HTTP layer exposed canonical `MBModuleSpecific` rows — even though the data
-layer (`ExamDataService.getMBData`) and the DB seed both already existed.
-Brief #15 closed the HTTP gap with a single endpoint + a single client hook +
-a single page refactor.
+V5.0 architectural gap (Brief #14 §E E7) was the unwired client → server
+module-content pipeline. ModuleBPage hydrated from a Python placeholder
+because no HTTP layer exposed canonical `MBModuleSpecific` rows · the data
+layer (`ExamDataService.getMBData`) and DB seed both already existed.
+Brief #15 closes the HTTP gap with one endpoint + one hook + one page
+refactor (D17 family 2nd instance).
 
-**Pattern: D17 family · 2nd instance**:
-- D17 closed `loadSession` mock-fixture lookup with `GET /api/v5/session/:id`
-- Brief #15 closes `MB_MOCK_FIXTURE` mock-fixture lookup with `GET /api/v5/exam/:examInstanceId/module/:moduleType`
-- Same shape: thin route handler · existing service-layer query · client store/hook 4-state machine (idle → loading → loaded | error) · consumer page gates on state.
+**GroundTruth strip invariant**: `stripMBToCandidateView` pure helper is the
+single strip site · unit-tested via JSON-stringify negative-assertion against
+every removed field name. Stripped: `knownIssueLines` · `tests` ·
+`harnessReference` · `violationExamples.{isViolation, violationType, explanation}`.
 
-**GroundTruth strip discipline · invariant**:
-The endpoint MUST strip groundTruth + instructor metadata before responding.
-The `MBCandidateView` shared type encodes the candidate-facing projection;
-the `stripMBToCandidateView` pure function is the single strip site,
-unit-tested directly via JSON-stringify negative-assertion against every
-removed field name. Stripped fields:
-- `MBScaffoldFile.knownIssueLines` (instructor cue · which lines are buggy)
-- `MBScaffold.tests` (backend-test scaffolding · candidate writes own tests)
-- `harnessReference` (scoring rubric · pure groundTruth)
-- `MBViolationExample.{isViolation, violationType, explanation}` (the answer
-  Stage 4 audit asks the candidate to derive)
+**V5.0.5 rule candidates added**:
+> 1. Every candidate-facing endpoint must route through a `stripXToCandidateView`
+>    pure helper · service-layer test owns the negative-assertion invariant.
+> 2. Test LOC fence must be set via floor model (cases × per-case floor + setup
+>    cost) · not by feel · Brief #15 §E E5 catch fixed dispatch's 80-cap that
+>    was inconsistent with its own 145-LOC estimate.
 
-**V5.0.5 rule candidate · groundTruth invariant** (formalize):
-> Every endpoint that surfaces backend exam content to the candidate MUST
-> route through a `stripXToCandidateView` pure helper, unit-tested via
-> negative-assertion against the stripped field names. Coverage gate: the
-> route's happy-path test alone is insufficient because pre-stripped fake
-> data won't catch a regression in the strip helper. Service-layer test
-> file owns the invariant.
+**LOC actuals**: prod 279 / test 251 / docs ~50 (post-trim) · revised fence
+(≤280/260/50/470) · prod + test within fence · docs at cap.
 
-**V5.0.5 rule candidate · test LOC fence math** (Brief #15 §E E5 catch):
-> Test LOC fence must be set via floor model: `cases × per-case floor +
-> setup cost`, not by feel. Brief #15 dispatch's original 80-cap was
-> inconsistent with the dispatch's own 145-LOC estimate; planning error,
-> not implementation drift. Floor-model fences before brief dispatch:
->   - Express route handler: ~20 LOC setup (env mock + helpers) +
->     ~12 LOC/case → 4 cases ≈ 70 LOC minimum
->   - React hook: ~10 LOC setup + ~10 LOC/case → 3 cases ≈ 40 LOC minimum
->   - React page consumer: ~20 LOC setup + ~14 LOC/case → 3 cases ≈ 60 LOC
+**MB_MOCK_FIXTURE retain-with-deprecation**: file kept with `@deprecated` JSDoc ·
+V5.0.5 housekeeping owns consumer scan + delete.
 
-**Observed cumulative LOC (Brief #15 · 4 commits)**:
-- Prod 278 (47 shared types + 55 service strip + 75 route + 4 mount + 58 hook + 39 page refactor)
-- Test 253 (120 route + 38 service strip + 57 hook + 38 page gates)
-- Docs ~80 (this entry)
-- Within revised fence (≤280 prod / ≤260 test / ≤50 docs / ≤470 total)
+**Cascade-of-cascades ack**: Brief #15 closure ≠ main GREEN · only unblocks
+`mb-filetree-item` click. Brief #16 territory: Monaco editor interaction ·
+sandbox · standards · audit · MC voice · admin report assertions.
 
-**MB_MOCK_FIXTURE retain-with-deprecation**:
-The mock file is kept with an `@deprecated` JSDoc rather than deleted in
-Brief #15. V5.0.5 housekeeping brief owns scanning all consumers (storybook
-routes · preview routes · unit-test fixtures) and re-pointing them at
-canonical-derived fixtures before deletion. Splitting deletion from L2 swap
-keeps Brief #15 single-PR-closable and isolates deletion-side regressions
-from the architectural swap.
-
-**Cascade-of-cascades acknowledgement (W2 §6 to Steve · ack)**:
-Brief #15 closure ≠ main GREEN. It only unblocks `mb-filetree-item` click
-across all 4 fixtures. Subsequent unaudited downstream:
-- Monaco type-into-Monaco for TS code (LSP / inline-completion interference)
-- Terminal sandbox · E2B Node + Vitest support for the fixture's `npm test`
-- Standards stage (likely OK · D6 audit covered)
-- Audit stage (likely OK)
-- MC voice flow + admin report assertions (completely unaudited)
-
-Brief #16 territory begins after Brief #15 fresh-spawn 4-grade run reveals
-the next blocking layer.
-
-**Sprint discipline cumulative**:
-- Pattern F · ~82 + ~5 = ~87 drifts caught pre-code-write across 14 briefs + 2 hotfixes.
-- 0 silent push 30h+.
-- 13 §E stops in Brief #14 + #15 combined (latest: §E E5 fence math correction).
-- 17 V5.0.5 rule candidates queued.
-- A2 stacked-branch path · brief #14 backup pushed (no PR) · brief #15 sub-branch carries on top · cascade closes with single squash merge.
+**Sprint discipline cumulative**: ~87 drifts pre-code-write · 0 silent push 30h+ ·
+13 §E stops Brief #14 + #15 · 17 V5.0.5 rule candidates · A2 stacked-branch path.
 
 Commits: `69d9e58` C1 endpoint+service+strip · `a70dd42` C2 useModuleContent hook · `43a5e63` C3 ModuleBPage refactor · `<C4 SHA>` mock deprecation + obs#163
 Brief: Brief #15 · MB scaffold Layer 2 swap · 2026-04-27
