@@ -1,16 +1,17 @@
 /**
- * MB mock fixture — development default used when no module content is wired
- * in via prop. Same pattern as MA_MOCK_FIXTURE (packages/client/src/pages/moduleA/mock.ts).
+ * MB mock fixture — Brief #15 L2 swap shipped · ModuleBPage now fetches via
+ * `useModuleContent` from `GET /api/v5/exam/:examInstanceId/module/:moduleType`.
+ * This export is RETAINED solely as a storybook / preview / unit-test escape
+ * hatch — pass it as the `module` prop and ModuleBPage skips the fetch.
  *
- * Backend Task 12/13 promotes this shape into `MBModuleSpecific` persisted on
- * ExamModule rows, at which point the page will receive the real data via
- * prop and the fixture can be retained only for tests / storybook.
+ * @deprecated Real candidate flow no longer reads this. V5.0.5 housekeeping
+ * brief will scan all consumers (storybook, preview routes, unit tests) and
+ * delete this file once they re-point at canonical fixtures.
  *
- * violationExamples shape is the **candidate-safe narrow form**:
- * `{ code, aiClaimedReason? }`. The backend-side MBViolationExample carries
- * groundTruth fields (isViolation, violationType, explanation) that NEVER
- * appear in this fixture — ViolationAuditPanel types them out, and Task 7.6
- * owns the strip/map when real data lands.
+ * Original violationExamples shape `{code, aiClaimedReason?}` is now expressed
+ * via `MBCandidateViolationExample` from @codelens-v5/shared (with optional
+ * exampleIndex + aiClaimedReason). Server canonical does not carry
+ * aiClaimedReason; this mock keeps it for demo continuity.
  */
 
 import type { MultiFileEditorFile } from '../../components/editors/MultiFileEditor.js';
