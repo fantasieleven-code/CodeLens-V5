@@ -37,7 +37,8 @@ const submissions: V5Submissions = {
     },
     decision: {
       choice: 'C',
-      reasoning: '先限流止血,然后排查原因。',
+      // Brief #14 D23 · padded to ≥20 char threshold · hedge restatement preserves shallow reasoning.
+      reasoning: '先限流止血,然后排查原因,具体怎么处理还要看监控数据。',
     },
   },
   moduleA: {
@@ -51,7 +52,8 @@ const submissions: V5Submissions = {
         scenario: '秒杀系统的库存扣减模块,10000 QPS 峰值,Redis 和 MySQL 一致性',
         tradeoff:
           '方案 A 性能好 QPS 吞吐够;悲观锁 500 QPS 太慢扛不住秒杀。A 的代价是一致性弱,要做对账;MQ 异步延迟高用户体验不好。',
-        decision: '方案 A',
+        // Brief #14 D25 · padded to ≥20 char threshold · hedge restatement.
+        decision: '方案 A,看起来比 B 更稳定一点,先选 A 试试。',
         verification: '压测看 QPS 和 P99 延迟,对账任务检查 Redis 和 MySQL 差异。',
       },
       challengeResponse: [
