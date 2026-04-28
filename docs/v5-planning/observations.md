@@ -1918,3 +1918,90 @@ P1 V5.0.5 sprint:
 Commits (11): `ba10226` C1 D28α · `b58fe16` C3 D30 · `7627551` C2 D29 · `29488c9` C2.6 D32-fixture (later inert/reverted) · `c7268ff` C2.7 D33 · `0d77226` revert C2.6 · `dc15da6` C2.6′ D32-driver · `e5f61e5` C2.8 D34+slider · `5dcdca7` C2.9 D35 · `06d1bad` C2.10 D36 · `b9f7fdf` C2.11 D37 · `<C4 SHA>` obs#165
 Brief: Brief #17 narrow · audit + MC + SE 五阶段 UI 全过 · 2026-04-28
 Branch: `fix/audit-and-mc-se-admin-cascade` (sub-branch off `fix/mb-stage-transition-and-monaco-timing` · A2 stacked path)
+
+### #166 — `meta-pattern` Brief #18 · D31 admin report adapter + D38 (σ) HTTP fallback · 5 pre-code-write Pattern-F drifts · 4 commits · sub-branch off Brief #17 narrow
+
+Brief #18 closes the two surface gaps Brief #17 narrow transparently deferred:
+D31 (admin session-detail page rendered a 3-field stub + demo link, never the
+actual scored report) and D38 (`session:end` socket emit was vestigial · no
+server-side handler · sessions stayed `IN_PROGRESS` indefinitely · admin lazy-
+trigger at `admin.ts:379` never fired). The fix shape is a clean two-pronged
+backend+frontend pair · zero §E stops mid-implementation.
+
+**D38 σ-path resolution** (HTTP fallback over socket-arch fix). Brief #17
+deferral note flagged this as "root socket wire OR HTTP fallback" — Brief
+#18 picked the σ path because it's tighter scope (single endpoint + single
+fetch swap) and avoids the broader systemic socket-not-connected refactor
+(`useSocket()` defined but never called from any component · `setToken()`
+defined but never called · 5 fields all silently dead). The systemic fix
+is properly P0 V5.0.5 territory; V5.0 ships on σ.
+
+**Fix集 (2 D-numbers · 4 commits)**:
+- D38 (σ) C1 · `POST /api/v5/exam/:sessionId/complete` extends Brief #15's
+  `examContentRouter` · 200 happy / 404 SessionNotFoundError / 500 unexpected
+  · `sessionService.endSession` is idempotent (re-call safely sets
+  `status='COMPLETED'` · §E E4 not triggered) · 3 unit tests · `0f38bf6`
+- D38 (σ) C2 · `ModuleCPage.finishAndAdvance` swap socket.emit → fire-and-forget
+  fetch · advance() unconditional (matches D34/D35 pattern · candidate-already-
+  finished UX · admin lazy-trigger fallback covers late landings) · `9f32e75`
+- D31 C3 · `adminReportToViewModel` adapter (`packages/client/src/report/
+  admin-adapter.ts`) · resolves `V5AdminSuite` → full `SuiteDefinition` via
+  `SUITES[id]` lookup (only structural delta is `weightProfile` /
+  `dimensionFloors` / `reportSections` which sections may need · all other
+  fields field-for-field per `v5-admin-api.ts:170-194` doc contract) ·
+  AdminSessionDetailPage now renders inline `HeroSection` +
+  `CapabilityProfilesSection` + `SignalBarsSection` (replacing 3-field stub
+  + demo-fixture link) · 2 unit tests · `6f9551a`
+
+**Pattern F · 5 drifts caught pre-code-write** (Phase 1 audit · zero post-
+validate cost):
+1. `useSocket()` defined but never called from any component (App.tsx mount
+   chain audited · 0 callers · justified σ over arch fix)
+2. `setToken()` defined in session.store but never called (5 fields silently
+   dead · documented for V5.0.5 P0 patch)
+3. `socket.emit('session:end')` had 0 server-side listeners (grep'd entire
+   codebase · vestigial · safe to delete in C2)
+4. `endSession()` had 0 callers in production code (only test mocks · safe
+   to wire from new HTTP endpoint without integration risk)
+5. `CandidateSessionResponse` shape had no `token` field (token derives from
+   shareableLink JWT not response body · auth surface understood before
+   touching)
+
+**Pre-existing failure transparency** (NOT caused by Brief #18):
+`AdminSessionDetailPage.test.tsx` has 3 of 4 tests failing since Task 10
+commit `9a7ae15` (created Day 1) — it makes real `fetch('/api/admin/...')`
+calls in jsdom which always throws "Failed to parse URL". The mock-vs-real
+toggle in `adminApi.ts:45` (`shouldUseMock`) returns `false` in test env
+because `VITE_API_URL` is set somewhere. D31 unit confidence comes from the
+new `admin-adapter.test.ts` (2/2 PASS) which directly covers the field-for-
+field mapping. The pre-existing infra fix is added to V5.0.5 housekeeping
+(see candidate #15 below).
+
+**§E history this brief**: ZERO. Implementation went C1 → C2 → C3 → C4
+without a single ratify stop · 0 buffer authorizations needed · 0
+architectural surprises · 0 path corrections.
+
+**V5.0.5 housekeeping additions (1 net new)**:
+15. AdminSessionDetailPage.test.tsx · convert real-fetch tests to mocked
+    `adminApi` (use `__mockAdminApi__` directly via vi.mock) · 3-of-4 tests
+    have been failing silently since 2026-04-17 · obs#166 surface check.
+
+**Pattern F + G + §E**:
+- Pattern F · ~114 cumulative (5 drifts caught this brief · all pre-code-write)
+- Pattern G · 0 silent push streak ENDED at first push of Brief #17 narrow ·
+  Brief #18 4 commits pushed at brief close (transparent batched push)
+- §E history this brief: ZERO ratify stops · cleanest brief to date
+- A2 stacked path · 34 commits accumulated (briefs #14 + #15 + #16 + #17
+  narrow + #18) · single squash merge at cascade close
+
+**Cascade close ack**: Brief #18 closes the V5.0 charter. UI surfaces 100%
+green (Brief #17 narrow) + scoring trigger end-to-end (Brief #18 D38 σ) +
+admin report renders actual data (Brief #18 D31). Cold Start Tier 2 (root
+useSocket wire · 5-dead-field cleanup · admin test infra fix) deferred to
+V5.0.5 sprint per cascade discipline.
+
+Commits (4): `0f38bf6` C1 D38(σ) server endpoint · `9f32e75` C2 D38(σ)
+frontend HTTP fallback · `6f9551a` C3 D31 admin adapter · `<C4 SHA>` obs#166
+Brief: Brief #18 · admin report adapter + scoring trigger HTTP fallback · 2026-04-28
+Branch: `fix/admin-report-and-scoring-trigger` (sub-branch off
+`fix/audit-and-mc-se-admin-cascade` · A2 stacked path)
