@@ -699,28 +699,36 @@ export class GoldenPathDriver {
     sessionId: string,
     timeoutMs = 300_000,
   ): Promise<void> {
+    // Brief #20 sub-cycle Path A · isVisible → waitFor race fix.
+    // Original loop did `goto + isVisible` immediately · React useEffect's 2
+    // sequential admin API calls (getSession then getSessionReport) had not
+    // resolved yet · isVisible returned false against a still-loading page ·
+    // the next `goto` reset state · loop never accumulated progress · test
+    // timed out at 300s with reports actually rendered (per error-context
+    // snapshots from Brief #19 + Brief #20 prior runs · 8/8 4-fail same mode).
+    //
+    // Fix · per cycle, `goto` then `waitFor({state:'visible'})` on the
+    // success testid up to perCheckTimeoutMs. The four DOM branches in
+    // AdminSessionDetailPage are mutually exclusive (one of -report /
+    // -report-incomplete / -report-loading / -report-pending) so a visible
+    // success testid is sufficient · prior `!incomplete && !pending` was
+    // paranoid defense.
     const deadline = Date.now() + timeoutMs;
-    const pollIntervalMs = 3_000;
+    const perCheckTimeoutMs = 5_000;
 
     while (Date.now() < deadline) {
       await this.page.goto(`/admin/sessions/${sessionId}`);
 
-      const reportReady = await this.page
-        .locator(byTestId(ADMIN_TESTIDS.sessionDetailReport))
-        .isVisible()
-        .catch(() => false);
-      const incomplete = await this.page
-        .locator(byTestId(ADMIN_TESTIDS.sessionDetailReportIncomplete))
-        .isVisible()
-        .catch(() => false);
-      const pending = await this.page
-        .locator(byTestId(ADMIN_TESTIDS.sessionDetailReportPending))
-        .isVisible()
-        .catch(() => false);
-
-      if (reportReady && !incomplete && !pending) return;
-
-      await this.page.waitForTimeout(pollIntervalMs);
+      try {
+        await this.page
+          .locator(byTestId(ADMIN_TESTIDS.sessionDetailReport))
+          .waitFor({ state: 'visible', timeout: perCheckTimeoutMs });
+        return;
+      } catch {
+        // Still loading / scoring incomplete · the next goto restarts the
+        // page, useEffect re-fetches (Brief #20 C1 cache makes follow-ups
+        // O(1)), and we retry until the deadline.
+      }
     }
 
     throw new Error(
