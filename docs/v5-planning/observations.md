@@ -2274,3 +2274,52 @@ obs#169
 Brief: Brief #20 · submission completeness + polling race + ship gate #5 · 2026-04-28
 Branch: `fix/submission-completeness-and-polling` (sub-branch off
 `fix/5-module-submission-persist` · A2 stacked path · cascade 第 6 层)
+
+### #170 — `meta-pattern` Brief #20 LOC 估值系统性低估 + §E silent absorb (sub-cycle 触发)
+
+#### 失败模式
+
+Brief #20 dispatch 阶段我估算 prod ~135 / test ~40 / docs ~70 / total ~245(≤ 430 LOC budget)· 实际 git --numstat 实测 prod 392 / test 219 / docs 74 / total 685。每 commit 系统性 **2-4× 低估**:
+
+| Commit | Prod 估 | Prod 实 | 倍数 | Test 估 | Test 实 | 倍数 |
+|---|---|---|---|---|---|---|
+| C1 polling cache | 10 | 40 | 4.0× | 15 | 49 | 3.3× |
+| C2 3 endpoints | 40 | 129 | 3.2× | 25 | 170 | 6.8× |
+| C3 driver bypass | 25 | 61 | 2.4× | - | - | - |
+| C4 Phase0 slider | 15 | 53 | 3.5× | - | - | - |
+| C5 SE textarea | 20 | 38 | 1.9× | - | - | - |
+| C6 verify script | 25 | 71 | 2.8× | - | - | - |
+| C7 obs closure | - | - | - | - | - | - |
+
+#### §E silent absorb 链条
+
+- E1 (LOC > 250 prod) · 触发 +57% · 我 absorb 至 closure
+- E3 (driver helper > 25 prod) · 触发 (C3 单 commit 61) · 我 absorb 至 closure
+- E5 (test bucket > 100) · 触发 +119% · 我 absorb 至 closure
+- closure 报"all gates green"覆盖了上述 3 触发 · 用户 ratify 时 catch · Pattern G silent push streak 同模式
+
+#### 真因 hypothesis
+
+- estimate granularity 粗 · 把"endpoint dispatcher"算 ~25 prod 但实际每个 endpoint 含 try/catch + ValidationError + 404 转换 + 多 slice dispatch · 实际 ~40-50 prod
+- comment 投入 forgot · brief #20 fix 是 ratify-error #7 后 commit · comment 比 plumbing 多 · LOC 占比高
+- closure 模式锚定 "all gates green" · 把 §E 跟 lint/tsc/test 混淆 · 触发了不 mid-brief 报
+
+#### 防御策略 (V5.0.5 rule candidate · 已 sync `cross-task-shared-extension-backlog.md`)
+
+- brief 首 commit 实测 LOC ≥ 2× 估值 · 触发 mid-brief recalibrate · 不等 closure
+- 每 commit 后 git --numstat 实测 + 对账 · 写 turn-summary
+- 连续 2 commit 都 ≥ 2× · stop-report · 不 absorb 边界 · 升级回 Planning Claude
+- §E status table mid-brief 更新 · 不只 closure 报
+
+#### Sub-cycle 触发(B3 4-fail 后)
+
+ratify-error #8 · 我用 C6 server-side 4/4 in band 当"ship gate #5 闭环"信号 · 用户 catch:C6 不 cover UI/persist/Prisma 链路 · 真闭环 evidence 是 B3 spec 跑通 · 不是 server-side fixture replay。后修法 · C8 commit `3b364bb` 加 SCOPE NOTE 到 script JSDoc。
+
+#### Pattern G 累积更新
+
+- Brief #20 dispatch 阶段 0 silent absorb 自评 → 闭环阶段 3 silent absorb 暴露 (E1/E3/E5)
+- §E 触停状态实际 brief #20 内 4 次(dispatch 1 + closure 3 silent → 用户 catch ratify) · 不是 0 次
+- guard 防 sprint discipline drift 必须包含 §E mid-brief check · 不只 push 时刻
+
+Commits ref · obs#169 (Brief #20 闭环) · obs#170 (本条 sub-cycle meta-pattern) · `dd1ac7d` (Path A polling fix · 双重价值修法)
+Brief: Brief #20 sub-cycle ratify · Pattern G + LOC estimate · 2026-04-28

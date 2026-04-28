@@ -684,3 +684,18 @@ Per B1+B2+A3 race condition incidents (observation #156/#157) · `git worktree a
 ### Helper test coverage + other items
 
 Per B2 backlog entry · `monaco-helper.test.ts` + `terminal-helper.test.ts` direct unit tests · V5.0.5 nice-to-have。
+
+### Brief LOC estimate granularity audit (Brief #20 sub-cycle ratify-error #8 prevention)
+
+**Origin** · Brief #20 closure 实测显示估值 vs 实际 prod LOC 系统性 2-4× 低估(C1 估 10/15 实 40/49 · C2 估 40/25 实 129/170 · C6 估 25 实 71)· §E E1/E3/E5 silent absorbed 至 closure 才暴露 · 用户 ratify 时 catch (Pattern G silent absorb 同模式)。
+
+**V5.0.5 rule candidate** (sprint discipline upgrade):
+
+- 若 brief 首 commit 实测 LOC ≥ **2× 估值** · 触发 mid-brief recalibrate · 不等 closure
+- 每 commit 后 `git --numstat` 实测 + 跟 dispatch 估值对账 · 写到 turn-summary
+- 估值差异连续 2 commit 都 ≥ 2× · stop-report · 不 absorb 边界 · 升级回 Planning Claude
+- §E status table 必须 mid-brief 更新 · 不只 closure 报 · 防 silent absorb
+
+**Priority** · High · sprint discipline core · 跟 Pattern G silent push streak guard 同级 · 防接力 Brief Claude 重复同模式。
+
+**Tracking** · obs#170 (Brief #20 sub-cycle 闭环时落) records the meta-pattern; this entry is the V5.0.5 rule formalization。
