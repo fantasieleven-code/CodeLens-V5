@@ -444,16 +444,24 @@ export class GoldenPathDriver {
     await this.page.locator(byTestId(MB_TESTIDS.standardsSubmit)).click();
 
     // Audit phase.
+    // Brief #17 D29 · violation toggle is a <select> (unmarked/compliant/
+    // violation) per ViolationAuditPanel.tsx:245-255 · rule chooser is a
+    // <select> with positional rule_${idx} options from parseRulesFromContent
+    // (panel L77-92) · driver MUST selectOption({ value }) for both, and MUST
+    // set status for `markedAsViolation === false` cases too (otherwise the
+    // select stays at default `unmarked` and canSubmit gates fail).
     if (mb.audit?.violations) {
       for (let i = 0; i < mb.audit.violations.length; i++) {
         const violation = mb.audit.violations[i];
-        if (violation.markedAsViolation) {
-          await this.page.locator(byTestId(MB_TESTIDS.auditViolation(i))).check();
-          if (violation.violatedRuleId) {
-            await this.page
-              .locator(byTestId(MB_TESTIDS.auditRuleId(i)))
-              .fill(violation.violatedRuleId);
-          }
+        const violationStatus = violation.markedAsViolation ? 'violation' : 'compliant';
+        await this.page
+          .locator(byTestId(MB_TESTIDS.auditViolation(i)))
+          .selectOption({ value: violationStatus });
+
+        if (violation.markedAsViolation && violation.violatedRuleId) {
+          await this.page
+            .locator(byTestId(MB_TESTIDS.auditRuleId(i)))
+            .selectOption({ value: violation.violatedRuleId });
         }
       }
       await this.page.locator(byTestId(MB_TESTIDS.auditSubmit)).click();

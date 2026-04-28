@@ -157,8 +157,10 @@ const submissions: V5Submissions = {
       agentContent: 'Agent 改 InventoryRepository 前需要读 rules.md 的规则。',
     },
     audit: {
+      // Brief #17 D29 · ruleId remapped to positional `rule_${idx}` matching
+      // parseRules output over Emma's 2 numbered rules (rule_0 = "扣减要检查超卖").
       violations: [
-        { exampleIndex: 0, markedAsViolation: true, violatedRuleId: 'rule-oversold' },
+        { exampleIndex: 0, markedAsViolation: true, violatedRuleId: 'rule_0' },
         { exampleIndex: 1, markedAsViolation: false },
       ],
     },

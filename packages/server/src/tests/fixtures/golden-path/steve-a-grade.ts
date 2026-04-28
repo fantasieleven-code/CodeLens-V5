@@ -226,10 +226,13 @@ const submissions: V5Submissions = {
         'Agent 在改 InventoryRepository 或 InventoryService 的时候,必须先读 rules.md 的 6 条规则。任何涉及 `redis.decr()` 或 `mysql.insert()` 的改动都需要配套更新 tests/inventory.test.ts,不要漏测边界。上下文不够时先看 scaffold 里的 dependencyOrder,避免跳过 Controller 层的 validation。',
     },
     audit: {
+      // Brief #17 D29 · ruleIds remapped to positional `rule_${idx}` matching
+      // parseRules output over Steve's 6 numbered rules (rule_0 = "OversoldError
+      // throw" · rule_5 = "测试覆盖 oversold/并发/retry").
       violations: [
-        { exampleIndex: 0, markedAsViolation: true, violatedRuleId: 'rule-oversold' },
+        { exampleIndex: 0, markedAsViolation: true, violatedRuleId: 'rule_0' },
         { exampleIndex: 1, markedAsViolation: false },
-        { exampleIndex: 2, markedAsViolation: true, violatedRuleId: 'rule-retry' },
+        { exampleIndex: 2, markedAsViolation: true, violatedRuleId: 'rule_5' },
       ],
     },
   },

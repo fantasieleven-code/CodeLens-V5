@@ -282,10 +282,13 @@ const submissions: V5Submissions = {
         '当 Agent 生成或修改 InventoryRepository 或 InventoryService 时,必须阅读 rules.md 的 5 条规则并在 PR 描述里勾选每一条。任何涉及 redis.decr / mysql.insert 的改动都要配套 tests/inventory.test.ts 更新。',
     },
     audit: {
+      // Brief #17 D29 · ruleIds remapped to positional `rule_${idx}` matching
+      // parseRules output over Liam's 5 numbered rules (rule_3 = "Oversold
+      // checks must throw" · rule_0 = idempotency/requestId for retry safety).
       violations: [
-        { exampleIndex: 0, markedAsViolation: true, violatedRuleId: 'rule-oversold-check' },
+        { exampleIndex: 0, markedAsViolation: true, violatedRuleId: 'rule_3' },
         { exampleIndex: 1, markedAsViolation: false },
-        { exampleIndex: 2, markedAsViolation: true, violatedRuleId: 'rule-retry-required' },
+        { exampleIndex: 2, markedAsViolation: true, violatedRuleId: 'rule_0' },
       ],
     },
   },
