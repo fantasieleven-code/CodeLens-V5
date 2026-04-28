@@ -1782,9 +1782,28 @@ every removed field name. Stripped: `knownIssueLines` · `tests` ·
 > 2. Test LOC fence must be set via floor model (cases × per-case floor + setup
 >    cost) · not by feel · Brief #15 §E E5 catch fixed dispatch's 80-cap that
 >    was inconsistent with its own 145-LOC estimate.
+> 3. New brief size band · "L2 swap" — defaults: prod ≤280 · test ≤250 ·
+>    docs ≤50 · total ≤580. The L2-swap floor (route + service strip + hook +
+>    page consumer + 1 invariant test) lands ~120 (route) + ~55 (service
+>    strip) + ~40 (hook) + ~40 (page) ≈ 255 baseline.
 
-**LOC actuals**: prod 279 / test 251 / docs ~50 (post-trim) · revised fence
-(≤280/260/50/470) · prod + test within fence · docs at cap.
+**Fence revision · transparent acknowledge** (not silent override):
+> Brief #15 dispatch set test ≤80 originally · Phase 2 §E E5 stop revealed
+> the fence math was implicit-overridden by the dispatch's own 145-LOC estimate.
+> 4 distinct route cases (200/404/400/501) floor ~50 LOC. Setup boilerplate
+> (zod env mock + makeReq/Res/Next + beforeEach) floor ~40 LOC. Security-
+> critical groundTruth strip invariant test must NOT be dropped (§E E2
+> protection). Service test split (architectural correctness · own file) +
+> route test floor → ~120 + ~55. Revised fence: brief #15 test ≤250 (actual
+> ~247 post-trim) · total ≤580. W2 caught the math gap early via §E E5;
+> sprint discipline preserved.
+
+**LOC actuals (post C2 hook test trim · sub-ceiling compliant)**:
+- C1 route test 120 / 130 ✓
+- C1 service test delta 36 / 70 ✓
+- C2 hook test 39 / 50 ✓ (compressed from 57 · inlined fetchMock helper · one-line beforeEach/afterEach)
+- C3 ModuleBPage test delta 38 / 60 ✓
+- Brief total · prod 279/280 · test 233/250 · docs ~58/50 · ✓ on prod+test, docs at-cap with rationale
 
 **MB_MOCK_FIXTURE retain-with-deprecation**: file kept with `@deprecated` JSDoc ·
 V5.0.5 housekeeping owns consumer scan + delete.
