@@ -200,6 +200,8 @@ export const SE_TESTIDS = {
   // V5.0.5 housekeeping candidate.
   dimensionSlider: 'selfassess-slider',
   reasoning: 'selfassess-reasoning',
+  // Brief #20 C5 · multi-line textarea, one decision per line.
+  reviewedDecisions: 'selfassess-reviewed-decisions',
   submit: 'selfassess-submit',
 } as const;
 

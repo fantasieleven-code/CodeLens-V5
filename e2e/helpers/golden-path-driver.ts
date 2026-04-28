@@ -670,6 +670,17 @@ export class GoldenPathDriver {
       });
 
     await this.page.locator(byTestId(SE_TESTIDS.reasoning)).fill(se.reasoning);
+
+    // Brief #20 C5 · reviewedDecisions textarea (newline-joined). Fixture
+    // field is optional; skip when absent so the empty array stays out of
+    // the HTTP body (server endpoint discards empty arrays anyway).
+    if (Array.isArray(se.reviewedDecisions) && se.reviewedDecisions.length > 0) {
+      await this.page
+        .locator(byTestId(SE_TESTIDS.reviewedDecisions))
+        .fill(se.reviewedDecisions.join('\n'))
+        .catch(() => {});
+    }
+
     await this.page.locator(byTestId(SE_TESTIDS.submit)).click();
   }
 

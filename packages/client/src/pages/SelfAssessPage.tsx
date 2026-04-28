@@ -36,6 +36,10 @@ export const SelfAssessPage: React.FC = () => {
 
   const [confidence, setConfidence] = useState(60);
   const [reasoning, setReasoning] = useState('');
+  // Brief #20 C5 · multi-line textarea, one decision per line. Empty/whitespace
+  // lines are filtered before submission so trailing newlines don't pollute
+  // the array.
+  const [reviewedDecisionsText, setReviewedDecisionsText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,9 +84,14 @@ export const SelfAssessPage: React.FC = () => {
     // Persist the canonical V5 submission shape locally so CompletePage
     // renders selfAssess as done and DecisionSummary on downstream pages
     // has a stable snapshot to read from.
+    const reviewedDecisions = reviewedDecisionsText
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
     const submission: V5SelfAssessSubmission = {
       confidence,
       reasoning: reasoning.trim(),
+      ...(reviewedDecisions.length > 0 ? { reviewedDecisions } : {}),
     };
     setSubmission('selfAssess', submission);
 
@@ -109,6 +118,7 @@ export const SelfAssessPage: React.FC = () => {
           selfConfidence: confidence,
           selfIdentifiedRisk: reasoning.trim() || undefined,
           responseTimeMs,
+          ...(reviewedDecisions.length > 0 ? { reviewedDecisions } : {}),
         }),
       }).catch(() => {});
     }
@@ -172,6 +182,21 @@ export const SelfAssessPage: React.FC = () => {
         <div style={styles.charCount}>
           {reasoning.trim().length} 字 {reasoning.trim().length < 10 && '（还需要写更多）'}
         </div>
+      </section>
+
+      <section style={styles.section}>
+        <h2 style={styles.sectionTitle}>回顾过的决策摘要（每行一条，可选）</h2>
+        <p style={styles.sectionHint}>
+          列出在自评前你重新审视过的关键决策点 · 用于校准元认知评估。
+        </p>
+        <textarea
+          value={reviewedDecisionsText}
+          onChange={(e) => setReviewedDecisionsText(e.target.value)}
+          placeholder="例：&#10;Phase 0 方案选择&#10;MA 第二轮的代码审查&#10;MB Cursor chat 选型"
+          style={styles.textarea}
+          rows={4}
+          data-testid="selfassess-reviewed-decisions"
+        />
       </section>
 
       {error && <div style={styles.error}>{error}</div>}
