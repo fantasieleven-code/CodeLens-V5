@@ -2,6 +2,8 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Request, Response, NextFunction } from 'express';
+import type * as ExamDataServiceModule from '../services/exam-data.service.js';
+import type * as SessionServiceModule from '../services/session.service.js';
 
 const getMBDataCandidateSafe = vi.hoisted(() => vi.fn());
 const endSession = vi.hoisted(() => vi.fn());
@@ -21,9 +23,7 @@ vi.mock('../config/env.js', () => ({
 }));
 
 vi.mock('../services/exam-data.service.js', async (importOriginal) => {
-  const actual = await importOriginal<
-    typeof import('../services/exam-data.service.js')
-  >();
+  const actual = await importOriginal<typeof ExamDataServiceModule>();
   return {
     ...actual,
     examDataService: { getMBDataCandidateSafe },
@@ -31,9 +31,7 @@ vi.mock('../services/exam-data.service.js', async (importOriginal) => {
 });
 
 vi.mock('../services/session.service.js', async (importOriginal) => {
-  const actual = await importOriginal<
-    typeof import('../services/session.service.js')
-  >();
+  const actual = await importOriginal<typeof SessionServiceModule>();
   return {
     ...actual,
     sessionService: { endSession },
