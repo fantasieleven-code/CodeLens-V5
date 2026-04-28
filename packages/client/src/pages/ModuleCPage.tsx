@@ -285,10 +285,14 @@ export const ModuleCPage: React.FC = () => {
   // Text mode submit
   // Brief #17 D35 · fire-and-forget pattern (matches D34 SE alignment +
   // Phase0Page:139-148 design pattern + 5 other module pages). Server handler
-  // for `v5:modulec:answer` exists but the socket isn't connected at root
-  // level (useSocket() is defined but unused — V5.0.5 housekeeping wires it).
-  // Until then, gating round advance + textSubmitting=false on the ack
-  // callback strands the candidate at round N because the ack never fires.
+  // for `v5:modulec:answer` was claimed in source comment but Brief #19
+  // Phase 1 audit Q1 grep verified NO socket.on('v5:modulec:answer')
+  // exists anywhere in server code · text-mode answers were always
+  // silent-dropped. Brief #19 C7 σ HTTP fallback to POST
+  // /api/v5/exam/:sessionId/modulec/round/:roundIdx persists per-round
+  // via the shared mc.service saveRoundAnswer (Brief #19 C1 extraction).
+  // Belt-and-suspenders keeps the socket emit for V5.0.1 when the
+  // server-side socket.on handler is also added.
   const submitTextRound = useCallback(() => {
     if (textSubmitting || textAnswer.trim().length < 10) return;
     setTextSubmitting(true);
@@ -301,6 +305,17 @@ export const ModuleCPage: React.FC = () => {
       answer: submittedAnswer,
     };
     socket.emit('v5:modulec:answer', payload, (_ok: boolean) => {});
+    if (sessionId) {
+      void fetch(`/api/v5/exam/${sessionId}/modulec/round/${currentRound + 1}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          answer: submittedAnswer,
+          question: prompt,
+          probeStrategy: 'text-mode',
+        }),
+      }).catch(() => {});
+    }
 
     // Local state transitions fire unconditionally · the local store is the
     // source of truth for in-session UI (mirrors Phase0Page rationale).
@@ -318,7 +333,7 @@ export const ModuleCPage: React.FC = () => {
       setCurrentRound((r) => r + 1);
     }
     setTextSubmitting(false);
-  }, [textAnswer, textSubmitting, currentRound, flushRoundBehavior]);
+  }, [textAnswer, textSubmitting, currentRound, flushRoundBehavior, sessionId]);
 
   const skipRound = useCallback(() => {
     flushRoundBehavior(currentRound, { textModeUsed: mode === 'text' });
