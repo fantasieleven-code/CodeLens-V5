@@ -14,10 +14,12 @@ export class MonacoHelper {
    *  Monaco JS API — tests no longer need realistic keystroke timing here since
    *  typing signals aren't scored in MB2. */
   static async typeCode(page: Page, code: string, _delayMs = 80): Promise<void> {
-    await page.locator('.monaco-editor').first().waitFor({ state: 'visible', timeout: 30000 });
+    // Brief #16 D27(a) · cold-load CDN cost can land between 30-45s · 60s
+    // boundary keeps the variance check alive while accommodating slow CIs.
+    await page.locator('.monaco-editor').first().waitFor({ state: 'visible', timeout: 60000 });
     await page.waitForFunction(
       () => !!(window as any).monaco?.editor?.getEditors?.()?.length,
-      { timeout: 10000 },
+      { timeout: 30000 },
     );
     await page.evaluate((text) => {
       const editors = (window as any).monaco.editor.getEditors();
@@ -41,10 +43,12 @@ export class MonacoHelper {
   /** Clear the editor content via the Monaco JS API (Cmd+A/Ctrl+A no longer
    *  works reliably on EditContext-based Monaco). */
   static async selectAll(page: Page): Promise<void> {
-    await page.locator('.monaco-editor').first().waitFor({ state: 'visible', timeout: 30000 });
+    // Brief #16 D27(a) · cold-load CDN cost can land between 30-45s · 60s
+    // boundary keeps the variance check alive while accommodating slow CIs.
+    await page.locator('.monaco-editor').first().waitFor({ state: 'visible', timeout: 60000 });
     await page.waitForFunction(
       () => !!(window as any).monaco?.editor?.getEditors?.()?.length,
-      { timeout: 10000 },
+      { timeout: 30000 },
     );
     await page.evaluate(() => {
       const editors = (window as any).monaco.editor.getEditors();
