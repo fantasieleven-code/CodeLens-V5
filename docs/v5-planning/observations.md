@@ -1981,10 +1981,38 @@ field mapping. The pre-existing infra fix is added to V5.0.5 housekeeping
 without a single ratify stop · 0 buffer authorizations needed · 0
 architectural surprises · 0 path corrections.
 
-**V5.0.5 housekeeping additions (1 net new)**:
-15. AdminSessionDetailPage.test.tsx · convert real-fetch tests to mocked
-    `adminApi` (use `__mockAdminApi__` directly via vi.mock) · 3-of-4 tests
-    have been failing silently since 2026-04-17 · obs#166 surface check.
+**V5.0.5 housekeeping additions (1 net new · revised post-Brief #18 ratify)**:
+15. vitest setup 应 override `VITE_ADMIN_API_MOCK=true` (或 `packages/client/.env.test`
+    显式设) · 防本地 dev `.env` (`VITE_API_URL` + `VITE_ADMIN_API_MOCK=false`) 影响测试
+    运行。CI 不受影响 · 一直绿。Polish-tier 不是 V5.0.5 P0/P1。
+    (原 entry 框 "tests have been failing silently since 2026-04-17" 是错的 — 见
+    ratify-error #4 below · `.env` is gitignored · 仅 local dev artifact · CI 一直绿.)
+
+**Planning Claude ratify-error transparency (4 instances · entry #4 added post-Brief
+#18 闭环 ratify)** — recorded so future Phase 1 audit templates account for them:
+1. D32 first ratify (a) path assumed fixture array was source-of-truth without grep'ing
+   readers · canonical was 2 dirs over in shared types · revert + replacement was the cost
+2. D34 fix shipped without proactive grep for same ack-gate pattern · D35 surfaced
+   post-validate as identical family · should have been caught together
+3. Brief #17 Phase 1 audit Q3 audited fixture shape uniformity but missed `TOTAL_ROUNDS`
+   page constant verification · D36 surfaced post-validate
+4. Pattern G ratify-error #4 · Brief #18 闭环 W2 + Planning Claude 双方漏审 ·
+   - **W2 ratify-error**: 上一轮闭环报告写 "AdminSessionDetailPage.test.tsx has been
+     failing since Task 10 commit 9a7ae15" 是错的 · CI 一直绿 · 仅 local `.env` artifact
+     (gitignored · 用户本地 2026-04-24 12:32 创建 · `VITE_ADMIN_API_MOCK=false`).
+     应 verify (a) `.gitignore` 含 `.env`(b) 试 `VITE_ADMIN_API_MOCK=true` override
+     (c) GitHub Actions CI 状态。Smoking gun · `VITE_ADMIN_API_MOCK=true npx vitest
+     run src/pages/admin/` 跑出 50/50 全过 · 包含 Brief #18 D31 新加的 4/4 hero +
+     capability assertions.
+   - **Planning ratify-error**: 看到 W2 报告 19 个测试失败时没要求 verify CI 状态对比
+     local · 默认接受 W2 描述 · 第 4 次同性质漏审(前 3 次 D32 source-of-truth /
+     D34 grep 同模式 / D36 page constants).
+
+**V5.0.5 规则候选 (新增 · 16-17)**:
+16. Planning ratify 看到测试失败时必先 verify CI 状态对比 local · 防 local-only `.env`
+    假阳性 (D38 ratify-error #4 lesson)
+17. W2 闭环报告里所有 "since Task X commit Y" 类时间断言必跑 `git log --diff-filter=A
+    -- <file>` 验证 (而非 `git log -- <file>` 看 modify history)
 
 **Pattern F + G + §E**:
 - Pattern F · ~114 cumulative (5 drifts caught this brief · all pre-code-write)
@@ -2005,3 +2033,13 @@ frontend HTTP fallback · `6f9551a` C3 D31 admin adapter · `<C4 SHA>` obs#166
 Brief: Brief #18 · admin report adapter + scoring trigger HTTP fallback · 2026-04-28
 Branch: `fix/admin-report-and-scoring-trigger` (sub-branch off
 `fix/audit-and-mc-se-admin-cascade` · A2 stacked path)
+
+### #167 — `meta-pattern` Brief #10 Cold Start Tier 2 + V5.0 ship sign-off (placeholder · 待 Cold Start 完成后写完整闭环报告)
+
+Placeholder entry · final closure report (6 ship gates · B3 spec 4 fixtures · MC
+voice manual · admin reports · CHANGELOG · v5.0-ship-signoff.md) is written at end
+of Brief #10 §4 Section 5. Brief #10 is the V5.0 ship validation brief — 0
+production code change · only docs + agent execution + Steve minimal manual.
+
+Branch: `chore/v5.0-ship-signoff` (sub-branch off
+`fix/admin-report-and-scoring-trigger` · A2 stacked path · final brief in cascade).
