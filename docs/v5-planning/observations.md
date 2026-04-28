@@ -2323,3 +2323,46 @@ ratify-error #8 · 我用 C6 server-side 4/4 in band 当"ship gate #5 闭环"信
 
 Commits ref · obs#169 (Brief #20 闭环) · obs#170 (本条 sub-cycle meta-pattern) · `dd1ac7d` (Path A polling fix · 双重价值修法)
 Brief: Brief #20 sub-cycle ratify · Pattern G + LOC estimate · 2026-04-28
+
+#### Sub-cycle commit 2 · 真因 · 5th gap audit + family-pattern 估值断点
+
+Sub-cycle commit 2 (`efcbb72` testRuns regression close) 实测 LOC 触 §E **断路器**:
+
+| 桶 | 估值 | 实数 | multiplier | source |
+|---|---|---|---|---|
+| prod | 32 | 66 | 2.06× | mb.service +51 (appendTestRuns helper full-baked) · exam-content +9 · driver +6 |
+| **test** | **12** | **85** | **7.08×** | mb.service.test +79 (5 case 镜 family pattern) · exam-content.test +6 |
+
+**真因 reasoning**(我倒推 · 不假设):
+
+estimate 模型 `case-count × lines/case` 本身坏 · 双轴都漂:
+- **case-count 估值漂**:我估 2-3 case (happy + dedup + missing-session)· 实际 5 case (happy + dedup + 2 no-op variant + missing-session)。漂源 · `appendChatEvents` / `appendDiffEvents` / `appendFileNavigation` / `appendEditSessions` / `appendVisibilityEvent` 全 family 5 case 模式 · 我加 appendTestRuns 必须镜像同 pattern 保 consistency · estimate 时没 anchor family floor。
+- **lines/case 估值漂**:我估 ~5 line/case (action call + 1-2 assert)· 实际 ~16 line/case (mock setup + action + multi-property assert + sometimes mock-not-called check + 注释)。漂源 · 现 family case 平均 ~16 line · 我估"轻量 case" lines/case 是想象 · 不基于实测。
+
+真因不是"family pattern fixed cost 没 carve out" · 是 estimate 时**完全没参考 family floor**。当一个新 helper 加入 known family · 估值 floor = `family case-count × family avg lines/case` (即 5 × 16 = 80 line)· 我的估 12 line 跟 80 line floor 差 6.7× · 几乎完美匹配实数 7.08×。
+
+**这是 estimate 模型的具体可修方法 · 不是 generic "我估错了"**。
+
+#### V5.0.5 rule candidate 双条(已 sync `cross-task-shared-extension-backlog.md`)
+
+**Detection rule**(已存 · brief #20 closure 起):
+- 首 commit 实测 LOC ≥ 2× 估值 · 触发 mid-brief recalibrate · 不等 closure
+- 连续 2 commit 都 ≥ 2× · stop-report 升级回 Planning Claude
+- §E status table mid-brief 更新 · 不只 closure 报
+
+**Generation rule**(本 sub-cycle 新增):
+- 当新代码加入 **known family**(append* / persist* / signal-{module} / 等已有 ≥ 3 sibling 模式)· estimate floor = `family case-count × family-avg lines/case` (实测 sibling · 不想象)· 不是 "我估这个新东西需要几行"
+- estimate 写法 · 显式标记 "joins family X · floor from siblings = N lines" · 让 user 跟我都能 spot-verify 是否参考了 family
+- generic 模式 · estimate 时先 grep sibling pattern · 计 lines · 再加 delta · 不从零起估
+
+#### §E 断路器 vs fence 总值的 meta 信号
+
+Sub-cycle commit 2 LOC 实测 7.08× 估值 · **fence 总值 在 250/100 内**(总 prod 83 / test 89)· 但**仍触 §E 断路器停 commit + 报 ratify**。
+
+跟 brief #20 closure "all gates green silent absorb 三 §E" **反向**:
+- closure 模式 · fence 总值不破 + 报 "all gates green" · §E 个体触发 silent · 用户 ratify catch
+- sub-cycle 模式 · fence 总值不破 + §E 个体触发显式 stop-report · 用户裁后 commit
+
+**§E 是断路器 · 不是 fence 总值**。任何单 §E 触发 mid-brief 即停 · 不计算总值是否 OK。这层 meta 防 silent absorb 三 §E 的同模式重犯 · 真用户 ratify 的不是单数据点 · 是估值跟实数差距是否暴露 + 暴露后是否升级。
+
+Commits ref · obs#170 sub-cycle commit 2 expansion · `0b399b6` (commit 1 MA R2 lookup) · `efcbb72` (commit 2 testRuns regression)

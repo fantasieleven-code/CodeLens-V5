@@ -689,13 +689,21 @@ Per B2 backlog entry · `monaco-helper.test.ts` + `terminal-helper.test.ts` dire
 
 **Origin** · Brief #20 closure 实测显示估值 vs 实际 prod LOC 系统性 2-4× 低估(C1 估 10/15 实 40/49 · C2 估 40/25 实 129/170 · C6 估 25 实 71)· §E E1/E3/E5 silent absorbed 至 closure 才暴露 · 用户 ratify 时 catch (Pattern G silent absorb 同模式)。
 
-**V5.0.5 rule candidate** (sprint discipline upgrade):
+**V5.0.5 rule candidate · Detection** (sprint discipline upgrade · brief #20 closure):
 
 - 若 brief 首 commit 实测 LOC ≥ **2× 估值** · 触发 mid-brief recalibrate · 不等 closure
 - 每 commit 后 `git --numstat` 实测 + 跟 dispatch 估值对账 · 写到 turn-summary
 - 估值差异连续 2 commit 都 ≥ 2× · stop-report · 不 absorb 边界 · 升级回 Planning Claude
 - §E status table 必须 mid-brief 更新 · 不只 closure 报 · 防 silent absorb
+- §E 是**断路器** · 任何单触发 mid-brief 即停 · 不计算 fence 总值 · 防 brief #20 closure"all gates green silent absorb 三 §E"反向重犯
+
+**V5.0.5 rule candidate · Generation** (brief #20 sub-cycle 新增 · obs#170):
+
+- 当新代码加入 **known family**(append* / persist* / signal-{module} / 等已有 ≥ 3 sibling 模式)· estimate floor = `family case-count × family-avg lines/case` 实测 sibling 不想象 · 不是 "我估这个新东西需要几行"
+- estimate 写法 · 显式标 "joins family X · floor from siblings = N lines" · 让 user 跟我都能 spot-verify 是否参考了 family
+- generic estimate 模式 · 先 grep sibling pattern · 计 lines · 再加 delta · 不从零起估
+- 真因证据 · brief #20 sub-cycle commit 2 appendTestRuns 估 +12 test (case-count 模型) · 实数 +85 test (5 case × 16 lines/case = 80 line floor)· multiplier 7.08× · 完美匹配 family floor 6.7× ratio
 
 **Priority** · High · sprint discipline core · 跟 Pattern G silent push streak guard 同级 · 防接力 Brief Claude 重复同模式。
 
-**Tracking** · obs#170 (Brief #20 sub-cycle 闭环时落) records the meta-pattern; this entry is the V5.0.5 rule formalization。
+**Tracking** · obs#170 (Brief #20 sub-cycle 闭环) · obs#170 sub-cycle commit 2 expansion (estimate 模型双轴漂分析) · this entry is the V5.0.5 rule formalization。
