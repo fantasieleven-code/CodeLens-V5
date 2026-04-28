@@ -358,11 +358,17 @@ export const ModuleCPage: React.FC = () => {
       mcDuration: now - ref.pageEnteredAt,
     });
 
-    // Notify server to mark session COMPLETED + trigger final scoring
-    const socket = getSocket();
-    socket.emit('session:end', () => {});
+    // Notify server to mark session COMPLETED + trigger final scoring.
+    // Brief #18 D38 (σ) · HTTP fallback for the missing socket session:end
+    // handler. Fire-and-forget · advance() must not block on network — the
+    // candidate has already finished, so retry/error handling is server-side
+    // (admin.ts:379 lazy-trigger on next report fetch will still run if this
+    // request lands later).
+    if (sessionId) {
+      void fetch(`/api/v5/exam/${sessionId}/complete`, { method: 'POST' }).catch(() => {});
+    }
     advance();
-  }, [advance, currentRound, mode, flushRoundBehavior, behavior]);
+  }, [advance, currentRound, mode, flushRoundBehavior, behavior, sessionId]);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
