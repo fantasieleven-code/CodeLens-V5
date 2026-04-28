@@ -38,12 +38,14 @@ import {
   appendFileNavigation,
   appendEditSessions,
   appendVisibilityEvent,
+  appendTestRuns,
   persistFinalTestRun,
   type AiCompletionEvent,
   type ChatEvent,
   type DiffEvent,
   type FileNavEvent,
   type EditSessionEvent,
+  type TestRunEvent,
 } from '../services/modules/mb.service.js';
 import { persistSelfAssess } from '../services/modules/se.service.js';
 import { saveRoundAnswer } from '../services/modules/mc.service.js';
@@ -296,6 +298,13 @@ export async function submitMbEditorBehavior(
     }
     if (Array.isArray(eb.editSessions) && eb.editSessions.length > 0) {
       await appendEditSessions(sessionId, eb.editSessions as EditSessionEvent[]);
+    }
+    // Brief #20 sub-cycle · testRuns dispatch · closes the C2/C3 self-
+    // introduced regression where this endpoint's body schema accepted
+    // testRuns but the dispatcher dropped the array · sVerifyDiscipline
+    // flipped sign across fixtures (Liam -0.40 / Steve -0.46 / Max +0.32).
+    if (Array.isArray(eb.testRuns) && eb.testRuns.length > 0) {
+      await appendTestRuns(sessionId, eb.testRuns as TestRunEvent[]);
     }
     if (Array.isArray(eb.documentVisibilityEvents)) {
       for (const ev of eb.documentVisibilityEvents) {

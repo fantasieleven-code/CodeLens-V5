@@ -17,6 +17,7 @@ const appendDiffEvents = vi.hoisted(() => vi.fn());
 const appendFileNavigation = vi.hoisted(() => vi.fn());
 const appendEditSessions = vi.hoisted(() => vi.fn());
 const appendVisibilityEvent = vi.hoisted(() => vi.fn());
+const appendTestRuns = vi.hoisted(() => vi.fn());
 const persistFinalTestRun = vi.hoisted(() => vi.fn());
 const persistSelfAssess = vi.hoisted(() => vi.fn());
 const saveRoundAnswer = vi.hoisted(() => vi.fn());
@@ -67,6 +68,7 @@ vi.mock('../services/modules/mb.service.js', () => ({
   appendFileNavigation,
   appendEditSessions,
   appendVisibilityEvent,
+  appendTestRuns,
   persistFinalTestRun,
 }));
 
@@ -134,6 +136,7 @@ beforeEach(() => {
   appendFileNavigation.mockReset();
   appendEditSessions.mockReset();
   appendVisibilityEvent.mockReset();
+  appendTestRuns.mockReset();
   persistFinalTestRun.mockReset();
   persistSelfAssess.mockReset();
   saveRoundAnswer.mockReset();
@@ -545,9 +548,10 @@ describe('POST /api/v5/exam/:sessionId/mb/editor-behavior', () => {
     const aiCompletionEvents = [{ lineNumber: 1, accepted: true, completionLength: 1, timestamp: 1 }];
     const chatEvents = [{ timestamp: 2, prompt: 'p', response: 'r' }];
     const documentVisibilityEvents = [{ timestamp: 3, hidden: true }];
+    const testRuns = [{ timestamp: 4, passRate: 0.9, duration: 2_000 }];
     const req = makeReq(
       { sessionId: 'sess-1' },
-      { aiCompletionEvents, chatEvents, documentVisibilityEvents, diffEvents: [] },
+      { aiCompletionEvents, chatEvents, documentVisibilityEvents, testRuns, diffEvents: [] },
     );
     const { res, status, json } = makeRes();
     const { fn, calls } = makeNext();
@@ -559,6 +563,8 @@ describe('POST /api/v5/exam/:sessionId/mb/editor-behavior', () => {
     expect(appendChatEvents).toHaveBeenCalledWith('sess-1', chatEvents);
     expect(appendDiffEvents).not.toHaveBeenCalled();
     expect(appendVisibilityEvent).toHaveBeenCalledWith('sess-1', { timestamp: 3, hidden: true });
+    // Brief #20 sub-cycle · testRuns dispatch regression guard
+    expect(appendTestRuns).toHaveBeenCalledWith('sess-1', testRuns);
     expect(status).toHaveBeenCalledWith(200);
     expect(json.mock.calls[0][0]).toEqual({ ok: true });
   });

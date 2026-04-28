@@ -187,6 +187,57 @@ export async function persistFinalTestRun(
 }
 
 /**
+ * Brief #20 sub-cycle · append a batch of test runs into
+ * editorBehavior.testRuns. Mirrors the appendChatEvents / appendDiffEvents
+ * pattern (dedup + spread-merge) and additionally sets `finalTestPassRate`
+ * to the LAST appended run's passRate so sIterationEfficiency +
+ * sChallengeComplete pick up the latest result.
+ *
+ * Closes the Brief #20 C2/C3 self-introduced regression where the
+ * /mb/editor-behavior endpoint dispatched 6 sub-arrays but missed `testRuns`,
+ * leaving the e2e flow with only the single run posted via /mb/test-result.
+ */
+export async function appendTestRuns(
+  sessionId: string,
+  runs: TestRunEvent[],
+): Promise<void> {
+  if (runs.length === 0) return;
+  const meta = await readSessionMeta(sessionId);
+  if (!meta) return;
+  const currentMb = (meta.mb ?? {}) as Record<string, unknown>;
+  const currentBehavior = (currentMb.editorBehavior ?? {}) as Record<string, unknown>;
+  const existing: TestRunEvent[] = Array.isArray(currentBehavior.testRuns)
+    ? (currentBehavior.testRuns as TestRunEvent[])
+    : [];
+  const seen = new Set(existing.map(testRunKey));
+  const additions = runs.filter((r) => {
+    const k = testRunKey(r);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  if (additions.length === 0) return;
+  const nextBehavior = {
+    ...currentBehavior,
+    testRuns: [...existing, ...additions],
+  };
+  const lastRun = additions[additions.length - 1];
+  const nextMb = {
+    ...currentMb,
+    editorBehavior: nextBehavior,
+    finalTestPassRate: lastRun.passRate,
+  };
+  await prisma.session.update({
+    where: { id: sessionId },
+    data: { metadata: { ...meta, mb: nextMb } as unknown as Prisma.InputJsonValue },
+  });
+}
+
+function testRunKey(r: TestRunEvent): string {
+  return `${r.timestamp}|${r.passRate}|${r.duration}`;
+}
+
+/**
  * Task 23 — persist V5MBSubmission, EXCLUDING editorBehavior.
  *
  * Pattern H v2.2 cross-Task regression defense: ModuleBPage.tsx builds the

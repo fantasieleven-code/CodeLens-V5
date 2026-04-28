@@ -541,7 +541,13 @@ export class GoldenPathDriver {
         );
       }
     }
-    if (typeof mb.finalTestPassRate === 'number') {
+    // Brief #20 sub-cycle · /mb/editor-behavior now dispatches the testRuns
+    // sub-array (and appendTestRuns sets finalTestPassRate to the LAST run's
+    // passRate). Falling back to /mb/test-result only when fixture's
+    // editorBehavior.testRuns is empty / absent · ensures finalTestPassRate
+    // still pins down for fixtures whose sole signal is the closing pass rate.
+    const fixtureTestRuns = eb?.testRuns ?? [];
+    if (fixtureTestRuns.length === 0 && typeof mb.finalTestPassRate === 'number') {
       await this.page.evaluate(
         async ({ sessionId: sid, passRate }) => {
           await fetch(`/api/v5/exam/${sid}/mb/test-result`, {
