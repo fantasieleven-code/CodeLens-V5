@@ -277,10 +277,15 @@ export const GOLDEN_PATH_EXAM_DATA: Partial<Record<V5ModuleType, Record<string, 
   SE: SE as unknown as Record<string, unknown>,
 };
 
+// Brief #17 D32 · MC moved before SE · matches GoldenPathDriver iteration
+// order (phase0 → MA → MB → MC → MD → SE) and V5 design semantic where
+// SelfAssess is the final post-modules reflection over all decisions
+// (P0 → MA → MB → MC). Prior `mb → selfAssess → moduleC` order caused
+// the driver to wait on `module-c-page` while the UI had advanced to SE.
 export const GOLDEN_PATH_PARTICIPATING_MODULES = [
   'phase0',
   'moduleA',
   'mb',
-  'selfAssess',
   'moduleC',
+  'selfAssess',
 ] as const;
