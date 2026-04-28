@@ -1818,3 +1818,44 @@ sandbox · standards · audit · MC voice · admin report assertions.
 Commits: `69d9e58` C1 endpoint+service+strip · `a70dd42` C2 useModuleContent hook · `43a5e63` C3 ModuleBPage refactor · `<C4 SHA>` mock deprecation + obs#163
 Brief: Brief #15 · MB scaffold Layer 2 swap · 2026-04-27
 Branch: `fix/mb-scaffold-l2-swap` (sub-branch off `fix/module-content-alignment-audit` · A2 stacked path)
+
+---
+
+### #164 — `meta-pattern` Brief #16 MB stage transition + Monaco timing · D26+D27+D28
+
+**trace**: Brief #16 · 2026-04-28 · sub-branch off Brief #15.
+
+Brief #15 L2 swap unblocked filetree click for 4 fixtures · validate revealed
+2 downstream blockers + 1 fixture edge auto-surfaced post-D26 fix.
+
+- **D26** (deterministic) · driver missing `mb-execution-finish` click between
+  terminal and standards · mb-standards-rules only renders when stage='standards'.
+  2-LOC driver insert + testid entry.
+- **D27** (intermittent) · Monaco CDN cold-load 5-15s vs 30s waitFor. Two-part:
+  (a) waitFor 30s→60s · API readiness 10s→30s · (b-light) `loader.init()`
+  prewarm useEffect once fetchState loaded · CDN fetch overlaps planning fill.
+- **D28** (auto-surfaced) · Max empty rulesContent · driver guard skipped
+  submit click. Restructured: fill conditional · submit unconditional.
+
+**Brief #15 partial contribution · honest**: L2 swap changed `useState(init)`
+sync to `useState([]) + useEffect` async · adds 1 render cycle · ~50-200ms ·
+NOT the 30s timeout cause (CDN cold-load 5-15s dominates) but compressed the
+budget. Not a regression · transparent record only.
+
+**V5.0.5 rule candidate**: L2 swap converting sync→async hydration must audit
+timing-sensitive downstream (Monaco · heavy hydration). Brief #15 dispatch
+missed; Brief #16 caught post-validate.
+
+**LOC** (5 commits): prod 25 · test 2 · docs ~36 · total ~63 · within Brief #16
+fence (≤200/60/50/310).
+
+**Cascade ack**: Brief #16 closure ≠ main GREEN · MC + SE + admin report
+assertions still unverified · Brief #17 territory · likely converges there.
+
+**Sprint discipline**: Pattern F ~97 (D26+D27+D28 caught pre-code-write) ·
+0 silent push 32h+ · 14 §E stops · 18 V5.0.5 rule candidates · A2 stacked
+path · 19 commits stacked across 3 briefs.
+
+Commits: `365aa9e` C1 D26 driver · `ef62b88` C2 D27(a) timeout · `fac7c2d` C3 D27(b-light) prewarm · `7db6183` C4 D28(i) submit · `<C5 SHA>` obs#164
+Brief: Brief #16 · MB stage transition + Monaco timing · 2026-04-28
+Branch: `fix/mb-stage-transition-and-monaco-timing` (sub-branch off `fix/mb-scaffold-l2-swap` · A2 stacked path)
