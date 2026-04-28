@@ -42,6 +42,7 @@ import {
   CANDIDATE_QA_BOUNDARY,
 } from '../services/voice-chat.service.js';
 import { computeBeliefUpdateMagnitude } from '../signals/mc/s-belief-update-magnitude.js';
+import { saveRoundAnswer } from '../services/modules/mc.service.js';
 import type { SignalInput, SuiteId, V5MBEditorBehavior, V5Submissions } from '@codelens-v5/shared';
 import type { Prisma } from '@prisma/client';
 
@@ -394,42 +395,6 @@ interface V5ProbeHistoryRecord {
   strategyKey: string;
   reason: string;
   savedAt: string;
-}
-
-async function saveRoundAnswer(
-  sessionId: string,
-  round: number,
-  answer: string,
-  emmaQuestion: string,
-  strategyKey: string,
-): Promise<void> {
-  try {
-    const session = await prisma.session.findUnique({
-      where: { id: sessionId },
-      select: { metadata: true },
-    });
-    if (!session) return;
-
-    const meta = (session.metadata || {}) as Record<string, unknown>;
-    const existing = Array.isArray(meta.moduleC)
-      ? (meta.moduleC as Array<Record<string, unknown>>)
-      : [];
-
-    const filtered = existing.filter((r) => r.round !== round);
-    filtered.push({
-      round,
-      question: emmaQuestion,
-      answer,
-      probeStrategy: strategyKey,
-    });
-
-    await prisma.session.update({
-      where: { id: sessionId },
-      data: { metadata: { ...meta, moduleC: filtered } as unknown as Prisma.InputJsonValue },
-    });
-  } catch (err) {
-    logger.warn('[mc-voice-chat-v5] Failed to save round answer:', err);
-  }
 }
 
 async function loadProbeHistory(sessionId: string): Promise<ProbeDecision[]> {
