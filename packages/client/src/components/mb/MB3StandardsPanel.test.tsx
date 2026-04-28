@@ -16,10 +16,12 @@ describe('MB3StandardsPanel', () => {
     expect(screen.getByTestId('mb-standards-submit')).toBeInTheDocument();
   });
 
-  it('submit is disabled when RULES.md is empty and enables once content arrives', () => {
+  it('warning shown when RULES.md empty but submit remains enabled', () => {
+    // Brief #17 D28(α) · empty RULES.md is a legitimate D-tier semantic
+    // signal · UI surfaces a soft hint but does not block submission.
     render(<MB3StandardsPanel sessionId="s1" onSubmit={vi.fn()} />);
     const submit = screen.getByTestId('mb-standards-submit') as HTMLButtonElement;
-    expect(submit.disabled).toBe(true);
+    expect(submit.disabled).toBe(false);
     expect(screen.getByTestId('mb-standards-warn')).toBeInTheDocument();
 
     fireEvent.change(screen.getByTestId('mb-standards-rules'), {
@@ -28,11 +30,20 @@ describe('MB3StandardsPanel', () => {
     expect(submit.disabled).toBe(false);
     expect(screen.queryByTestId('mb-standards-warn')).not.toBeInTheDocument();
 
-    // Whitespace-only does not satisfy the gate.
+    // Whitespace-only re-shows the hint but submit stays enabled.
     fireEvent.change(screen.getByTestId('mb-standards-rules'), {
       target: { value: '   \n\t' },
     });
-    expect(submit.disabled).toBe(true);
+    expect(submit.disabled).toBe(false);
+    expect(screen.getByTestId('mb-standards-warn')).toBeInTheDocument();
+  });
+
+  it('submits successfully with empty rulesContent (D-tier semantic)', () => {
+    const onSubmit = vi.fn();
+    render(<MB3StandardsPanel sessionId="s1" onSubmit={onSubmit} />);
+    fireEvent.click(screen.getByTestId('mb-standards-submit'));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit).toHaveBeenCalledWith({ rulesContent: '' });
   });
 
   it('AGENT.md is optional — rules-only submit succeeds without agentContent', () => {
