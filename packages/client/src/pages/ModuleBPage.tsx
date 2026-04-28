@@ -265,6 +265,19 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
         if (timeoutId !== undefined) w?.clearTimeout(timeoutId);
         if (!ok) console.warn('[mb-submit] server reported persist failure');
       });
+      // Brief #19 C5 σ HTTP fallback · belt-and-suspenders. Final-submit
+      // only; the 3 intermediate stage emits (planning/standards/audit at
+      // L181/L195/L217) keep silent-dropping until V5.0.1 wires useSocket
+      // — persistMbSubmission consolidates planning+standards+audit+
+      // finalFiles+finalTestPassRate from `submission` directly so a
+      // single endpoint covers the full MB metadata.mb shape.
+      if (sessionId) {
+        void fetch(`/api/v5/exam/${sessionId}/mb/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ submission }),
+        }).catch(() => {});
+      }
 
       setStage('complete');
     },
