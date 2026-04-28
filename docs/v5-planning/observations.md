@@ -1859,3 +1859,62 @@ path · 19 commits stacked across 3 briefs.
 Commits: `365aa9e` C1 D26 driver · `ef62b88` C2 D27(a) timeout · `fac7c2d` C3 D27(b-light) prewarm · `7db6183` C4 D28(i) submit · `<C5 SHA>` obs#164
 Brief: Brief #16 · MB stage transition + Monaco timing · 2026-04-28
 Branch: `fix/mb-stage-transition-and-monaco-timing` (sub-branch off `fix/mb-scaffold-l2-swap` · A2 stacked path)
+
+### #165 — `meta-pattern` Brief #17 narrow · audit + MC + SE 五阶段 UI 全过 · 8-D cascade · 8 §E ratify
+
+Brief #17 narrow takes the W-B 3/3 driver from "3 fixtures stuck at MB audit/MC entry" to "4 fixtures clean through P0+MA+MB+SE+MC 5 rounds+CompletePage". 8 distinct drifts, 7 committed fixes + 1 explicitly deferred to Brief #18, 8 §E stops with full ratify history (zero silent absorbs).
+
+**Goal adjustment (transparent)**: original Brief #17 narrow charter was "4 fixtures pass UI all stages + scoring trigger". Adjusted mid-cascade after D38 root cause analysis: D38 (scoring polling unreachable) is a socket-not-connected systemic arch issue, not within Brief #17 narrow charter (audit + MC + SE). Charter restricts to UI surfaces; Brief #18 picks up scoring-trigger + admin-report viewModel adapter together.
+
+**Fix集 (8 D-numbers)**:
+- D28(α) · MB3StandardsPanel canSubmit relaxed · empty rulesContent → soft hint, not block · `ba10226`
+- D29 · driver `.check()` → `.selectOption({value})` for audit toggle + rule selects · 4 fixtures' `violatedRuleId` semantic→positional `rule_${idx}` remap · §E E3 pre-auth +1.5 buffer (band hold) · `7627551`
+- D30 · driver MC preflight skip click before mode-text · `b58fe16`
+- D32 真根因 · canonical source is `SUITES[suiteId].modules` (4 suites consistent SE→MC), not `GOLDEN_PATH_PARTICIPATING_MODULES` fixture array · prior fixture-reorder ratify was inert at runtime · `0d77226` revert + `dc15da6` driver data-driven iteration replacement
+- D33 · Emma fixture audit.violations 3rd entry to match `violationExamples.length=3` · `c7268ff`
+- D34 · SelfAssessPage onSubmit fire-and-forget alignment (5/5 other module pages already FaF · SE was ack-gate outlier) + driver slider native value-setter+dispatchEvent for range input · `e5f61e5`
+- D35 · ModuleCPage submitTextRound fire-and-forget alignment (same family as D34) · `5dcdca7`
+- D36 · MC `TOTAL_ROUNDS=5` page constant vs fixture's 4 entries · 4 fixtures gain `contradiction` round (R2) · per-grade tier semantic answers preserve sBeliefUpdateMagnitude scoring · §E pre-auth +2.0 buffer (band hold) · `06d1bad`
+- D37 · driver `modulec-done` waitFor BEFORE `modulec-finish` click · click triggers `advance()` which unmounts MC · matches runMB L468-471 pattern · `b9f7fdf`
+- D38 (deferred → Brief #18) · `waitForScoringComplete` polling unreachable · session.status never transitions COMPLETED because session:end socket emit drops silently (useSocket() defined but unwired at root) · 3rd manifestation of socket-not-connected systemic issue · arch fix needed (root socket wire OR HTTP fallback) · NOT page-side fire-and-forget territory
+
+**Planning Claude ratify-error transparency (3 instances)** — recorded so future Phase 1 audit templates account for them:
+1. D32 first ratify (a) path assumed fixture array was source-of-truth without grep'ing readers · canonical was 2 dirs over in shared types · revert + replacement was the cost
+2. D34 fix shipped without proactive grep for same ack-gate pattern · D35 surfaced post-validate as identical family · should have been caught together
+3. Brief #17 Phase 1 audit Q3 audited fixture shape uniformity but missed `TOTAL_ROUNDS` page constant verification · D36 surfaced post-validate
+
+**评分契约 outcomes**: pre-authorized re-cal buffers (+1.5 D29+D33, +2.0 D36) NOT triggered. All 30 golden-path scoring tests held bands across the cascade — Liam [85,93] · Steve [77,85] · Emma [54,62] · Max [14,24]. The contradiction round answers were tuned per grade tier so sBeliefUpdate scores changed minimally vs prior R2-as-weakness state (which incidentally had belief-update markers).
+
+**V5.0.5 housekeeping queue (14 candidates added)**:
+
+P0 V5.0.1 patch:
+1. Wire `useSocket()` at root (App.tsx or ExamRouter) + toast/banner on ack failure · D38 takes precedence in Brief #18 · V5.0.1 fills out toast UX
+
+P1 V5.0.5 sprint:
+2. Phase-1 audit template Q5 · post-submit advance pathway audit per page (socket-emit ack vs fetch-then-advance vs setState-then-advance)
+3. Audit must grep page-side constants (TOTAL_ROUNDS / MIN_CHARS / threshold types) against fixture data counts/lengths
+4. Planning ratify must confirm source-of-truth before fixture data edits · grep all readers
+5. When fixing one ack-gate, must proactively grep same family in other pages
+6. Fixture scoring-relevant field changes must run server-side scoring test pre-commit
+7. expectations.ts re-cal buffer · default +1.5 buffer; when adding new scoring inputs, +2.0
+8. Fixture array order vs driver order must share single source-of-truth (D32 lesson)
+9. Page-side fixed-length assumptions (violationExamples.length=3, etc.) must have fixture validation (D33)
+10. Sprint-late page business-logic edits must extend test budget (D28α)
+11. Driver helper assumptions about input type must grep real DOM (D20 + D29)
+12. Fire-and-forget vs ack-gate pattern divergence is systemic · grep entire codebase when fixing one
+13. L2-swap briefs / multi-§E briefs default doc cap → 80 lines (was 50)
+14. MC 5-probe architecture (baseline/contradiction/weakness/escalation/transfer) into product docs · `contradiction` probe measures belief stability + metacognition · not a cosmetic round
+
+**Pattern F + G + §E**:
+- Pattern F · ~109 cumulative (8 drifts caught this brief · D29/D30/D31 pre-code-write, D32-D38 post-validate ½ credit)
+- Pattern G · 0 silent push 35h+ preserved through 8 §E stops · 11 commits local
+- §E history this brief: E3(D29) · E2(D32 emerge) · E2(D32 root cause) · E7(D34) · E7(D35) · E7(D36) · E7(D37) · E7(D38 defer) — 7 ratify-and-fix + 1 ratify-and-defer
+- A2 stacked path · 30 commits accumulated across briefs #14 + #15 + #16 + #17 narrow · single squash merge at cascade close (after Brief #18 + Cold Start Tier 2)
+
+**Cascade ack**: Brief #17 narrow closure ≠ main GREEN · scoring trigger + admin report assertion are Brief #18 territory. UI surfaces are 100% green for the 4 grade fixtures.
+
+**Sprint discipline**: 8 §E stops · all ratified or transparently deferred · 14 V5.0.5 rule candidates · 3 ratify-error transparency entries.
+
+Commits (11): `ba10226` C1 D28α · `b58fe16` C3 D30 · `7627551` C2 D29 · `29488c9` C2.6 D32-fixture (later inert/reverted) · `c7268ff` C2.7 D33 · `0d77226` revert C2.6 · `dc15da6` C2.6′ D32-driver · `e5f61e5` C2.8 D34+slider · `5dcdca7` C2.9 D35 · `06d1bad` C2.10 D36 · `b9f7fdf` C2.11 D37 · `<C4 SHA>` obs#165
+Brief: Brief #17 narrow · audit + MC + SE 五阶段 UI 全过 · 2026-04-28
+Branch: `fix/audit-and-mc-se-admin-cascade` (sub-branch off `fix/mb-stage-transition-and-monaco-timing` · A2 stacked path)
