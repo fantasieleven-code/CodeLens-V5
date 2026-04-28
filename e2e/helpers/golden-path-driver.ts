@@ -354,14 +354,21 @@ export class GoldenPathDriver {
 
     // Round 2 · defect annotation · single-defect-cycle UX (Brief #13 D6).
     // Page renders one shared review form scoped via `ma-r2-review-line-${N}`
-    // line-marker click. Fixture defectId ('d1','d2',...) doesn't map to page
-    // line numbers, so we click line `i+1` deterministically — golden-path
-    // scoring only cares that N reviews are submitted, not which lines.
-    // The "保存评论" save button has no testid; locate via role+name.
+    // line-marker click.
+    //
+    // Brief #20 sub-cycle · click MUST land on a line that matches MA mock's
+    // defects[].line so the page's lookup (ModuleAPage round2 submit ·
+    // moduleContent.defects.find(d => d.line === r.line)?.defectId) resolves
+    // to canonical 'd1'/'d2'/'d3' instead of falling back to 'cand-N'. The
+    // mock fixture's defects sit at lines [4, 9, 21] · keep this constant in
+    // sync with `packages/client/src/pages/moduleA/mock.ts:defects[].line`
+    // (V5.0.5 housekeeping · lift to a shared constant or import the mock).
+    const MA_MOCK_DEFECT_LINES = [4, 9, 21];
     for (let i = 0; i < ma.round2.markedDefects.length; i++) {
       const defect = ma.round2.markedDefects[i];
+      const line = MA_MOCK_DEFECT_LINES[i] ?? i + 1;
       await this.page
-        .locator(byTestId(MA_TESTIDS.r2ReviewLine(i + 1)))
+        .locator(byTestId(MA_TESTIDS.r2ReviewLine(line)))
         .click();
       await this.page
         .locator(byTestId(MA_TESTIDS.r2ReviewType))
