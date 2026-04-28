@@ -501,10 +501,16 @@ export class GoldenPathDriver {
       await this.page.waitForTimeout(500);
     }
 
-    await this.page.locator(byTestId(MC_TESTIDS.finish)).click();
+    // Brief #17 D37 · waitFor `modulec-done` BEFORE clicking `modulec-finish`.
+    // The finish button lives INSIDE the done card (ModuleCPage.tsx:374-388),
+    // and clicking it triggers `finishAndAdvance` → `advance()` → page navigates
+    // away from MC (CompletePage for full_stack since MC is last). A post-click
+    // waitFor would race against the unmount and time out. Matches the runMB
+    // L468-471 pattern (`mb-complete waitFor → mb-advance click`).
     await this.page
       .locator(byTestId(MC_TESTIDS.done))
       .waitFor({ state: 'visible', timeout: 15_000 });
+    await this.page.locator(byTestId(MC_TESTIDS.finish)).click();
   }
 
   // ─── Step 11 · MD module (forward-compat · current fixtures skip) ──
