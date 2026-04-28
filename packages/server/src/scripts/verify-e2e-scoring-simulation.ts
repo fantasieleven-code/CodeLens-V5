@@ -1,7 +1,21 @@
 /**
  * Brief #20 C6 · ratify-error #7 落实 verify script.
  *
- * Phase 1 Q1 cross-validation surfaced the failure mode: server-side
+ * SCOPE NOTE (Brief #20 ratify-error #8 prevention) · This script validates
+ * the SCORING ENGINE + FIXTURE BASELINE via server-side replay only. It
+ * feeds the in-memory `ScoreSessionInput` fixture directly into
+ * `scoreSession()` — same path the integration test
+ * (`tests/integration/golden-path.test.ts`) uses. It does NOT exercise:
+ *   · UI submission collection (Phase0 confidence slider · MB editorBehavior
+ *     · SE reviewedDecisions — the 4 gaps Brief #20 closed)
+ *   · HTTP persist endpoints (Brief #19 σ + Brief #20 C2)
+ *   · Driver bypass posts (Brief #20 C3)
+ *   · `Session.metadata` round-trip via Prisma
+ * Therefore a green result here is NECESSARY but NOT SUFFICIENT for ship
+ * gate #5. The B3 Playwright spec is the e2e validation; this script is
+ * its <1s pre-flight ("did the engine itself drift?").
+ *
+ * Phase 1 Q1 cross-validation surfaced the original failure mode: server-side
  * fixture scoring landed 30/30 in-band, e2e flow scoring landed 0/4 in-band.
  * Brief #19 §E E7 ratify then assumed Bug #1 (PROBE_STRATEGIES) was the
  * composite-gap root cause without verifying — the C8 fix proved near-zero
