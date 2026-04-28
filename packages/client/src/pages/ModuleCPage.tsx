@@ -283,38 +283,41 @@ export const ModuleCPage: React.FC = () => {
   }, [messages, status]);
 
   // Text mode submit
+  // Brief #17 D35 · fire-and-forget pattern (matches D34 SE alignment +
+  // Phase0Page:139-148 design pattern + 5 other module pages). Server handler
+  // for `v5:modulec:answer` exists but the socket isn't connected at root
+  // level (useSocket() is defined but unused — V5.0.5 housekeeping wires it).
+  // Until then, gating round advance + textSubmitting=false on the ack
+  // callback strands the candidate at round N because the ack never fires.
   const submitTextRound = useCallback(() => {
     if (textSubmitting || textAnswer.trim().length < 10) return;
     setTextSubmitting(true);
     const socket = getSocket();
     const prompt = PROBE_PROMPTS[currentRound];
+    const submittedAnswer = textAnswer.trim();
     const payload: V5ModuleCAnswer = {
       round: currentRound + 1,
       question: prompt,
-      answer: textAnswer.trim(),
+      answer: submittedAnswer,
     };
-    socket.emit(
-      'v5:modulec:answer',
-      payload,
-      (ok: boolean) => {
-        setTextSubmitting(false);
-        if (!ok) return;
-        flushRoundBehavior(currentRound, { textModeUsed: true });
-        setTextAnswers((prev) => [...prev, textAnswer.trim()]);
-        setTextAnswer('');
-        // Add to chat display
-        setMessages((prev) => [
-          ...prev,
-          { id: `text-q-${currentRound}`, role: 'ai', content: prompt, timestamp: Date.now() },
-          { id: `text-a-${currentRound}`, role: 'user', content: textAnswer.trim(), timestamp: Date.now() },
-        ]);
-        if (currentRound + 1 >= TOTAL_ROUNDS) {
-          setFinished(true);
-        } else {
-          setCurrentRound((r) => r + 1);
-        }
-      },
-    );
+    socket.emit('v5:modulec:answer', payload, (_ok: boolean) => {});
+
+    // Local state transitions fire unconditionally · the local store is the
+    // source of truth for in-session UI (mirrors Phase0Page rationale).
+    flushRoundBehavior(currentRound, { textModeUsed: true });
+    setTextAnswers((prev) => [...prev, submittedAnswer]);
+    setTextAnswer('');
+    setMessages((prev) => [
+      ...prev,
+      { id: `text-q-${currentRound}`, role: 'ai', content: prompt, timestamp: Date.now() },
+      { id: `text-a-${currentRound}`, role: 'user', content: submittedAnswer, timestamp: Date.now() },
+    ]);
+    if (currentRound + 1 >= TOTAL_ROUNDS) {
+      setFinished(true);
+    } else {
+      setCurrentRound((r) => r + 1);
+    }
+    setTextSubmitting(false);
   }, [textAnswer, textSubmitting, currentRound, flushRoundBehavior]);
 
   const skipRound = useCallback(() => {
