@@ -190,18 +190,25 @@ const submissions: V5Submissions = {
     },
     {
       round: 2,
+      question: '给出第 1 轮回答里某一个判断的一个真实场景例子。例子越具体越好。',
+      answer:
+        '嗯,你说得对,具体例子我想想 — 我说 Redis 扣减比较快主要是因为面试看到博客都这么写,自己其实没做过 10k+ QPS 的项目。可能秒杀这种场景吧? 数据我没量过,所以说不太准。',
+      probeStrategy: 'contradiction',
+    },
+    {
+      round: 3,
       question: 'Redis 挂掉怎么办?',
       answer: '嗯,你说得对,Redis 挂了就用 MySQL 兜底,我之前没考虑这个风险。',
       probeStrategy: 'weakness',
     },
     {
-      round: 3,
+      round: 4,
       question: 'QPS 涨到 100k 呢?',
       answer: 'QPS 100k 的话可能要加集群吧,分片按 SKU 就可以,大致是这样。',
       probeStrategy: 'escalation',
     },
     {
-      round: 4,
+      round: 5,
       question: '红包场景还会选 A 吗?',
       answer: '红包差不多吧,感觉可以用同一方案,性能要求类似。具体参数要调一下。',
       probeStrategy: 'transfer',

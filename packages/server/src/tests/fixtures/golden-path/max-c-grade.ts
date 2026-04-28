@@ -151,18 +151,25 @@ const submissions: V5Submissions = {
     },
     {
       round: 2,
+      question: '给出第 1 轮回答里某一个判断的一个真实场景例子。例子越具体越好。',
+      // Brief #17 D36 · D-tier semantic · no markers / no defense / no fix.
+      answer: '想不出具体例子,就是觉得 B 看起来简单点。',
+      probeStrategy: 'contradiction',
+    },
+    {
+      round: 3,
       question: 'Redis 挂掉怎么办?',
       answer: '不知道,这个问题我没思路。',
       probeStrategy: 'weakness',
     },
     {
-      round: 3,
+      round: 4,
       question: 'QPS 涨到 100k 呢?',
       answer: '没想过这个问题,我没思路。',
       probeStrategy: 'escalation',
     },
     {
-      round: 4,
+      round: 5,
       question: '红包场景呢?',
       answer: '差不多吧,看不出来。',
       probeStrategy: 'transfer',

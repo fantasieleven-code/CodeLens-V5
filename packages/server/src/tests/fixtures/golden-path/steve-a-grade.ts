@@ -258,20 +258,27 @@ const submissions: V5Submissions = {
     },
     {
       round: 2,
+      question: '给出第 1 轮回答里某一个判断的一个真实场景例子。例子越具体越好。',
+      answer:
+        '我承认这点支撑不太够,具体例子让我想想 — R1 我说"MySQL 直接写太慢",更准确地说,之前做的优惠券系统,Redis 扣库存压测能扛 2-3w QPS,MySQL 用悲观锁 SELECT FOR UPDATE 大概 800 QPS 上不去。但是这个数据是 1 年前的,MySQL 8.x InnoDB 改进可能缩小差距,所以核心观点是 A 在高 QPS 场景仍然有优势,只是差距比当年我以为的小。',
+      probeStrategy: 'contradiction',
+    },
+    {
+      round: 3,
       question: 'Redis 挂掉的时候怎么办?',
       answer:
         'Redis 挂了可以用 AOF 恢复,但是整体看,方案 A 的核心观点还是站得住的。MySQL 可以作为降级兜底,可能还是要做告警监控。',
       probeStrategy: 'weakness',
     },
     {
-      round: 3,
+      round: 4,
       question: '如果 QPS 涨到 100k 呢?',
       answer:
         '100k 单机扛不住,应该需要上集群 + sharding 按 sku 分。具体怎么分我没做过这种量级的项目,可能大概按 skuId hash 分。',
       probeStrategy: 'escalation',
     },
     {
-      round: 4,
+      round: 5,
       question: '红包抢购场景你还会选 A 吗?',
       answer:
         '红包还是可以用 A,差不多的场景。但是参数要调 — 红包不能超发,这次的教训是具体业务要区别对待。',
