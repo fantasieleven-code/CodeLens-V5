@@ -2366,3 +2366,61 @@ Sub-cycle commit 2 LOC 实测 7.08× 估值 · **fence 总值 在 250/100 内**(
 **§E 是断路器 · 不是 fence 总值**。任何单 §E 触发 mid-brief 即停 · 不计算总值是否 OK。这层 meta 防 silent absorb 三 §E 的同模式重犯 · 真用户 ratify 的不是单数据点 · 是估值跟实数差距是否暴露 + 暴露后是否升级。
 
 Commits ref · obs#170 sub-cycle commit 2 expansion · `0b399b6` (commit 1 MA R2 lookup) · `efcbb72` (commit 2 testRuns regression)
+
+#### Sub-cycle commit A1 · 第 2 estimate drift · 6.67× inserted
+
+Path A1 · spec sCalibration assertion disable(`b625fec`) · estimate vs actual:
+
+| 轴 | 估值 | 实数 | × | source |
+|---|---|---|---|---|
+| inserted | 3 (注释) | 20 (V5.0.5 housekeeping 3-option breakdown + toFixed(0) 真因诊断 + git blame 防 silent removal) | **6.67×** | author choice 写 forward-pay 注释 |
+| deleted | 7 (active block) | 17 (原 4-line spec 注释 + 11-line if-block + 2 spacing) | **2.43×** | 用户估 active block 长低估 · spec 包含 4-line 包装注释没数 |
+
+#### A1 vs commit 2 · 同根 / 不同根 / 半同根 reasoning
+
+我倒推 · 候选 3 (半同根) 站得住 · candidate 1 (全同根) 也站 · candidate 2 (不同根) 站不住 · 解释:
+
+**候选 1 (全同根 · estimate 模型对 sprint-level overhead 系统性 implicit-zero)**:
+- commit 2 · 估 +12 test 假设 minimal "1-2 case 验 logic"。实际 +85 test 是 family pattern 5-case × 17 line(sprint-level consistency overhead)。
+- A1 · 估 +3 注释假设 minimal "disabled marker"。实际 +20 是 forward-pay V5.0.5 housekeeping(sprint-level information density overhead)。
+- 共同 pattern · estimate 模型只看 "修法核心 functional LOC" · 把 sprint-discipline overhead(consistency / forward-pay / defensive comment / family conformance)implicit assume 为 ~0 line。
+- 实际 overhead 经 commit 2 80 lines + A1 17 lines · 不是 ~0。
+
+**候选 2 (不同根)** ✗ 站不住:
+- 表面差异 · commit 2 是 family-pattern structural · A1 是 verbosity editorial。
+- 但本质 · 两个都是 estimate 模型把 "best-practice completion 的 overhead" 当 ~0。family-pattern 跟 verbosity 都是 best-practice 子类。
+- 不同 manifestation · 同根本因 · 不算"不同根"。
+
+**候选 3 (半同根)**:
+- structurally 不同 · commit 2 family-pattern 可 grep 实测 (sibling 有几个 case · 平均 lines/case)· A1 verbosity 是 author taste(我自选写多 V5.0.5 housekeeping 还是 minimal)。
+- 但都属 estimate 模型空白 · "core functional"+"sprint overhead" 二元拆分 · estimate 当前只算 core · overhead 不 carve out。
+- generation rule 修法可不同 · family-pattern 自动可推 · verbosity 需 user 提前 ratify 偏好。
+
+**真因 · 候选 1 + 3 复合** · 同根本因 (sprint-overhead implicit-zero) · 不同 manifestation (structural family-pattern vs editorial verbosity) · 修法 generation rule 双轴。
+
+#### V5.0.5 generation rule candidate · 双轴 carve-out
+
+**Rule 1 · structural family-pattern**(已写 obs#170 commit 2 expansion · 保留):
+- 加入 known family · estimate floor = `family case-count × family-avg lines/case` 实测 sibling
+
+**Rule 2 · editorial verbosity carve-out**(本 A1 sub-cycle 新增):
+- estimate 写 form 必含 explicit `core +X / overhead +Y` 双桶 · 不只总 LOC
+- core = 修法纯 functional code(无 comment / 无 forward-pay / 无 defensive)
+- overhead = comment / V5.0.5 housekeeping note / git blame 防 silent removal / family-conformance test scaffold
+- estimate 时 user 可单独 ratify overhead 是否需要(minimal vs forward-pay)· 不是 mid-commit recalibrate
+- 接力 Planning Claude / Brief Claude 见 estimate `core +5 / overhead +2`(minimal)vs `core +5 / overhead +20`(forward-pay)区分清晰
+
+**Rule 3 · 元 rule(本 A1 sub-cycle 抽象)**:
+- estimate 模型对 "修法 minimum-viable completion" vs "best-practice completion" 必须显式选定 · 默认假设 minimum-viable
+- best-practice 是 sprint-discipline up-front choice · 不是 mid-commit silent escalate
+
+#### Pattern G 累积更新(A1 expansion)
+
+A1 stop-report 行为是 §E rule 真生效证据 · 不是 absorb · 累计 sub-cycle 内 stop-report 次数:
+- commit 2 · stop-report (E5 7.08× test) · 用户 ratify A 进 commit
+- A1 · stop-report (E1 6.67× inserted) · 用户 ratify A 进 commit
+- 共 2 次 · 0 silent absorb
+
+跟 brief #20 closure 3 silent absorb 反差更明显。§E 断路器在 sub-cycle 内 100% 生效。
+
+Commits ref · obs#170 A1 expansion · `b625fec` (A1 spec disable)
