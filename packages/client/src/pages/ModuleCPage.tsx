@@ -47,6 +47,19 @@ const PROBE_PROMPTS = [
   '现在回到第 1 轮的选型问题：如果让你重新做一次，你会改变决策吗？',
 ];
 
+// Brief #19 C8 (Bug #1) · canonical per-round probe strategies. Voice mode
+// derives these dynamically via the probe-engine; text mode follows the
+// fixed pipeline order so scoring (sBeliefUpdateMagnitude reads round 2 ==
+// 'contradiction' to compute belief delta) sees the same shape it would
+// from a voice session. Index aligns with currentRound (0-indexed).
+const PROBE_STRATEGIES = [
+  'baseline',
+  'contradiction',
+  'weakness',
+  'escalation',
+  'transfer',
+] as const;
+
 const TOTAL_ROUNDS = 5;
 const ROUND_TIME_LIMIT = 120; // 2 min per round
 
@@ -306,13 +319,17 @@ export const ModuleCPage: React.FC = () => {
     };
     socket.emit('v5:modulec:answer', payload, (_ok: boolean) => {});
     if (sessionId) {
+      // Brief #19 C8 Bug #1 fix · per-round canonical probeStrategy
+      // (was hardcoded 'text-mode' in C7 · scoring sBeliefUpdateMagnitude
+      // expects 'contradiction' on R2 to compute belief delta correctly).
+      const probeStrategy = PROBE_STRATEGIES[currentRound] ?? 'baseline';
       void fetch(`/api/v5/exam/${sessionId}/modulec/round/${currentRound + 1}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           answer: submittedAnswer,
           question: prompt,
-          probeStrategy: 'text-mode',
+          probeStrategy,
         }),
       }).catch(() => {});
     }
