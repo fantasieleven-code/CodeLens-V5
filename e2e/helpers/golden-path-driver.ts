@@ -416,6 +416,10 @@ export class GoldenPathDriver {
       // wait failure; finalTestPassRate is asserted by B3 spec on admin route.
     });
 
+    // Brief #16 D26 · execution → standards stage transition · sync setStage in
+    // ModuleBPage.handleFinishExecution · no async wait needed.
+    await this.page.locator(byTestId(MB_TESTIDS.executionFinish)).click();
+
     // Chat interactions (optional · fixture may or may not have chat events).
     // Chat observation via DOM-render · mb-chat-stream-active visibility +
     // mb-chat-message-{i} count (ws.ts: v5:mb:chat_stream + chat_complete

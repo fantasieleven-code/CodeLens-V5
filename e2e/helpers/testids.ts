@@ -141,6 +141,8 @@ export const MB_TESTIDS = {
   chatSend: 'mb-chat-send',
   chatStreamActive: 'mb-chat-stream-active',
   chatMessage: (i: number) => `mb-chat-message-${i}`,
+  // Brief #16 D26 · execution → standards stage transition button.
+  executionFinish: 'mb-execution-finish',
   standardsRulesTextarea: 'mb-standards-rules',
   standardsAgentTextarea: 'mb-standards-agent',
   standardsSubmit: 'mb-standards-submit',
