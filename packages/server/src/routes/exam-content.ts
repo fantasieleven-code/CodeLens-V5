@@ -28,7 +28,18 @@ import type { Request, Response, NextFunction } from 'express';
 
 import { examDataService } from '../services/exam-data.service.js';
 import { sessionService, SessionNotFoundError } from '../services/session.service.js';
+import { persistPhase0Submission } from '../services/modules/p0.service.js';
+import { persistModuleASubmission } from '../services/modules/ma.service.js';
+import { persistMbSubmission } from '../services/modules/mb.service.js';
+import { persistSelfAssess } from '../services/modules/se.service.js';
+import { saveRoundAnswer } from '../services/modules/mc.service.js';
 import { NotFoundError, ValidationError } from '../middleware/errorHandler.js';
+import type {
+  V5Phase0Submission,
+  V5ModuleASubmission,
+  V5MBSubmission,
+  V5SelfAssessSubmission,
+} from '@codelens-v5/shared';
 
 const VALID_MODULE_TYPES = new Set(['p0', 'ma', 'mb', 'mc', 'md', 'se']);
 
@@ -98,6 +109,161 @@ export async function completeExamSession(
   }
 }
 
+/**
+ * Brief #19 · 5 σ-pattern HTTP fallback endpoints for module submission
+ * persistence. Mirrors Brief #18 D38 σ — the candidate-side socket emits
+ * (`phase0:submit` / `moduleA:submit` / `v5:mb:submit` / `self-assess:submit`
+ * / `v5:modulec:answer`) silent-drop because `useSocket()` is defined but
+ * never called from any component. These endpoints provide a guaranteed
+ * persist path until V5.0.1 wires the root socket connection.
+ *
+ * 404 semantics · sessionService.getSession returns null when the session
+ * is missing, surfaced as NotFoundError (handled by errorHandler middleware
+ * → 400/404 with code='NOT_FOUND'). Persist functions themselves silently
+ * no-op on missing sessions, so the explicit existence check is what
+ * differentiates "no such session" from "persisted successfully".
+ *
+ * 500 semantics · uncaught errors from the persist functions (e.g. Prisma
+ * write failure) are forwarded to next() unchanged.
+ *
+ * All 5 endpoints are idempotent · Brief #19 Phase 1 audit Q2 verified.
+ */
+
+async function ensureSessionOrThrow(sessionId: string): Promise<void> {
+  const session = await sessionService.getSession(sessionId);
+  if (!session) throw new SessionNotFoundError(sessionId);
+}
+
+function clamp01(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(1, n));
+}
+
+export async function submitPhase0(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { sessionId } = req.params;
+    const submission = req.body?.submission as V5Phase0Submission | undefined;
+    if (!submission) throw new ValidationError('submission body field required');
+    await ensureSessionOrThrow(sessionId);
+    await persistPhase0Submission(sessionId, submission);
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    if (err instanceof SessionNotFoundError) {
+      next(new NotFoundError(`Session not found: ${req.params.sessionId}`));
+      return;
+    }
+    next(err);
+  }
+}
+
+export async function submitModuleA(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { sessionId } = req.params;
+    const submission = req.body?.submission as V5ModuleASubmission | undefined;
+    if (!submission) throw new ValidationError('submission body field required');
+    await ensureSessionOrThrow(sessionId);
+    await persistModuleASubmission(sessionId, submission);
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    if (err instanceof SessionNotFoundError) {
+      next(new NotFoundError(`Session not found: ${req.params.sessionId}`));
+      return;
+    }
+    next(err);
+  }
+}
+
+export async function submitMb(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { sessionId } = req.params;
+    const submission = req.body?.submission as V5MBSubmission | undefined;
+    if (!submission) throw new ValidationError('submission body field required');
+    await ensureSessionOrThrow(sessionId);
+    await persistMbSubmission(sessionId, submission);
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    if (err instanceof SessionNotFoundError) {
+      next(new NotFoundError(`Session not found: ${req.params.sessionId}`));
+      return;
+    }
+    next(err);
+  }
+}
+
+export async function submitSelfAssess(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { sessionId } = req.params;
+    const { selfConfidence, selfIdentifiedRisk, responseTimeMs } = req.body ?? {};
+    if (typeof selfConfidence !== 'number' || typeof responseTimeMs !== 'number') {
+      throw new ValidationError(
+        'selfConfidence (number) and responseTimeMs (number) body fields required',
+      );
+    }
+    await ensureSessionOrThrow(sessionId);
+    // Match the socket-handler normalization (self-assess-handlers.ts:56-61):
+    // selfConfidence is 0..100 percentage; persistSelfAssess wants 0..1 confidence.
+    const submission: V5SelfAssessSubmission = {
+      confidence: clamp01(selfConfidence / 100),
+      reasoning:
+        typeof selfIdentifiedRisk === 'string' ? selfIdentifiedRisk : '',
+    };
+    await persistSelfAssess(sessionId, submission);
+    void responseTimeMs;
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    if (err instanceof SessionNotFoundError) {
+      next(new NotFoundError(`Session not found: ${req.params.sessionId}`));
+      return;
+    }
+    next(err);
+  }
+}
+
+export async function submitModuleCRound(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { sessionId, roundIdx } = req.params;
+    const round = Number.parseInt(roundIdx, 10);
+    if (!Number.isInteger(round) || round < 0) {
+      throw new ValidationError(`Invalid roundIdx '${roundIdx}' · expected non-negative integer`);
+    }
+    const { answer, question, probeStrategy } = req.body ?? {};
+    if (typeof answer !== 'string' || typeof question !== 'string' || typeof probeStrategy !== 'string') {
+      throw new ValidationError(
+        'answer (string), question (string), probeStrategy (string) body fields required',
+      );
+    }
+    await ensureSessionOrThrow(sessionId);
+    await saveRoundAnswer(sessionId, round, answer, question, probeStrategy);
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    if (err instanceof SessionNotFoundError) {
+      next(new NotFoundError(`Session not found: ${req.params.sessionId}`));
+      return;
+    }
+    next(err);
+  }
+}
+
 export const examContentRouter: Router = Router();
 
 examContentRouter.get(
@@ -106,3 +272,8 @@ examContentRouter.get(
 );
 
 examContentRouter.post('/:sessionId/complete', completeExamSession);
+examContentRouter.post('/:sessionId/phase0/submit', submitPhase0);
+examContentRouter.post('/:sessionId/modulea/submit', submitModuleA);
+examContentRouter.post('/:sessionId/mb/submit', submitMb);
+examContentRouter.post('/:sessionId/selfassess/submit', submitSelfAssess);
+examContentRouter.post('/:sessionId/modulec/round/:roundIdx', submitModuleCRound);
