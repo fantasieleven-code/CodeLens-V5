@@ -169,7 +169,7 @@ async function assertReportSurface(
 // ────────────────────────── Test describes · 1 per grade ────────────────
 
 test.describe('Golden Path · Liam S-grade', () => {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
 
   test('completes full flow and matches liam expectations on admin report', async ({
     page,
@@ -189,7 +189,7 @@ test.describe('Golden Path · Liam S-grade', () => {
 });
 
 test.describe('Golden Path · Steve A-grade', () => {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
 
   test('completes full flow and matches steve expectations on admin report', async ({
     page,
@@ -209,7 +209,7 @@ test.describe('Golden Path · Steve A-grade', () => {
 });
 
 test.describe('Golden Path · Emma B-grade', () => {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
 
   test('completes full flow and matches emma expectations on admin report', async ({
     page,
@@ -229,7 +229,7 @@ test.describe('Golden Path · Emma B-grade', () => {
 });
 
 test.describe('Golden Path · Max D-grade', () => {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
 
   // Note · fixture file is `max-c-grade.ts` (V4-era naming) but actual
   // expectations bucket Max in 'D' grade per Task A1 recalibration

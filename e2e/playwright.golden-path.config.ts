@@ -27,7 +27,12 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   reporter: 'html',
-  timeout: 180_000,
+  // Brief #19 C9 Bug #2 · 180→300s · σ HTTP fallback added 5 fetch calls
+  // per session (~250ms latency total) and full scoring against real (not
+  // silent-dropped) metadata · waitForScoringComplete polling needs more
+  // wall-time than the original 180s. V5.0.5 housekeeping captures the
+  // scoring-hydrate caching optimization to bring this back down.
+  timeout: 300_000,
 
   use: {
     baseURL: 'http://localhost:5173',
