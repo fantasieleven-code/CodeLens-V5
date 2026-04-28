@@ -159,9 +159,14 @@ const submissions: V5Submissions = {
     audit: {
       // Brief #17 D29 · ruleId remapped to positional `rule_${idx}` matching
       // parseRules output over Emma's 2 numbered rules (rule_0 = "扣减要检查超卖").
+      // Brief #17 D33 · added exampleIndex 2 entry (B-tier semantic · Emma
+      // misses the retry/error_handling violation as compliant). ViolationAuditPanel
+      // initializes markings from violationExamples.length=3 · short fixtures
+      // leave marking[2] at default 'unmarked' which blocks canSubmit forever.
       violations: [
         { exampleIndex: 0, markedAsViolation: true, violatedRuleId: 'rule_0' },
         { exampleIndex: 1, markedAsViolation: false },
+        { exampleIndex: 2, markedAsViolation: false },
       ],
     },
   },
