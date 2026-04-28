@@ -2043,3 +2043,160 @@ production code change · only docs + agent execution + Steve minimal manual.
 
 Branch: `chore/v5.0-ship-signoff` (sub-branch off
 `fix/admin-report-and-scoring-trigger` · A2 stacked path · final brief in cascade).
+
+### #168 — `meta-pattern` Brief #19 闭环 · 5 模块 submission persist HTTP fallback (σ pattern)
+
+#### 修复内容(Brief #19 完整 charter 范围)
+
+- 5 endpoint 加 examContentRouter · σ 模式镜像 brief #18 D38:
+  - `POST /api/v5/exam/:sessionId/phase0/submit`
+  - `POST /api/v5/exam/:sessionId/modulea/submit`
+  - `POST /api/v5/exam/:sessionId/mb/submit` (consolidated · MB final-submit 含全 stage data)
+  - `POST /api/v5/exam/:sessionId/selfassess/submit`
+  - `POST /api/v5/exam/:sessionId/modulec/round/:roundIdx`
+- 5 client page HTTP fetch 加 · belt-and-suspenders 保留 socket emit
+- `saveRoundAnswer` 抽出 `mc.service.ts` · text-mode HTTP + voice webhook 共用
+- Bug #1 (C8) · ModuleCPage `PROBE_STRATEGIES` 常量 · per-round canonical
+  (baseline/contradiction/weakness/escalation/transfer) · brief #17 narrow 起 socket
+  emit 缺这字段
+- Bug #2 (C9) · `golden-path.spec.ts` test timeout 180→300 · align
+  `waitForScoringComplete` 内部 deadline
+
+#### Brief #19 真闭环 charter
+
+- ✓ 5 模块 submission 真持久化 (DB verified · 4 个 session
+  `metadata.{phase0,moduleA,mb,selfAssess}=true · moduleC=5 rounds`)
+- ✓ `scoringResult` JSON 真有 (不是 placeholder · DB row inspected directly)
+- ✓ admin 报告真渲染真数据 (Hero + CapabilityProfiles + SignalBars sections,
+  capability profile labels show real "待发展"/etc grades, not placeholder text)
+- ✓ Server-side fixture scoring 30/30 PASS
+
+#### Ship gate #5 闭环 NOT yet 状态 (Brief #20 territory)
+
+e2e flow scoring 4/4 LOW · 5-11 分偏低带:
+- Liam composite **74.1** vs [85, 93] (LOW by 11)
+- Steve composite **72.1** vs [77, 85] (LOW by 5)
+- Emma composite **47.2** vs [54, 62] (LOW by 7)
+- Max composite **18.3** ✓ IN BAND [14, 24]
+
+#### §E E7-bis 真发现 · Brief #20 territory
+
+发现 · server-side fixture scoring 30/30 PASS vs e2e flow scoring 4/4 LOW · 同
+fixture 文件 · 不同输入路径 (in-memory vs UI candidate flow + Brief #19 σ
+persistence + scoring)。
+
+结论 · scoring 数学逻辑正确(server-side fixture 30/30 PASS 证)· 问题在
+**UI → submission collection** 这层 · 候选人页面读 UI state 构 submission 时漏
+fixture 期望字段。
+
+3 条怀疑(Brief #20 audit):
+1. ModuleBPage `editorBehavior` hardcoded 空数组 (line 232-239) · 但 Liam fixture
+   真有 30+ events (aiCompletionEvents/chatEvents/diffEvents/fileNavigationHistory/
+   editSessions/testRuns)
+2. Phase0Page `aiOutputJudgment` shape vs fixture
+3. MA `markedDefects` / `structuredForm` / `challengeResponse` / `diffAnalysis` 字段
+
+第二个独立问题 · **polling race** · DB `scoringResult` 真写了 (`hydrator.ts:178-184`
+持久化逻辑) · 但 admin 端点 (`admin.ts:378-379`) 每 GET 都重跑
+`hydrateAndScore` · 不读 DB 缓存 · driver `goto` 触新 hydrate · loading state
+闪 · driver 抓不到稳定 ready state。修法 · admin 端点先查
+`session.scoringResult` 列 · 已有就直接 return。1-2 LOC server fix · Brief
+#20 内做。
+
+#### 真根因 honest face
+
+`useSocket()` 定义但 0 调用 · 5 模块 socket.emit 全 silent drop · brief
+#14-#18 期间 sprint Pattern F #1 已 catch · 但 framing 错为
+"fire-and-forget 设计意图" 而非 "P0 ship-blocker"。
+
+DB 验证 (brief #10 §E E2 first-trigger) · Steve session metadata 全空 ·
+composite=0.0 · grade=D 全档。
+
+修后 DB 验证 (brief #19 §E E7-bis post-fix) · 5 个 session 全
+`phase0/moduleA/mb/selfAssess=true · moduleC=5 rounds · scoringResult` JSON
+真有 · admin 报告真渲染真数据 (但 composite 偏低 · Brief #20 territory)。
+
+新发现 · MC 真无 socket handler:
+- `ModuleCPage` D35 注释 "Server handler for `v5:modulec:answer` exists" 是
+  false · 仅 voice webhook 调 `saveRoundAnswer` (`mc-voice-chat.ts:208`)
+- V5.0.1 wire `useSocket()` 不修 MC text-mode · 必须 server-side `socket.on`
+  加 OR 走 HTTP (Brief #19 选 HTTP)
+
+#### Pattern G ratify-error 完整透明记录(累积 7 次 · 同判断模式)
+
+1. D32 · 假设 `GOLDEN_PATH_PARTICIPATING_MODULES` 是 source of truth · 实际
+   `SUITES[suiteId].modules` 是
+2. D34 · 没要求 grep 同模式 · D35 同种 ack-gate 漏 · post-validate 才 catch
+3. D36 · 没要求 grep page constants · `TOTAL_ROUNDS=5` vs fixture 4 entries
+4. brief #18 闭环 · 没 verify CI 状态对比 local · `.env` artifact 局限 local
+5. brief #10 · 假设 spec file 路径 `/mnt/project/` 可访问 · 不存在
+6. brief #19 C7 · hardcode `probeStrategy: 'text-mode'` 没 grep scoring 端期望
+   (W2 catch · brief #19 内 catch)
+7. **brief #19 §E E7 ratify** · 假设 Bug #1 (PROBE_STRATEGIES) 是 composite gap
+   真因 · 没要求 W2 跑 server-side scoring 对照 · Bug #1 修后实测几乎无影响
+   (Liam 74.1→74.1 浮动 < 0.5)
+
+根本判断模式问题:
+- "Planning ratify 看到 X 异常时只修当前 catch 那一处 · 没追 X 的下游影响 / 同模
+  式所有位置 / 上游真根因"
+- "Planning ratify 假设 W2 hypothesis 是真因 · 没要求对照验证"
+
+1 次架构判断错 (brief #17 narrow D34 时把 fire-and-forget 当设计) + 7 次表面/
+假设修补。
+
+但每次 catch 时机递进 · 第 7 次是 brief #19 内 catch 不是 brief #20 部署后 ·
+sprint discipline 累积真在体现。
+
+#### V5.0.5 housekeeping 候选 (Brief #19 累积新增 · 总 ~24 项)
+
+新增 (brief #20 dispatch 必落实前 2 项):
+- "Phase 1 audit 必跑 server-side fixture scoring 对照 e2e scoring · 不假设 e2e
+  fail 真因是 X"
+- "ratify W2 报告 hypothesis 时必加 verify 对照步骤 · 不接受 'X 是真因' 不验"
+- "看到 silent failure pattern 必主动 grep 同模式所有位置 · 不只修当前 catch"
+- "Planning ratify 引用外部资源时必先标注 verify 步骤"
+- "添加 σ HTTP body 时必先 grep 接收端期望字段值 · 不 hardcode 默认"
+- "Planning Claude session 接力 handoff 包必含判断模式问题 · 不只是事实清单"
+- "scoring hydrate 缓存 / 预 hydrate 优化 · 减少 polling 竞态" (Bug #2 真根因)
+- "submission 内容字段完整性必 audit · UI page 构 submission 时是否漏 fixture
+  期望字段" (Brief #20 真发现)
+
+#### V5.0.1 patch scope 修订
+
+- ρ wire `useSocket()` 真根因 socket 架构清理
+- MC server-side `socket.on('v5:modulec:answer')` handler 真加
+- Toast 提示 ack 失败
+- 双路径决断 (socket + HTTP belt-and-suspenders 保留 vs 只留一条)
+- 4 个 persistence handler 真实 server-side E2E 验证
+- scoring hydrate 缓存优化 (Brief #20 polling race 修法在 V5.0 内 · V5.0.1 完整化)
+
+#### Pattern F + G 累积
+
+- Pattern F · ~117 drifts caught
+- Pattern G · 0 沉默推送 38h+ 守 · brief #19 内 9 commits 全透明 · push at
+  brief close
+- §E 触停 · brief #19 内 2 次 (§E E7 + §E E7-bis) · 全 ratify 通过 · 0 silent
+  absorb
+
+#### 后续路径
+
+- Brief #20 · submission 内容字段完整性 deep audit + polling race 修 + ship
+  gate #5 真闭环
+- Brief #10 重启 · Cold Start Tier 2 · `git stash pop` 恢复 brief #10
+  Section 2 spec
+- 巨型 PR squash merge · brief #14 + #15 + #16 + #17 narrow + #18 + #19 +
+  #20 + #10 累积约 50+ commits
+- tag v5.0.0 · GitHub Release
+- 期望 ship · 5-2 周六至 5-3 周日
+
+V5.0.1 patch 接力 · ρ wire useSocket 真根因 + MC handler 真补 + toast +
+scoring 缓存。
+
+Commits (9): `8323c20` C1 mc.service extract · `3978b8f` C2 5 endpoints + 15
+tests · `4f77c96` C3 Phase0Page · `8fb74af` C4 ModuleAPage · `d3fa9ca` C5
+ModuleBPage final-submit · `f7ca66f` C6 SelfAssessPage · `0b9739f` C7
+ModuleCPage per-round · `88c4ae2` C8 PROBE_STRATEGIES (Bug #1) · `2de8fac`
+C9 timeout 180→300 (Bug #2) · `<C10 SHA>` obs#168
+Brief: Brief #19 · 5 模块 submission persist σ HTTP fallback · 2026-04-28
+Branch: `fix/5-module-submission-persist` (sub-branch off
+`chore/v5.0-ship-signoff` · A2 stacked path · cascade 第 5 层)
