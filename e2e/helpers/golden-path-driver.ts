@@ -427,17 +427,21 @@ export class GoldenPathDriver {
     // has chatEvents; otherwise skip.
 
     // Standards phase.
+    // Brief #16 D28(i) · stage transition click is unconditional · content
+    // depth is the candidate-grade signal (Max has empty rulesContent · should
+    // still progress, not stall here). Driver fills only what the fixture
+    // provides; submit fires regardless.
     if (mb.standards?.rulesContent) {
       await this.page
         .locator(byTestId(MB_TESTIDS.standardsRulesTextarea))
         .fill(mb.standards.rulesContent);
-      if (mb.standards.agentContent) {
-        await this.page
-          .locator(byTestId(MB_TESTIDS.standardsAgentTextarea))
-          .fill(mb.standards.agentContent);
-      }
-      await this.page.locator(byTestId(MB_TESTIDS.standardsSubmit)).click();
     }
+    if (mb.standards?.agentContent) {
+      await this.page
+        .locator(byTestId(MB_TESTIDS.standardsAgentTextarea))
+        .fill(mb.standards.agentContent);
+    }
+    await this.page.locator(byTestId(MB_TESTIDS.standardsSubmit)).click();
 
     // Audit phase.
     if (mb.audit?.violations) {
