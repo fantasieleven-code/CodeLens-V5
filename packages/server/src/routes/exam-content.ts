@@ -27,6 +27,7 @@ import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 
 import { examDataService } from '../services/exam-data.service.js';
+import { sessionService, SessionNotFoundError } from '../services/session.service.js';
 import { NotFoundError, ValidationError } from '../middleware/errorHandler.js';
 
 const VALID_MODULE_TYPES = new Set(['p0', 'ma', 'mb', 'mc', 'md', 'se']);
@@ -67,9 +68,41 @@ export async function getExamModuleContent(
   }
 }
 
+/**
+ * Brief #18 D38 (σ) · POST /api/v5/exam/:sessionId/complete
+ *
+ * HTTP fallback for the missing socket `session:end` handler. ModuleCPage
+ * `finishAndAdvance` calls this after the final MC round to transition the
+ * session to status='COMPLETED', which makes admin.ts:379 lazy-trigger
+ * `scoringHydratorService.hydrateAndScore` on the next admin report fetch.
+ *
+ * Idempotent · `sessionService.endSession` is safe to call repeatedly:
+ * each call sets status='COMPLETED' + completedAt=now, no state machine
+ * guard blocks re-completion.
+ */
+export async function completeExamSession(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { sessionId } = req.params;
+    await sessionService.endSession(sessionId);
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    if (err instanceof SessionNotFoundError) {
+      next(new NotFoundError(`Session not found: ${req.params.sessionId}`));
+      return;
+    }
+    next(err);
+  }
+}
+
 export const examContentRouter: Router = Router();
 
 examContentRouter.get(
   '/:examInstanceId/module/:moduleType',
   getExamModuleContent,
 );
+
+examContentRouter.post('/:sessionId/complete', completeExamSession);

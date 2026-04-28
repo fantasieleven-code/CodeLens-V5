@@ -1,9 +1,10 @@
-/** Brief #15 · GET /api/v5/exam/:examInstanceId/module/:moduleType · 4 route cases. */
+/** Brief #15 + #18 · /api/v5/exam routes · 4 GET cases + 3 POST complete cases. */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Request, Response, NextFunction } from 'express';
 
 const getMBDataCandidateSafe = vi.hoisted(() => vi.fn());
+const endSession = vi.hoisted(() => vi.fn());
 
 vi.mock('../config/env.js', () => ({
   env: {
@@ -29,7 +30,18 @@ vi.mock('../services/exam-data.service.js', async (importOriginal) => {
   };
 });
 
-import { getExamModuleContent } from './exam-content.js';
+vi.mock('../services/session.service.js', async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import('../services/session.service.js')
+  >();
+  return {
+    ...actual,
+    sessionService: { endSession },
+  };
+});
+
+import { completeExamSession, getExamModuleContent } from './exam-content.js';
+import { SessionNotFoundError } from '../services/session.service.js';
 
 function makeReq(params: Record<string, string>): Request {
   return { params, query: {}, body: {} } as unknown as Request;
@@ -60,6 +72,7 @@ const FAKE_CANDIDATE_VIEW = {
 
 beforeEach(() => {
   getMBDataCandidateSafe.mockReset();
+  endSession.mockReset();
 });
 
 describe('GET /api/v5/exam/:examInstanceId/module/:moduleType', () => {
@@ -115,6 +128,49 @@ describe('GET /api/v5/exam/:examInstanceId/module/:moduleType', () => {
     expect(status).toHaveBeenCalledWith(501);
     expect(json.mock.calls[0][0]).toMatchObject({ code: 'NOT_IMPLEMENTED' });
     expect(getMBDataCandidateSafe).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/v5/exam/:sessionId/complete', () => {
+  it('returns 200 { ok: true } on happy completion', async () => {
+    endSession.mockResolvedValue({ id: 'sess-1', status: 'COMPLETED' });
+    const req = makeReq({ sessionId: 'sess-1' });
+    const { res, status, json } = makeRes();
+    const { fn, calls } = makeNext();
+
+    await completeExamSession(req, res, fn);
+
+    expect(calls).toHaveLength(0);
+    expect(endSession).toHaveBeenCalledWith('sess-1');
+    expect(status).toHaveBeenCalledWith(200);
+    expect(json.mock.calls[0][0]).toEqual({ ok: true });
+  });
+
+  it('forwards 404 NotFoundError when sessionService throws SessionNotFoundError', async () => {
+    endSession.mockRejectedValue(new SessionNotFoundError('missing-id'));
+    const req = makeReq({ sessionId: 'missing-id' });
+    const { res } = makeRes();
+    const { fn, calls } = makeNext();
+
+    await completeExamSession(req, res, fn);
+
+    expect(calls).toHaveLength(1);
+    const err = calls[0] as { statusCode: number; code: string };
+    expect(err.statusCode).toBe(404);
+    expect(err.code).toBe('NOT_FOUND');
+  });
+
+  it('forwards unexpected errors to next() unchanged (errorHandler maps to 500)', async () => {
+    const boom = new Error('prisma exploded');
+    endSession.mockRejectedValue(boom);
+    const req = makeReq({ sessionId: 'sess-1' });
+    const { res } = makeRes();
+    const { fn, calls } = makeNext();
+
+    await completeExamSession(req, res, fn);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toBe(boom);
   });
 });
 
