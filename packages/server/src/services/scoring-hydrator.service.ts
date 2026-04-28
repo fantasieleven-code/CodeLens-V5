@@ -81,6 +81,14 @@ export interface HydrateScoreOptions {
   registry?: SignalRegistry;
   /** When true, skip the scoringResult write-back — used for dry-run diagnostics. */
   dryRun?: boolean;
+  /**
+   * When true, ignore cached `Session.scoringResult` and re-hydrate from
+   * scratch. Default false: lazy-trigger callers (admin route polling) get a
+   * cheap O(1) Prisma read instead of full scoring on every poll. Brief #20
+   * C1 — closes ship-gate-#5 polling race where two concurrent hydrate calls
+   * raced on `session.update({scoringResult})` and could observe stale state.
+   */
+  forceRefresh?: boolean;
 }
 
 export interface HydrateScoreResult {
@@ -90,6 +98,8 @@ export interface HydrateScoreResult {
   scoringResult: V5ScoringResult;
   /** Per-namespace read status — useful for debugging degraded sessions. */
   hydrationReport: HydrationReport;
+  /** True when scoringResult was returned from `Session.scoringResult` cache. */
+  cached?: boolean;
 }
 
 export interface HydrationReport {
@@ -151,6 +161,36 @@ export class ScoringHydratorService {
     }
 
     const participatingModules = this.resolveParticipatingModules(meta, suiteId);
+
+    // Brief #20 C1 · polling race short-circuit. When admin.ts:378-379 lazy-
+    // triggers hydrateAndScore on every /admin/sessions/:id GET, the first
+    // hydrate writes scoringResult and subsequent polls should observe that
+    // cache rather than re-running the full pipeline (and racing the same
+    // session.update). forceRefresh=true is reserved for explicit re-score
+    // (e.g. when fixture/spec changes invalidate cached output).
+    const cached = (session as { scoringResult?: unknown }).scoringResult;
+    if (!options.forceRefresh && cached && typeof cached === 'object') {
+      logger.info('[hydrator] hydrateAndScore cache hit', {
+        sessionId,
+        suiteId,
+      });
+      return {
+        sessionId,
+        suiteId,
+        participatingModules,
+        scoringResult: cached as V5ScoringResult,
+        hydrationReport: {
+          phase0: 'present',
+          moduleA: 'present',
+          mb: 'present',
+          moduleD: 'present',
+          selfAssess: 'present',
+          moduleC: 'present',
+          examData: {},
+        },
+        cached: true,
+      };
+    }
 
     const { submissions, hydrationReport: subReport } = this.readSubmissions(
       sessionId,
