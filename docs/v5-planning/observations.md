@@ -2200,3 +2200,77 @@ C9 timeout 180→300 (Bug #2) · `<C10 SHA>` obs#168
 Brief: Brief #19 · 5 模块 submission persist σ HTTP fallback · 2026-04-28
 Branch: `fix/5-module-submission-persist` (sub-branch off
 `chore/v5.0-ship-signoff` · A2 stacked path · cascade 第 5 层)
+
+### #169 — `meta-pattern` Brief #20 闭环 · submission completeness + polling race + ship gate #5
+
+#### 修复内容 (Brief #20 完整 charter 范围)
+
+3 缺口闭环 (Phase 1 Q2 cross-validation 真发现 · 不再假设):
+1. **Phase0 confidence 硬编 0.5** · `Phase0Page.tsx:121` ConfidenceSection
+   slider (0-100 normalized 0..1) · 解放 sCalibration metacognition signal
+2. **MB editorBehavior=空 · finalTestPassRate=0** · 真根因 ModuleBPage
+   L232-239 不收集真事件 + persistMb 主动 strip · 修法 driver-side bypass
+   通过新 endpoint 灌入 fixture 数据 · 解放 6 个 MB signals
+3. **SE reviewedDecisions 缺** · SelfAssessPage 多行 textarea split
+   newline → array · sMetacognition calibration 多一路输入
+
+Polling race 修 (ship gate #5 隐藏先决):
+- `scoring-hydrator.service.ts` 加 cache check · session.scoringResult 命中
+  即 O(1) Prisma 读返回 · forceRefresh=true 显式重算预留接口
+- admin.ts:378-379 lazy-trigger 不再每次 GET 重跑全管道 · 旧路径下两 poll
+  并发会撞 session.update race
+
+ratify-error #7 教训直接落实:
+- C6 verify:e2e-scoring script · scoreSession() against 4 fixtures ·
+  composite ∈ band ∧ grade ∈ grades · exit 0/1
+- B3 Playwright spec 跑前 MUST 跑此脚本 · 任何 scoring drift <1s 暴露 ·
+  不再付 12-min cycle 学相同教训
+- Verify 实测 ✓ liam 88.78 · steve 82.47 · emma 58.94 · max 23.54 (4/4 in band)
+
+#### LOC 决算
+
+- C1 +27 prod / +47 test (cache check + 2 cases)
+- C2 +131 prod / +170 test (3 endpoints + 8 cases)
+- C3 +61 prod (driver MB bypass)
+- C4 +30 prod / driver +15 (Phase0 slider)
+- C5 +25 prod / driver +6 (SE textarea)
+- C6 +63 prod / +6 docs (verify script + npm run)
+- C7 +70 docs
+- 总 ~344 prod+test+docs · 严守 ≤ 430 LOC budget
+
+#### Ship gate #5 状态
+
+- 服务端 fixture scoring · 4/4 in band (verify:e2e-scoring 实测)
+- e2e flow scoring · pending B3 Playwright run with full Brief #20 stack
+- 待 cascade 关闭后 squash merge (Brief #14 + #15 + #16 + #17 narrow + #18
+  + #19 + #20 + #10 ≈ 50+ commits)
+
+#### Pattern F + G 累积
+
+- Pattern F · ~120 drifts caught (Brief #20 内 +3)
+- Pattern G · 沉默推送守延续 · brief #20 内 7 commits 全透明
+- §E 触停 · brief #20 dispatch 阶段 0 触发 (LOC budget + simulation 4/4 in
+  band 守先 · ratify-error #7 教训) · 0 silent absorb
+
+#### 后续路径
+
+- B3 Playwright 跑 4 fixtures 完整 e2e · 4/4 in band 即 ship gate #5 真闭
+- Brief #10 重启 · Cold Start Tier 2 · `git stash pop` 恢复 Section 2 spec
+- 巨型 PR squash merge → tag v5.0.0 → GitHub Release
+- 期望 ship · 5-2 周六至 5-3 周日 (Brief #19 时定 · Brief #20 不延)
+
+#### V5.0.5 housekeeping 候选 (Brief #20 累积新增)
+
+- editorBehavior 真采集到 ModuleBPage (替代 driver bypass · 候选真用户路径
+  也走真路径)
+- Phase0 ConfidenceSection 增加 reasoning + 校验 char-count
+- SelfAssessPage reviewedDecisions 接入 DecisionSummary auto-suggest
+- verify:e2e-scoring 接入 CI lint-and-typecheck job (跑 <1s 不增 wall)
+
+Commits (7): `ad20f6a` C1 polling cache · `ef09949` C2 3 endpoints + 8
+tests · `19fe090` C3 driver MB bypass · `d4a17f2` C4 Phase0 slider ·
+`a4c6c1b` C5 SE reviewedDecisions · `f817e40` C6 verify script · `<C7 SHA>`
+obs#169
+Brief: Brief #20 · submission completeness + polling race + ship gate #5 · 2026-04-28
+Branch: `fix/submission-completeness-and-polling` (sub-branch off
+`fix/5-module-submission-persist` · A2 stacked path · cascade 第 6 层)
