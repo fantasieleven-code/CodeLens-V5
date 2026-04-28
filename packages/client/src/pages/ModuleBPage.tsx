@@ -110,6 +110,15 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
   useEffect(() => {
     if (moduleContent) setFiles(moduleContent.scaffold.files);
   }, [moduleContent]);
+
+  // Brief #16 D27(b-light) · prewarm Monaco loader at planning stage so the
+  // CDN fetch overlaps with the candidate filling planning textareas.
+  // Without this, the first file click in execution stage triggers a 5-15s
+  // cold load that races MonacoHelper.selectAll's waitFor.
+  useEffect(() => {
+    if (fetchState.status !== 'loaded') return;
+    void import('@monaco-editor/react').then(({ loader }) => loader.init());
+  }, [fetchState.status]);
   // Latest test_result.passRate folded into the final submission. Starts at 0
   // because "never ran" and "ran but failed all" both deserve a 0 finalTestPassRate.
   const [latestPassRate, setLatestPassRate] = useState(0);

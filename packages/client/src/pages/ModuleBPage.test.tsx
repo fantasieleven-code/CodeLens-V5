@@ -55,6 +55,8 @@ vi.mock('@monaco-editor/react', () => ({
     />
   ),
   useMonaco: () => null,
+  // Brief #16 D27(b-light) · Monaco prewarm consumed via dynamic import.
+  loader: { init: () => Promise.resolve() },
 }));
 
 // MBTerminalPanel pulls xterm / matchMedia. Stub to a button that emits
