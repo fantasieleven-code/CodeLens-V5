@@ -86,23 +86,32 @@ export const SelfAssessPage: React.FC = () => {
     };
     setSubmission('selfAssess', submission);
 
-    // Brief #17 D34 · fire-and-forget pattern (matches Phase0Page:139-148
-    // "do not gate advance() on it" + 5 other module pages). Server handler
-    // exists at socket/self-assess-handlers.ts and persists the submission,
-    // but the socket isn't connected at root level (useSocket() is defined
-    // but unused — V5.0.5 housekeeping will wire it + add toast). Until
-    // then, an ack-gated advance would strand the candidate; the local
-    // store is the source of truth for in-session UI.
+    // Brief #17 D34 fire-and-forget + Brief #19 C6 σ HTTP fallback (belt-
+    // and-suspenders). Socket emit kept for V5.0.1 root-socket wire; HTTP
+    // fetch is the guaranteed persist path until then (DB-verified
+    // metadata.selfAssess empty in Brief #10 §E E2 root-cause).
+    const responseTimeMs = Date.now() - mountTimeRef.current;
     getSocket().emit(
       'self-assess:submit',
       {
         sessionId: sessionId ?? 'selfassess-pending',
         selfConfidence: confidence,
         selfIdentifiedRisk: reasoning.trim() || undefined,
-        responseTimeMs: Date.now() - mountTimeRef.current,
+        responseTimeMs,
       },
       (_ok: boolean) => {},
     );
+    if (sessionId) {
+      void fetch(`/api/v5/exam/${sessionId}/selfassess/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          selfConfidence: confidence,
+          selfIdentifiedRisk: reasoning.trim() || undefined,
+          responseTimeMs,
+        }),
+      }).catch(() => {});
+    }
     setSubmitting(false);
     advance();
   };
