@@ -161,6 +161,9 @@ export const MC_TESTIDS = {
   // Brief #13 D8 · page uses `module-c-page`.
   container: 'module-c-page',
   preflight: 'modulec-preflight',
+  // Brief #17 D30 · MicPreflight gates ModeTabs (ModuleCPage.tsx:393-401).
+  // Skip routes to text-fallback · CI environment has no microphone.
+  preflightSkip: 'modulec-preflight-skip',
   modeVoice: 'modulec-mode-voice',
   modeText: 'modulec-mode-text',
   voiceStatus: 'modulec-voice-status',

@@ -475,6 +475,14 @@ export class GoldenPathDriver {
       .locator(byTestId(MC_TESTIDS.container))
       .waitFor({ state: 'visible', timeout: 15_000 });
 
+    // Brief #17 D30 · MicPreflight gates ModeTabs (ModuleCPage.tsx:393-401).
+    // CI has no microphone · skip routes to text-fallback (legitimate outlet,
+    // not a bypass). After dismissal, ModeTabs renders.
+    await this.page.locator(byTestId(MC_TESTIDS.preflightSkip)).click();
+    await this.page
+      .locator(byTestId(MC_TESTIDS.modeText))
+      .waitFor({ state: 'visible', timeout: 10_000 });
+
     // Prefer text-fallback mode · real voice validated Cold Start Tier 2.
     await this.page.locator(byTestId(MC_TESTIDS.modeText)).click();
 
