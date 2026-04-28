@@ -11,6 +11,13 @@ const getSession = vi.hoisted(() => vi.fn());
 const persistPhase0Submission = vi.hoisted(() => vi.fn());
 const persistModuleASubmission = vi.hoisted(() => vi.fn());
 const persistMbSubmission = vi.hoisted(() => vi.fn());
+const appendAiCompletionEvents = vi.hoisted(() => vi.fn());
+const appendChatEvents = vi.hoisted(() => vi.fn());
+const appendDiffEvents = vi.hoisted(() => vi.fn());
+const appendFileNavigation = vi.hoisted(() => vi.fn());
+const appendEditSessions = vi.hoisted(() => vi.fn());
+const appendVisibilityEvent = vi.hoisted(() => vi.fn());
+const persistFinalTestRun = vi.hoisted(() => vi.fn());
 const persistSelfAssess = vi.hoisted(() => vi.fn());
 const saveRoundAnswer = vi.hoisted(() => vi.fn());
 
@@ -54,6 +61,13 @@ vi.mock('../services/modules/ma.service.js', () => ({
 
 vi.mock('../services/modules/mb.service.js', () => ({
   persistMbSubmission,
+  appendAiCompletionEvents,
+  appendChatEvents,
+  appendDiffEvents,
+  appendFileNavigation,
+  appendEditSessions,
+  appendVisibilityEvent,
+  persistFinalTestRun,
 }));
 
 vi.mock('../services/modules/se.service.js', () => ({
@@ -72,6 +86,8 @@ import {
   submitMb,
   submitSelfAssess,
   submitModuleCRound,
+  submitMbEditorBehavior,
+  submitMbTestResult,
 } from './exam-content.js';
 import { SessionNotFoundError } from '../services/session.service.js';
 
@@ -112,6 +128,13 @@ beforeEach(() => {
   persistPhase0Submission.mockReset();
   persistModuleASubmission.mockReset();
   persistMbSubmission.mockReset();
+  appendAiCompletionEvents.mockReset();
+  appendChatEvents.mockReset();
+  appendDiffEvents.mockReset();
+  appendFileNavigation.mockReset();
+  appendEditSessions.mockReset();
+  appendVisibilityEvent.mockReset();
+  persistFinalTestRun.mockReset();
   persistSelfAssess.mockReset();
   saveRoundAnswer.mockReset();
 });
@@ -469,3 +492,150 @@ describe('POST /api/v5/exam/:sessionId/modulec/round/:roundIdx', () => {
   });
 });
 
+// ─── Brief #20 · MB editor-behavior + test-result + SE reviewedDecisions ──
+
+describe('POST /api/v5/exam/:sessionId/selfassess/submit · reviewedDecisions ext', () => {
+  it('forwards reviewedDecisions to persistSelfAssess when present + valid', async () => {
+    getSession.mockResolvedValue(FAKE_SESSION);
+    persistSelfAssess.mockResolvedValue(undefined);
+    const req = makeReq(
+      { sessionId: 'sess-1' },
+      {
+        selfConfidence: 80,
+        selfIdentifiedRisk: 'r',
+        responseTimeMs: 1000,
+        reviewedDecisions: ['decision A', 'decision B'],
+      },
+    );
+    const { res } = makeRes();
+    const { fn, calls } = makeNext();
+
+    await submitSelfAssess(req, res, fn);
+
+    expect(calls).toHaveLength(0);
+    expect(persistSelfAssess).toHaveBeenCalledWith('sess-1', {
+      confidence: 0.8,
+      reasoning: 'r',
+      reviewedDecisions: ['decision A', 'decision B'],
+    });
+  });
+
+  it('omits reviewedDecisions when not an array of strings', async () => {
+    getSession.mockResolvedValue(FAKE_SESSION);
+    persistSelfAssess.mockResolvedValue(undefined);
+    const req = makeReq(
+      { sessionId: 'sess-1' },
+      { selfConfidence: 50, responseTimeMs: 1000, reviewedDecisions: [1, 2] },
+    );
+    const { res } = makeRes();
+    const { fn } = makeNext();
+
+    await submitSelfAssess(req, res, fn);
+
+    expect(persistSelfAssess).toHaveBeenCalledWith('sess-1', {
+      confidence: 0.5,
+      reasoning: '',
+    });
+  });
+});
+
+describe('POST /api/v5/exam/:sessionId/mb/editor-behavior', () => {
+  it('dispatches each non-empty slice to its append* function', async () => {
+    getSession.mockResolvedValue(FAKE_SESSION);
+    const aiCompletionEvents = [{ lineNumber: 1, accepted: true, completionLength: 1, timestamp: 1 }];
+    const chatEvents = [{ timestamp: 2, prompt: 'p', response: 'r' }];
+    const documentVisibilityEvents = [{ timestamp: 3, hidden: true }];
+    const req = makeReq(
+      { sessionId: 'sess-1' },
+      { aiCompletionEvents, chatEvents, documentVisibilityEvents, diffEvents: [] },
+    );
+    const { res, status, json } = makeRes();
+    const { fn, calls } = makeNext();
+
+    await submitMbEditorBehavior(req, res, fn);
+
+    expect(calls).toHaveLength(0);
+    expect(appendAiCompletionEvents).toHaveBeenCalledWith('sess-1', aiCompletionEvents);
+    expect(appendChatEvents).toHaveBeenCalledWith('sess-1', chatEvents);
+    expect(appendDiffEvents).not.toHaveBeenCalled();
+    expect(appendVisibilityEvent).toHaveBeenCalledWith('sess-1', { timestamp: 3, hidden: true });
+    expect(status).toHaveBeenCalledWith(200);
+    expect(json.mock.calls[0][0]).toEqual({ ok: true });
+  });
+
+  it('returns 200 + no append* calls when body has no events', async () => {
+    getSession.mockResolvedValue(FAKE_SESSION);
+    const req = makeReq({ sessionId: 'sess-1' }, {});
+    const { res, status } = makeRes();
+    const { fn, calls } = makeNext();
+
+    await submitMbEditorBehavior(req, res, fn);
+
+    expect(calls).toHaveLength(0);
+    expect(appendAiCompletionEvents).not.toHaveBeenCalled();
+    expect(appendChatEvents).not.toHaveBeenCalled();
+    expect(status).toHaveBeenCalledWith(200);
+  });
+
+  it('forwards 404 when session does not exist', async () => {
+    getSession.mockResolvedValue(null);
+    const req = makeReq({ sessionId: 'missing' }, { aiCompletionEvents: [{}] });
+    const { res } = makeRes();
+    const { fn, calls } = makeNext();
+
+    await submitMbEditorBehavior(req, res, fn);
+
+    expect(appendAiCompletionEvents).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(1);
+    expect((calls[0] as { statusCode: number }).statusCode).toBe(404);
+  });
+});
+
+describe('POST /api/v5/exam/:sessionId/mb/test-result', () => {
+  it('returns 200 + invokes persistFinalTestRun on happy path', async () => {
+    getSession.mockResolvedValue(FAKE_SESSION);
+    persistFinalTestRun.mockResolvedValue(undefined);
+    const req = makeReq(
+      { sessionId: 'sess-1' },
+      { passRate: 0.9, duration: 1234, timestamp: 5678 },
+    );
+    const { res, status, json } = makeRes();
+    const { fn, calls } = makeNext();
+
+    await submitMbTestResult(req, res, fn);
+
+    expect(calls).toHaveLength(0);
+    expect(persistFinalTestRun).toHaveBeenCalledWith('sess-1', {
+      passRate: 0.9,
+      duration: 1234,
+      timestamp: 5678,
+    });
+    expect(status).toHaveBeenCalledWith(200);
+    expect(json.mock.calls[0][0]).toEqual({ ok: true });
+  });
+
+  it('returns 400 VALIDATION_ERROR when passRate or duration missing', async () => {
+    const req = makeReq({ sessionId: 'sess-1' }, { passRate: 0.5 });
+    const { res } = makeRes();
+    const { fn, calls } = makeNext();
+
+    await submitMbTestResult(req, res, fn);
+
+    expect(persistFinalTestRun).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(1);
+    expect((calls[0] as { statusCode: number }).statusCode).toBe(400);
+  });
+
+  it('forwards 404 when session does not exist', async () => {
+    getSession.mockResolvedValue(null);
+    const req = makeReq({ sessionId: 'missing' }, { passRate: 1, duration: 100 });
+    const { res } = makeRes();
+    const { fn, calls } = makeNext();
+
+    await submitMbTestResult(req, res, fn);
+
+    expect(persistFinalTestRun).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(1);
+    expect((calls[0] as { statusCode: number }).statusCode).toBe(404);
+  });
+});

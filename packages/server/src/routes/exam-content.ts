@@ -30,7 +30,21 @@ import { examDataService } from '../services/exam-data.service.js';
 import { sessionService, SessionNotFoundError } from '../services/session.service.js';
 import { persistPhase0Submission } from '../services/modules/p0.service.js';
 import { persistModuleASubmission } from '../services/modules/ma.service.js';
-import { persistMbSubmission } from '../services/modules/mb.service.js';
+import {
+  persistMbSubmission,
+  appendAiCompletionEvents,
+  appendChatEvents,
+  appendDiffEvents,
+  appendFileNavigation,
+  appendEditSessions,
+  appendVisibilityEvent,
+  persistFinalTestRun,
+  type AiCompletionEvent,
+  type ChatEvent,
+  type DiffEvent,
+  type FileNavEvent,
+  type EditSessionEvent,
+} from '../services/modules/mb.service.js';
 import { persistSelfAssess } from '../services/modules/se.service.js';
 import { saveRoundAnswer } from '../services/modules/mc.service.js';
 import { NotFoundError, ValidationError } from '../middleware/errorHandler.js';
@@ -209,7 +223,8 @@ export async function submitSelfAssess(
 ): Promise<void> {
   try {
     const { sessionId } = req.params;
-    const { selfConfidence, selfIdentifiedRisk, responseTimeMs } = req.body ?? {};
+    const { selfConfidence, selfIdentifiedRisk, responseTimeMs, reviewedDecisions } =
+      req.body ?? {};
     if (typeof selfConfidence !== 'number' || typeof responseTimeMs !== 'number') {
       throw new ValidationError(
         'selfConfidence (number) and responseTimeMs (number) body fields required',
@@ -218,13 +233,123 @@ export async function submitSelfAssess(
     await ensureSessionOrThrow(sessionId);
     // Match the socket-handler normalization (self-assess-handlers.ts:56-61):
     // selfConfidence is 0..100 percentage; persistSelfAssess wants 0..1 confidence.
+    // Brief #20 C2 · accept reviewedDecisions (V5SelfAssessSubmission optional
+    // field powering sMetacognition calibration). Only attach when the
+    // candidate-side UI actually collected a non-empty array.
     const submission: V5SelfAssessSubmission = {
       confidence: clamp01(selfConfidence / 100),
       reasoning:
         typeof selfIdentifiedRisk === 'string' ? selfIdentifiedRisk : '',
+      ...(Array.isArray(reviewedDecisions) &&
+      reviewedDecisions.every((s: unknown) => typeof s === 'string')
+        ? { reviewedDecisions: reviewedDecisions as string[] }
+        : {}),
     };
     await persistSelfAssess(sessionId, submission);
     void responseTimeMs;
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    if (err instanceof SessionNotFoundError) {
+      next(new NotFoundError(`Session not found: ${req.params.sessionId}`));
+      return;
+    }
+    next(err);
+  }
+}
+
+/**
+ * Brief #20 C2 · POST /api/v5/exam/:sessionId/mb/editor-behavior
+ *
+ * MB editorBehavior bulk submit · driver-side bypass for the e2e suite.
+ * ModuleBPage.tsx hardcodes empty editorBehavior arrays at L232-239 and
+ * persistMbSubmission STRIPS that field anyway (Pattern H v2.2 — see
+ * mb.service.ts:208-215). Real candidate sessions populate these arrays
+ * incrementally via socket `behavior:batch`; the e2e driver doesn't replay
+ * those events, so this endpoint accepts a fixture-shaped editorBehavior
+ * payload and dispatches each non-empty slice to the existing append*
+ * functions (which dedup + spread-merge against current metadata.mb.editorBehavior).
+ *
+ * V5.0.5 housekeeping · once useSocket() is wired (Brief #19 obs#168 entry #5),
+ * this endpoint stays as the e2e bypass; production traffic continues over
+ * the socket pipeline.
+ */
+export async function submitMbEditorBehavior(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { sessionId } = req.params;
+    const eb = req.body ?? {};
+    await ensureSessionOrThrow(sessionId);
+    if (Array.isArray(eb.aiCompletionEvents) && eb.aiCompletionEvents.length > 0) {
+      await appendAiCompletionEvents(sessionId, eb.aiCompletionEvents as AiCompletionEvent[]);
+    }
+    if (Array.isArray(eb.chatEvents) && eb.chatEvents.length > 0) {
+      await appendChatEvents(sessionId, eb.chatEvents as ChatEvent[]);
+    }
+    if (Array.isArray(eb.diffEvents) && eb.diffEvents.length > 0) {
+      await appendDiffEvents(sessionId, eb.diffEvents as DiffEvent[]);
+    }
+    if (Array.isArray(eb.fileNavigationHistory) && eb.fileNavigationHistory.length > 0) {
+      await appendFileNavigation(sessionId, eb.fileNavigationHistory as FileNavEvent[]);
+    }
+    if (Array.isArray(eb.editSessions) && eb.editSessions.length > 0) {
+      await appendEditSessions(sessionId, eb.editSessions as EditSessionEvent[]);
+    }
+    if (Array.isArray(eb.documentVisibilityEvents)) {
+      for (const ev of eb.documentVisibilityEvents) {
+        if (
+          ev &&
+          typeof (ev as { timestamp?: unknown }).timestamp === 'number' &&
+          typeof (ev as { hidden?: unknown }).hidden === 'boolean'
+        ) {
+          await appendVisibilityEvent(
+            sessionId,
+            ev as { timestamp: number; hidden: boolean },
+          );
+        }
+      }
+    }
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    if (err instanceof SessionNotFoundError) {
+      next(new NotFoundError(`Session not found: ${req.params.sessionId}`));
+      return;
+    }
+    next(err);
+  }
+}
+
+/**
+ * Brief #20 C2 · POST /api/v5/exam/:sessionId/mb/test-result
+ *
+ * MB final test run · driver-side bypass. ModuleBPage doesn't currently
+ * write metadata.mb.finalTestPassRate (the driver's path-execute / build
+ * step doesn't run pytest), so the e2e suite always observes
+ * finalTestPassRate=0 in scoring — penalizing sIterationEfficiency +
+ * sChallengeComplete. This endpoint reuses persistFinalTestRun (which both
+ * appends to editorBehavior.testRuns AND sets finalTestPassRate).
+ */
+export async function submitMbTestResult(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { sessionId } = req.params;
+    const { passRate, duration, timestamp } = req.body ?? {};
+    if (typeof passRate !== 'number' || typeof duration !== 'number') {
+      throw new ValidationError(
+        'passRate (number) and duration (number) body fields required',
+      );
+    }
+    await ensureSessionOrThrow(sessionId);
+    await persistFinalTestRun(sessionId, {
+      passRate,
+      duration,
+      ...(typeof timestamp === 'number' ? { timestamp } : {}),
+    });
     res.status(200).json({ ok: true });
   } catch (err) {
     if (err instanceof SessionNotFoundError) {
@@ -277,3 +402,5 @@ examContentRouter.post('/:sessionId/modulea/submit', submitModuleA);
 examContentRouter.post('/:sessionId/mb/submit', submitMb);
 examContentRouter.post('/:sessionId/selfassess/submit', submitSelfAssess);
 examContentRouter.post('/:sessionId/modulec/round/:roundIdx', submitModuleCRound);
+examContentRouter.post('/:sessionId/mb/editor-behavior', submitMbEditorBehavior);
+examContentRouter.post('/:sessionId/mb/test-result', submitMbTestResult);
