@@ -476,6 +476,63 @@ export class GoldenPathDriver {
     await this.page.locator(byTestId(MB_TESTIDS.advance)).click();
   }
 
+  /**
+   * Brief #20 C3 · MB editorBehavior + finalTestPassRate driver-side bypass.
+   *
+   * ModuleBPage L232-239 hardcodes empty editorBehavior arrays and the page
+   * never wires its real Monaco/chat/test telemetry into the submission shape.
+   * Real candidates populate these via socket `behavior:batch`; the e2e
+   * driver doesn't replay those events, so without this bypass every
+   * fixture observes empty editorBehavior + finalTestPassRate=0 in scoring.
+   *
+   * Posts fixture data via POST /mb/editor-behavior (Brief #20 C2 endpoint)
+   * + POST /mb/test-result. Server-side append* functions dedup so re-posting
+   * is safe; spread-merge preserves any already-persisted live telemetry.
+   *
+   * Runs in the page's fetch context (page.evaluate) so the same session
+   * cookie that the candidate session uses is naturally attached.
+   */
+  private async pushMbBypassData(
+    sessionId: string,
+    mb: NonNullable<V5Submissions['mb']>,
+  ): Promise<void> {
+    const eb = mb.editorBehavior;
+    if (eb) {
+      const hasAny =
+        (eb.aiCompletionEvents?.length ?? 0) > 0 ||
+        (eb.chatEvents?.length ?? 0) > 0 ||
+        (eb.diffEvents?.length ?? 0) > 0 ||
+        (eb.fileNavigationHistory?.length ?? 0) > 0 ||
+        (eb.editSessions?.length ?? 0) > 0 ||
+        (eb.documentVisibilityEvents?.length ?? 0) > 0 ||
+        (eb.testRuns?.length ?? 0) > 0;
+      if (hasAny) {
+        await this.page.evaluate(
+          async ({ sessionId: sid, payload }) => {
+            await fetch(`/api/v5/exam/${sid}/mb/editor-behavior`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+          },
+          { sessionId, payload: eb },
+        );
+      }
+    }
+    if (typeof mb.finalTestPassRate === 'number') {
+      await this.page.evaluate(
+        async ({ sessionId: sid, passRate }) => {
+          await fetch(`/api/v5/exam/${sid}/mb/test-result`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ passRate, duration: 1000 }),
+          });
+        },
+        { sessionId, passRate: mb.finalTestPassRate },
+      );
+    }
+  }
+
   // ─── Step 10 · MC module (text-fallback mode) ───────────
 
   async runMC(mc: NonNullable<V5Submissions['moduleC']>): Promise<void> {
@@ -671,7 +728,10 @@ export class GoldenPathDriver {
         if (fx.submissions.moduleA) await this.runMA(fx.submissions.moduleA);
       },
       mb: async () => {
-        if (fx.submissions.mb) await this.runMB(fx.submissions.mb);
+        if (fx.submissions.mb) {
+          await this.runMB(fx.submissions.mb);
+          await this.pushMbBypassData(sessionId, fx.submissions.mb);
+        }
       },
       moduleC: async () => {
         if (fx.submissions.moduleC) await this.runMC(fx.submissions.moduleC);
