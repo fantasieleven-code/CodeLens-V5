@@ -135,15 +135,23 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
     };
 
     setSubmission('phase0', submission);
-    // Server persist via Task 25 `phase0:submit`. Fire-and-forget: the local
-    // store is the source of truth for in-session UI, and the ack is reserved
-    // for V5.0.5 retry/error UX — do not gate advance() on it (no timeout
-    // guard means a missing ack would otherwise strand the user).
+    // Brief #19 σ HTTP fallback · Brief #18 D38 σ pattern. Belt-and-
+    // suspenders: keeps the existing socket emit (so V5.0.1 root-socket
+    // wire fires it correctly without rework) AND adds an HTTP POST that
+    // works even when useSocket() is unwired (today's V5.0 reality).
+    // Both fire-and-forget · advance() never blocks on either.
     getSocket().emit(
       'phase0:submit',
       { sessionId: sessionId ?? 'phase0-pending', submission },
       (_ok: boolean) => {},
     );
+    if (sessionId) {
+      void fetch(`/api/v5/exam/${sessionId}/phase0/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submission }),
+      }).catch(() => {});
+    }
     onSubmit?.(submission);
     advance();
   }, [
