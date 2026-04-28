@@ -77,6 +77,10 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
   const [l1Answer, setL1Answer] = useState<number | null>(null);
   const [l2Answer, setL2Answer] = useState('');
   const [l3Answer, setL3Answer] = useState('');
+  // Brief #20 C4 · 0..100 slider, normalized to 0..1 in submission. 50 = midpoint
+  // matches the prior hardcoded 0.5 default for backward compat with fixtures
+  // that don't move the slider.
+  const [confidencePct, setConfidencePct] = useState<number>(50);
   const [judgments, setJudgments] = useState<[JudgmentState, JudgmentState]>([
     { choice: null, reason: '' },
     { choice: null, reason: '' },
@@ -116,9 +120,8 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
         l1Answer: l1Text,
         l2Answer,
         l3Answer,
-        // Confidence slider is not in the tasks.md L377-386 testid list; default
-        // until the UX surfaces it. Downstream signals treat 0.5 as "unreported".
-        confidence: 0.5,
+        // Brief #20 C4 · slider provides 0..100; clamp + normalize to 0..1.
+        confidence: Math.max(0, Math.min(1, confidencePct / 100)),
       },
       aiOutputJudgment: judgments.map((j) => ({
         choice: j.choice as JudgmentChoice,
@@ -159,6 +162,7 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
     l1Answer,
     l2Answer,
     l3Answer,
+    confidencePct,
     judgments,
     decision,
     aiClaim,
@@ -196,6 +200,10 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
           value={l3Answer}
           onChange={setL3Answer}
         />
+      )}
+
+      {l3Done && (
+        <ConfidenceSection value={confidencePct} onChange={setConfidencePct} />
       )}
 
       {l3Done && (
@@ -385,6 +393,29 @@ const L3Section: React.FC<{
       style={styles.textarea}
     />
     <CharCountHint value={value} min={L3_MIN_CHARS} />
+  </section>
+);
+
+const ConfidenceSection: React.FC<{
+  value: number;
+  onChange: (v: number) => void;
+}> = ({ value, onChange }) => (
+  <section style={styles.card}>
+    <h2 style={styles.sectionTitle}>代码理解信心 · 0–100</h2>
+    <p style={styles.sectionSubtitle}>对上述 L1-L3 回答的整体把握度。</p>
+    <input
+      type="range"
+      min={0}
+      max={100}
+      step={1}
+      value={value}
+      onChange={(e) => onChange(Number.parseInt(e.target.value, 10))}
+      data-testid="phase0-l3-confidence"
+      style={{ width: '100%' }}
+    />
+    <div style={{ marginTop: spacing.xs, color: colors.subtext0, fontSize: fontSizes.xs }}>
+      {value}
+    </div>
   </section>
 );
 

@@ -278,8 +278,23 @@ export class GoldenPathDriver {
 
     await this.page.locator(byTestId(P0_TESTIDS.l2Answer)).fill(p0.codeReading.l2Answer);
     await this.page.locator(byTestId(P0_TESTIDS.l3Answer)).fill(p0.codeReading.l3Answer);
-    // Brief #13 D5 · `phase0-l3-confidence` not present in Phase0Page · driver
-    // dead call removed.
+
+    // Brief #20 C4 · ConfidenceSection slider gated on L3-done. Same range-
+    // input native-setter trick as SE_TESTIDS.dimensionSlider (D34) so the
+    // controlled-component handler runs.
+    await this.page
+      .locator(byTestId(P0_TESTIDS.l3Confidence))
+      .evaluate((el, value) => {
+        const input = el as HTMLInputElement;
+        const setter = Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          'value',
+        )?.set;
+        setter?.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }, String(Math.round((p0.codeReading.confidence ?? 0.5) * 100)))
+      .catch(() => {});
 
     // AI output judgment · 2 items.
     for (let i = 0; i < p0.aiOutputJudgment.length; i++) {

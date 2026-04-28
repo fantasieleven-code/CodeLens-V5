@@ -71,8 +71,8 @@ export const P0_TESTIDS = {
   l1Option: (idx: number) => `phase0-l1-option-${idx}`,
   l2Answer: 'phase0-l2-answer',
   l3Answer: 'phase0-l3-answer',
-  // Brief #13 D5 · phase0-l3-confidence does not exist on Phase0Page · driver
-  // dead call removed.
+  // Brief #20 C4 · slider added · 0..100 normalized to 0..1 in submission.
+  l3Confidence: 'phase0-l3-confidence',
   // Brief #13 D2/D3 · page uses `phase0-ai-judgment-{1|2}-...` (1-indexed,
   // `ai-` infix, `reason` not `reasoning`). Driver still passes 0-indexed `i`;
   // helper translates.
