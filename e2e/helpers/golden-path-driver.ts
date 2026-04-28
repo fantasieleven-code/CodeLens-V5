@@ -638,24 +638,41 @@ export class GoldenPathDriver {
     await this.navigateToExam(sessionId);
     await this.clickIntroStart();
 
-    const participating = new Set(fx.participatingModules);
-    if (participating.has('phase0') && fx.submissions.phase0) {
-      await this.runP0(fx.submissions.phase0);
-    }
-    if (participating.has('moduleA') && fx.submissions.moduleA) {
-      await this.runMA(fx.submissions.moduleA);
-    }
-    if (participating.has('mb') && fx.submissions.mb) {
-      await this.runMB(fx.submissions.mb);
-    }
-    if (participating.has('moduleC') && fx.submissions.moduleC) {
-      await this.runMC(fx.submissions.moduleC);
-    }
-    if (participating.has('moduleD') && fx.submissions.moduleD) {
-      await this.runMD(fx.submissions.moduleD);
-    }
-    if (participating.has('selfAssess') && fx.submissions.selfAssess) {
-      await this.runSE(fx.submissions.selfAssess);
+    // Brief #17 D32 · iterate fx.participatingModules in array order rather
+    // than hardcoded sequence · matches frontend's `SUITES[suiteId].modules`
+    // (session.store.ts:134) which is the canonical navigation source. Prior
+    // hardcoded order assumed `mb → moduleC → SE` but all 4 MC-bearing suites
+    // (full_stack · architect · ai_engineer · deep_dive) intentionally have
+    // `... → SE → MC`, so a hardcoded driver diverged from real UI flow.
+    const moduleHandlers: Record<string, () => Promise<void>> = {
+      phase0: async () => {
+        if (fx.submissions.phase0) await this.runP0(fx.submissions.phase0);
+      },
+      moduleA: async () => {
+        if (fx.submissions.moduleA) await this.runMA(fx.submissions.moduleA);
+      },
+      mb: async () => {
+        if (fx.submissions.mb) await this.runMB(fx.submissions.mb);
+      },
+      moduleC: async () => {
+        if (fx.submissions.moduleC) await this.runMC(fx.submissions.moduleC);
+      },
+      moduleD: async () => {
+        if (fx.submissions.moduleD) await this.runMD(fx.submissions.moduleD);
+      },
+      selfAssess: async () => {
+        if (fx.submissions.selfAssess) await this.runSE(fx.submissions.selfAssess);
+      },
+    };
+
+    for (const moduleId of fx.participatingModules) {
+      const handler = moduleHandlers[moduleId];
+      if (!handler) {
+        throw new Error(
+          `GoldenPathDriver · unknown module in participatingModules: ${moduleId}`,
+        );
+      }
+      await handler();
     }
 
     await this.completeFlow();
