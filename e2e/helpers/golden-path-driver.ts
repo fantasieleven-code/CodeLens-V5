@@ -571,9 +571,22 @@ export class GoldenPathDriver {
     // Dimension sliders · fixture confidence maps to unified confidence value.
     // Brief #13 D11 · page renders a single shared `selfassess-slider`; per-
     // dim split is V5.0.5 housekeeping.
+    // Brief #17 D34 · `.fill()` on a range input is a Playwright no-op (silent
+    // failure with no error). Use the native HTMLInputElement value setter
+    // (preserves React's internal value tracker) and dispatch input + change
+    // events so the controlled-component handler runs.
     await this.page
       .locator(byTestId(SE_TESTIDS.dimensionSlider))
-      .fill(String(Math.round(se.confidence * 100)))
+      .evaluate((el, value) => {
+        const input = el as HTMLInputElement;
+        const setter = Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          'value',
+        )?.set;
+        setter?.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }, String(Math.round(se.confidence * 100)))
       .catch(() => {
         // Slider may be absent in some UI variants — non-fatal.
       });

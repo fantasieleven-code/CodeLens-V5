@@ -1,16 +1,16 @@
 /**
- * SelfAssessPage tests — covers the Task 9 additions:
+ * SelfAssessPage tests — Task 9 + Brief #17 D34 fire-and-forget alignment:
  *   - DecisionSummary renders above the reflection textarea and reflects
  *     submissions from session.store (ma / mb / md)
  *   - existing slider + textarea behavior still works (submit gating at 10 chars)
  *   - submit path: setModuleSubmissionLocal('selfAssess', …) + emit
- *     self-assess:submit + advance() on ack=true
+ *     self-assess:submit + advance() unconditionally (Brief #17 D34 · matches
+ *     Phase0Page:139-148 design pattern · 5 other module pages do the same)
  *   - submit gating: stays disabled when reasoning < 10 chars
- *   - ack=false surfaces the error banner without advancing
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { V5MBSubmission, V5ModuleASubmission, V5ModuleDSubmission } from '@codelens-v5/shared';
 
 let mockSocket: {
@@ -137,7 +137,11 @@ describe('<SelfAssessPage />', () => {
     expect(submit.disabled).toBe(false);
   });
 
-  it('submit writes V5SelfAssessSubmission, emits socket, advances on ack=true', () => {
+  it('submit writes V5SelfAssessSubmission, emits socket, advances unconditionally (fire-and-forget)', () => {
+    // Brief #17 D34 · advance() fires immediately after emit · matches the
+    // pattern used by Phase0Page / ModuleAPage / ModuleBPage / ModuleCPage /
+    // ModuleDPage. Prior ack-gated semantics stranded the candidate when
+    // the socket wasn't connected at root level.
     render(<SelfAssessPage />);
 
     fireEvent.change(screen.getByTestId('selfassess-slider'), {
@@ -155,13 +159,12 @@ describe('<SelfAssessPage />', () => {
       reasoning: '我觉得 Phase 0 的判断题可能选错了',
     });
 
-    // Socket emit fired with legacy-prefixed event + V4-compatible payload.
-    // Find the self-assess:submit call (behavior:batch may also have fired).
+    // Socket emit fired with V4-compatible payload + noop ack callback.
     const selfAssessCall = mockSocket.emit.mock.calls.find(
       ([event]) => event === 'self-assess:submit',
     );
     expect(selfAssessCall).toBeDefined();
-    const [, payload, ack] = selfAssessCall!;
+    const [, payload] = selfAssessCall!;
     expect(payload).toMatchObject({
       sessionId: 'selfassess-pending',
       selfConfidence: 75,
@@ -169,95 +172,8 @@ describe('<SelfAssessPage />', () => {
     });
     expect(typeof (payload as { responseTimeMs: number }).responseTimeMs).toBe('number');
 
-    // Before ack fires, currentModule is still selfAssess.
-    expect(useModuleStore.getState().currentModule).toBe('selfAssess');
-
-    // Simulate server ack=true — wrap in act because the ack fires outside React.
-    act(() => (ack as (ok: boolean) => void)(true));
+    // advance() called immediately · no ack wait.
     expect(useModuleStore.getState().currentModule).toBe('moduleC');
-  });
-
-  it('submit with ack=false surfaces error and does NOT advance', () => {
-    render(<SelfAssessPage />);
-    fireEvent.change(screen.getByTestId('selfassess-reasoning'), {
-      target: { value: '我觉得我表现还行但 Phase 0 不确定' },
-    });
-    fireEvent.click(screen.getByTestId('selfassess-submit'));
-
-    const selfAssessCall = mockSocket.emit.mock.calls.find(
-      ([event]) => event === 'self-assess:submit',
-    );
-    const ack = selfAssessCall![2] as (ok: boolean) => void;
-    act(() => ack(false));
-
-    expect(screen.getByText(/提交失败/)).toBeInTheDocument();
-    expect(useModuleStore.getState().currentModule).toBe('selfAssess');
-    // But session.store submission is still set — we only rollback on re-submit.
-    expect(useSessionStore.getState().submissions.selfAssess).toBeDefined();
-  });
-
-  it('surfaces a timeout message + restores the submit button when no ack arrives within 8s', () => {
-    vi.useFakeTimers();
-    try {
-      render(<SelfAssessPage />);
-
-      fireEvent.change(screen.getByTestId('selfassess-reasoning'), {
-        target: { value: '我觉得我表现还行但 Phase 0 不确定' },
-      });
-      fireEvent.click(screen.getByTestId('selfassess-submit'));
-
-      // Button enters the loading state immediately after emit.
-      const submit = screen.getByTestId('selfassess-submit') as HTMLButtonElement;
-      expect(submit.textContent).toMatch(/提交中/);
-      expect(submit.disabled).toBe(true);
-
-      // Walk the clock to the 8s guard without invoking the ack — simulates
-      // Cluster D's missing server handler.
-      act(() => {
-        vi.advanceTimersByTime(8000);
-      });
-
-      expect(screen.getByText(/提交遇到问题/)).toBeInTheDocument();
-      // Button text + enabled state restored so the candidate can retry.
-      expect(submit.textContent).toMatch(/提交自评/);
-      expect(submit.disabled).toBe(false);
-      // Still on selfAssess — no silent advance on timeout.
-      expect(useModuleStore.getState().currentModule).toBe('selfAssess');
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('ack arriving before 8s advances and no timeout error surfaces afterwards', () => {
-    vi.useFakeTimers();
-    try {
-      render(<SelfAssessPage />);
-      fireEvent.change(screen.getByTestId('selfassess-reasoning'), {
-        target: { value: '我觉得我表现还行但 Phase 0 不确定' },
-      });
-      fireEvent.click(screen.getByTestId('selfassess-submit'));
-
-      const selfAssessCall = mockSocket.emit.mock.calls.find(
-        ([event]) => event === 'self-assess:submit',
-      );
-      const ack = selfAssessCall![2] as (ok: boolean) => void;
-      // Ack within 1s.
-      act(() => {
-        vi.advanceTimersByTime(1000);
-        ack(true);
-      });
-
-      expect(useModuleStore.getState().currentModule).toBe('moduleC');
-
-      // Advance past the original 8s guard — the timeout callback must be
-      // cleared so the error doesn't surface after a successful advance.
-      act(() => {
-        vi.advanceTimersByTime(10_000);
-      });
-      expect(screen.queryByText(/提交遇到问题/)).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
   });
 
   it('DecisionSummary renders MD summary with submodule + constraint counts', () => {

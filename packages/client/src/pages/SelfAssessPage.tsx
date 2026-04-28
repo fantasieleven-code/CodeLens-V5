@@ -79,29 +79,21 @@ export const SelfAssessPage: React.FC = () => {
 
     // Persist the canonical V5 submission shape locally so CompletePage
     // renders selfAssess as done and DecisionSummary on downstream pages
-    // has a stable snapshot to read from. Socket emit is additive — once
-    // shared/ws.ts adopts `v5:selfassess:submit`, switch to
-    // setModuleSubmission (which will mirror the emit).
+    // has a stable snapshot to read from.
     const submission: V5SelfAssessSubmission = {
       confidence,
       reasoning: reasoning.trim(),
     };
     setSubmission('selfAssess', submission);
 
-    const socket = getSocket();
-    // The server handler for `self-assess:submit` doesn't exist yet (pending
-    // Backend Cluster D). Without a timeout, a missing ack leaves the button
-    // stuck on "提交中…" forever. Guard with an 8s fallback — once the server
-    // handler lands, acks arrive well under that and the timeout is invisible.
-    let settled = false;
-    const timeoutId = window.setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      setSubmitting(false);
-      setError('提交遇到问题,请稍后重试');
-    }, 8000);
-
-    socket.emit(
+    // Brief #17 D34 · fire-and-forget pattern (matches Phase0Page:139-148
+    // "do not gate advance() on it" + 5 other module pages). Server handler
+    // exists at socket/self-assess-handlers.ts and persists the submission,
+    // but the socket isn't connected at root level (useSocket() is defined
+    // but unused — V5.0.5 housekeeping will wire it + add toast). Until
+    // then, an ack-gated advance would strand the candidate; the local
+    // store is the source of truth for in-session UI.
+    getSocket().emit(
       'self-assess:submit',
       {
         sessionId: sessionId ?? 'selfassess-pending',
@@ -109,18 +101,10 @@ export const SelfAssessPage: React.FC = () => {
         selfIdentifiedRisk: reasoning.trim() || undefined,
         responseTimeMs: Date.now() - mountTimeRef.current,
       },
-      (ok: boolean) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timeoutId);
-        setSubmitting(false);
-        if (ok) {
-          advance();
-        } else {
-          setError('提交失败，请重试');
-        }
-      },
+      (_ok: boolean) => {},
     );
+    setSubmitting(false);
+    advance();
   };
 
   return (
