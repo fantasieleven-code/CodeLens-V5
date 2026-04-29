@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { CandidateGuard } from './CandidateGuard.js';
+import { ExamGuard } from './ExamGuard.js';
 import { consentStorageKey } from './ConsentPage.js';
 
 function renderAt(path: string) {
@@ -11,9 +11,9 @@ function renderAt(path: string) {
         <Route
           path="/exam/:sessionId"
           element={
-            <CandidateGuard>
+            <ExamGuard>
               <div data-testid="exam-protected">protected</div>
-            </CandidateGuard>
+            </ExamGuard>
           }
         />
         <Route
@@ -25,7 +25,7 @@ function renderAt(path: string) {
   );
 }
 
-describe('<CandidateGuard />', () => {
+describe('<ExamGuard />', () => {
   beforeEach(() => {
     localStorage.clear();
   });

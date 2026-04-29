@@ -2,7 +2,7 @@
  * App — top-level router.
  *
  * Routes:
- *   /exam/:sessionId    → candidate flow, fenced by CandidateGuard
+ *   /exam/:sessionId    → candidate flow, fenced by ExamGuard
  *                         (ExamRouter switches on currentModule)
  *   /candidate/:sessionToken/consent → GDPR consent screen (Task Consent
  *                         Frontend); sessionToken ≡ sessionId
@@ -43,7 +43,7 @@ import { AdminRoutes } from './pages/admin/AdminLayoutPage.js';
 import { AdminGuard } from './pages/admin/AdminGuard.js';
 import { LoginPage } from './pages/admin/LoginPage.js';
 import { ConsentPage } from './pages/candidate/ConsentPage.js';
-import { CandidateGuard } from './pages/candidate/CandidateGuard.js';
+import { ExamGuard } from './pages/candidate/ExamGuard.js';
 import { ProfileSetup } from './pages/candidate/ProfileSetup.js';
 import { ProfileGuard } from './pages/candidate/ProfileGuard.js';
 import { SelfViewPage } from './pages/candidate/SelfViewPage.js';
@@ -57,9 +57,9 @@ export function App() {
         <Route
           path="/exam/:sessionId"
           element={
-            <CandidateGuard>
+            <ExamGuard>
               <ExamRouter />
-            </CandidateGuard>
+            </ExamGuard>
           }
         />
         <Route

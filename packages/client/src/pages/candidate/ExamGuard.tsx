@@ -1,5 +1,5 @@
 /**
- * CandidateGuard — wraps `/exam/:sessionId` to gate entry on consent.
+ * ExamGuard — wraps `/exam/:sessionId` to gate entry on consent.
  *
  * Reads the per-session localStorage flag
  * `codelens_candidate_consent:{sessionId}` (written by ConsentPage on 200).
@@ -20,7 +20,7 @@ import React from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { consentStorageKey } from './ConsentPage.js';
 
-export const CandidateGuard: React.FC<{ children: React.ReactNode }> = ({
+export const ExamGuard: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const { sessionId } = useParams<{ sessionId: string }>();

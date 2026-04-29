@@ -5,7 +5,7 @@
  * a single accept checkbox, and a submit that:
  *   1. POSTs to `/api/candidate/profile/submit` (consent-only field set)
  *   2. On 200, sets the per-session localStorage flag
- *      `codelens_candidate_consent:{sessionToken}` so `CandidateGuard`
+ *      `codelens_candidate_consent:{sessionToken}` so `ExamGuard`
  *      lets `/exam/:sessionId` render
  *   3. Navigates to `/exam/:sessionToken` (sessionToken ≡ sessionId per
  *      Phase 1 ratify)
