@@ -178,8 +178,14 @@ describe('CursorModeLayout', () => {
 
   it('accepting a diff calls onFileChange with the new content and clears overlay', () => {
     const onFileChange = vi.fn();
+    const track = vi.fn();
     render(
-      <CursorModeLayout sessionId="s1" files={FILES} onFileChange={onFileChange} />,
+      <CursorModeLayout
+        sessionId="s1"
+        files={FILES}
+        onFileChange={onFileChange}
+        behaviorTracker={{ track }}
+      />,
     );
     act(() => {
       mockSocket.fire('v5:mb:chat_complete', { diff: DIFF });
@@ -188,19 +194,35 @@ describe('CursorModeLayout', () => {
 
     fireEvent.click(screen.getByTestId('mb-diff-accept-btn'));
     expect(onFileChange).toHaveBeenCalledWith('main.py', 'print("bye")');
+    expect(track).toHaveBeenCalledWith('diff_accepted', {
+      accepted: true,
+      linesAdded: 1,
+      linesRemoved: 1,
+    });
     expect(screen.queryByTestId('mb-diff-overlay')).not.toBeInTheDocument();
   });
 
   it('rejecting a diff clears overlay without calling onFileChange', () => {
     const onFileChange = vi.fn();
+    const track = vi.fn();
     render(
-      <CursorModeLayout sessionId="s1" files={FILES} onFileChange={onFileChange} />,
+      <CursorModeLayout
+        sessionId="s1"
+        files={FILES}
+        onFileChange={onFileChange}
+        behaviorTracker={{ track }}
+      />,
     );
     act(() => {
       mockSocket.fire('v5:mb:chat_complete', { diff: DIFF });
     });
     fireEvent.click(screen.getByTestId('mb-diff-reject-btn'));
     expect(onFileChange).not.toHaveBeenCalled();
+    expect(track).toHaveBeenCalledWith('diff_rejected', {
+      accepted: false,
+      linesAdded: 1,
+      linesRemoved: 1,
+    });
     expect(screen.queryByTestId('mb-diff-overlay')).not.toBeInTheDocument();
   });
 

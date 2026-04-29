@@ -82,6 +82,7 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
   const historyRef = useRef<HTMLDivElement | null>(null);
   const visibilityRef = useRef<VisibilityTrackerHandle | null>(null);
   const streamingIndexRef = useRef<number | null>(null);
+  const activePromptRef = useRef<{ prompt: string; sentAt: number } | null>(null);
 
   const setChatState = useCallback(
     (next: ChatState) => {
@@ -112,6 +113,16 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
     };
 
     const onComplete = ({ diff }: { diff: string }) => {
+      const activePrompt = activePromptRef.current;
+      if (activePrompt) {
+        behaviorTracker?.track('chat_response_received', {
+          prompt: activePrompt.prompt,
+          responseLength: diff.length,
+          duration: Date.now() - activePrompt.sentAt,
+        });
+        activePromptRef.current = null;
+      }
+
       // Close the streaming message.
       setMessages((prev) => {
         const next = [...prev];
@@ -142,7 +153,7 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
       socket.off('v5:mb:chat_stream', onStream);
       socket.off('v5:mb:chat_complete', onComplete);
     };
-  }, [files, onDiffReady, setChatState]);
+  }, [behaviorTracker, files, onDiffReady, setChatState]);
 
   // ─── External disabled→enabled flip signals diff was accepted/rejected by parent ───
   // Parent sets disabled=true while MultiFileEditor.pendingDiff is showing,
@@ -194,10 +205,10 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
     });
     setErrorText(null);
     setChatState('generating');
+    activePromptRef.current = { prompt, sentAt: Date.now() };
     getSocket().emit('v5:mb:chat_generate', { sessionId, prompt, filesContext });
-    behaviorTracker?.track('chat_prompt_sent', { promptLength: prompt.length });
     setPrompt('');
-  }, [canSend, files, prompt, sessionId, behaviorTracker, setChatState]);
+  }, [canSend, files, prompt, sessionId, setChatState]);
 
   // ─── @ selector open/close wiring ───
   const handlePromptChange = useCallback((value: string) => {

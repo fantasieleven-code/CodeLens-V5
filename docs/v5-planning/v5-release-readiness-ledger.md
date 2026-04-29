@@ -81,6 +81,18 @@ The next hardening pass found two narrower follow-up truths:
   ack-gated before stage advance, and the client no longer emits redundant
   `v5:mb:audit:submit` during final submit. See observation #189.
 
+The MB telemetry pass closed the last transport-evidence nuance in the module
+pipeline audit:
+
+- Client chat telemetry now emits server-ingestable `chat_response_received`
+  payloads with `prompt`, `responseLength`, and `duration`.
+- Client diff decisions now emit `diff_accepted` / `diff_rejected` with line
+  deltas from the component that actually owns accept/reject.
+- `e2e/mb-telemetry-smoke.spec.ts` proves a Vite-loaded browser import of
+  `getSocket()` reaches `/interview`, emits `behavior:batch`, and persists
+  chat / diff / file navigation / edit-session slices into
+  `metadata.mb.editorBehavior`. See observation #190.
+
 ## Remaining Truths
 
 - The first Cold Start attempt exposed Monaco cold-load fragility once, then

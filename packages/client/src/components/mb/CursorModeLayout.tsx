@@ -100,13 +100,23 @@ export const CursorModeLayout: React.FC<CursorModeLayoutProps> = ({
 
   const handleAcceptDiff = useCallback(() => {
     if (!pendingDiff) return;
+    behaviorTracker?.track('diff_accepted', {
+      accepted: true,
+      ...countLineDelta(pendingDiff.oldContent, pendingDiff.newContent),
+    });
     onFileChange(pendingDiff.path, pendingDiff.newContent);
     setPendingDiff(null);
-  }, [pendingDiff, onFileChange]);
+  }, [behaviorTracker, pendingDiff, onFileChange]);
 
   const handleRejectDiff = useCallback(() => {
+    if (pendingDiff) {
+      behaviorTracker?.track('diff_rejected', {
+        accepted: false,
+        ...countLineDelta(pendingDiff.oldContent, pendingDiff.newContent),
+      });
+    }
     setPendingDiff(null);
-  }, []);
+  }, [behaviorTracker, pendingDiff]);
 
   const getCurrentFilePath = useCallback(() => activeFilePath, [activeFilePath]);
 
@@ -183,6 +193,35 @@ export const CursorModeLayout: React.FC<CursorModeLayoutProps> = ({
     </div>
   );
 };
+
+function countLineDelta(oldContent: string, newContent: string): { linesAdded: number; linesRemoved: number } {
+  const oldLines = oldContent.split('\n');
+  const newLines = newContent.split('\n');
+  let commonPrefix = 0;
+  while (
+    commonPrefix < oldLines.length &&
+    commonPrefix < newLines.length &&
+    oldLines[commonPrefix] === newLines[commonPrefix]
+  ) {
+    commonPrefix += 1;
+  }
+
+  let oldSuffix = oldLines.length - 1;
+  let newSuffix = newLines.length - 1;
+  while (
+    oldSuffix >= commonPrefix &&
+    newSuffix >= commonPrefix &&
+    oldLines[oldSuffix] === newLines[newSuffix]
+  ) {
+    oldSuffix -= 1;
+    newSuffix -= 1;
+  }
+
+  return {
+    linesRemoved: Math.max(0, oldSuffix - commonPrefix + 1),
+    linesAdded: Math.max(0, newSuffix - commonPrefix + 1),
+  };
+}
 
 const styles: Record<string, React.CSSProperties> = {
   root: {

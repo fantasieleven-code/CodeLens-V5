@@ -117,6 +117,45 @@ describe('AIChatPanel', () => {
     });
   });
 
+  it('tracks chat_response_received with server-ingestable prompt telemetry', () => {
+    const behaviorTracker = { track: vi.fn() };
+    render(
+      <AIChatPanel
+        sessionId="s1"
+        files={FILES}
+        onDiffReady={vi.fn()}
+        behaviorTracker={behaviorTracker}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('mb-chat-input'), {
+      target: { value: 'verify src/main.ts edge case because x changes' },
+    });
+    fireEvent.click(screen.getByTestId('mb-chat-send'));
+    const validDiff = [
+      '--- a/src/main.ts',
+      '+++ b/src/main.ts',
+      '@@ -1,1 +1,1 @@',
+      '-const x = 1;',
+      '+const x = 2;',
+    ].join('\n');
+    act(() => {
+      mockSocket.fire('v5:mb:chat_complete', { diff: validDiff });
+    });
+
+    expect(behaviorTracker.track).toHaveBeenCalledWith(
+      'chat_response_received',
+      expect.objectContaining({
+        prompt: 'verify src/main.ts edge case because x changes',
+        responseLength: validDiff.length,
+        duration: expect.any(Number),
+      }),
+    );
+    expect(behaviorTracker.track).not.toHaveBeenCalledWith(
+      'chat_prompt_sent',
+      expect.objectContaining({ promptLength: expect.any(Number) }),
+    );
+  });
+
   it('surfaces a parse error and does NOT call onDiffReady on malformed diff', () => {
     const onDiffReady = vi.fn();
     render(<AIChatPanel sessionId="s1" files={FILES} onDiffReady={onDiffReady} />);
