@@ -1,6 +1,6 @@
 # Server Typecheck Excludes（V5 过渡期）
 
-以下文件因引用未实现的 services / 未重写的 V4 routes / V4 schema 字段，暂时从 typecheck 排除。Task owner 完成后负责 re-enable。
+以下文件因引用未实现的 services / 未重写的 V4 routes / V4 schema 字段，暂时从 typecheck 排除。Task owner 完成后负责 re-enable。当前没有 server source 文件被排除。
 
 | 文件 | 原因 | Task owner | Tracking |
 |---|---|---|---|
@@ -16,12 +16,12 @@
 
 - ~~**Task 5（SandboxProvider）**：re-enable `routes/health.ts` + `services/e2b-health.service.ts`~~ ✅ PR Task 5
 - ~~**Task 10（exam-generator）**：re-enable `config/job-models/index.ts`~~ ✅ 2026-04-29 · deleted dead V4 copy stub instead. The file had no YAML data, no live imports, and imported a nonexistent `exam-generator.service`; future generator work must add real source data plus tests in-scope.
-- ~~**Task 11（MC 后端）**：re-enable `routes/session.ts`~~ ✅ V5 canonical socket-driven · session.ts removed 2026-04-22 per V5 Release Plan OQ-R1 γ · Task 11 scope redefined = MC SSE via mc-voice-chat.ts mount (A3 brief) + candidate profile/consent via B-A12 (shipped)
+- ~~**Task 11（MC 后端）**：re-enable V4 `routes/session.ts` lifecycle route~~ ✅ V5 canonical socket-driven · V4 8-endpoint route removed 2026-04-22 per V5 Release Plan OQ-R1 γ. Note: current `packages/server/src/routes/session.ts` is a later Brief #13 single-read candidate metadata endpoint (`GET /api/v5/session/:sessionId`), not the old excluded V4 lifecycle route.
 - **Task 13（signal registry 信号落地）**：移除 `event-bus.service.ts` 的 3 个 `@ts-expect-error`
 - ~~**Task 15（Admin API / Prisma V5 字段）**：re-enable `routes/shared-report.ts`~~ ✅ Task 15b β-delete
 
 ## 操作规则
 
-1. re-enable 方式：从 `packages/server/tsconfig.json` 的 `exclude` 数组移除对应路径（连同 `// TODO(task-N)` 注释一起删），本地跑 `npx tsc --noEmit -p packages/server/tsconfig.json` 确认 0 error。
-2. 本表加一列不新增条目：owner 完成后在 PR 描述里注明"removes entry from TYPECHECK_EXCLUDES.md"。
-3. 新条目（未来出现的 V4 残留）：追加到表格 + tsconfig，引用 issue #10。
+1. 新条目（未来出现的 V4 残留）必须先 stop-report，说明为什么不能直接删除或修复。
+2. 若 Steve 裁决允许临时 exclude，再追加到本表 + `packages/server/tsconfig.json`，PR 描述说明原因。
+3. owner 完成后从 `packages/server/tsconfig.json` 的 `exclude` 数组移除对应路径，本地跑 `npx tsc --noEmit -p packages/server/tsconfig.json` 确认 0 error。

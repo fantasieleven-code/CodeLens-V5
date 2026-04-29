@@ -53,6 +53,13 @@ Module C now has the same real socket + HTTP retry shape as the other
 submission pages; `v5:modulec:answer` carries `sessionId` explicitly because
 there is still no socket-level session middleware.
 
+Candidate session bootstrap is a separate read path:
+`GET /api/v5/session/:sessionId` returns only candidate-facing metadata
+(`id`, candidate snapshot, suiteId, examInstanceId, status). This is not the
+deleted V4 session lifecycle route from observation #150; it was reintroduced
+later as a narrow Brief #13 metadata endpoint so the candidate app can resolve
+the shareable `/exam/:sessionId` URL before loading canonical module content.
+
 This is not a scoring compromise; it is a transport reliability boundary. The
 remaining cleanup is UX/policy: decide which HTTP fallbacks stay as explicit
 retry surfaces and how ack failures are shown to candidates.

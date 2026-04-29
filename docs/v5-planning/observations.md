@@ -3070,3 +3070,40 @@ Three-view ratify:
   missing YAML/runtime problem behind a nicer type.
 - CCL: small cleanup with a strong release gate impact: no remaining server
   source is silently outside `tsc`.
+
+### #180 · Session route deletion note drifted after Brief #13 narrow restore
+
+**Type**:documentation drift / module pipeline audit / handoff safety
+**Date**:2026-04-29
+**Status**:closed by session-route audit reconciliation patch
+
+The long module-pipeline audit surfaced a misleading handoff state:
+observation #150 and `TYPECHECK_EXCLUDES.md` correctly described deletion of the
+old V4-era `routes/session.ts` lifecycle route, but current `main` again has a
+`packages/server/src/routes/session.ts` mounted at `/api/v5/session`. This is
+not a regression of the deleted V4 route. Git history shows the route was
+restored later in Brief #13 as a single candidate-facing metadata read:
+`GET /api/v5/session/:sessionId`, returning only `{ id, candidate, suiteId,
+examInstanceId, status }` for `/exam/:sessionId` bootstrap.
+
+Fix pattern:
+
+- Amend `TYPECHECK_EXCLUDES.md` so "Task 11 routes/session removed" is scoped
+  to the old 8-endpoint V4 lifecycle route, not the current narrow metadata
+  route.
+- Update Backend kickoff typecheck/CI baseline text: server source excludes are
+  now empty, issue #10 is closed, and prompt-regression is no longer a known
+  red self-merge bypass.
+- Update the module pipeline audit to include the candidate session bootstrap
+  read path as a separate layer from submission persistence.
+- Correct the stale `index.ts` route comment that still said exam content was
+  MB-only with 501s for other modules.
+
+Three-view ratify:
+
+- Karpathy: preserve the narrow metadata route; deleting it based on old
+  observation text would be architectural churn.
+- Gemini: distinguishes same filename from same responsibility. `routes/session`
+  name reappeared, but its contract is not the deleted V4 lifecycle surface.
+- CCL: doc/comment-only patch reduces future planning error with no runtime
+  behavior change.
