@@ -80,17 +80,28 @@ export class RateLimitError extends AppError {
 
 // ── Helper: extract error info from unknown errors ──
 
+type PrismaKnownRequestLike = Error & {
+  code?: string;
+  meta?: { cause?: string };
+};
+
+type ZodErrorLike = Error & {
+  issues?: Array<{ path?: unknown; message?: unknown }>;
+};
+
 function mapToAppError(err: Error): AppError | null {
   // Prisma PrismaClientKnownRequestError (P2025 = NotFound)
-  if (err.constructor?.name === 'PrismaClientKnownRequestError' && (err as any).code === 'P2025') {
-    return new NotFoundError((err as any).meta?.cause ?? 'Record not found');
+  const maybePrisma = err as PrismaKnownRequestLike;
+  if (err.constructor?.name === 'PrismaClientKnownRequestError' && maybePrisma.code === 'P2025') {
+    return new NotFoundError(maybePrisma.meta?.cause ?? 'Record not found');
   }
 
   // ZodError
-  if (err.name === 'ZodError' && Array.isArray((err as any).issues)) {
-    const details = (err as any).issues.map((i: any) => ({
-      path: Array.isArray(i.path) ? i.path.join('.') : String(i.path),
-      message: i.message,
+  const maybeZod = err as ZodErrorLike;
+  if (err.name === 'ZodError' && Array.isArray(maybeZod.issues)) {
+    const details = maybeZod.issues.map((issue) => ({
+      path: Array.isArray(issue.path) ? issue.path.join('.') : String(issue.path),
+      message: String(issue.message),
     }));
     return new ValidationError('Validation failed', details);
   }

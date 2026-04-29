@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { colors, fontSizes, fontWeights, radii, spacing } from '../../lib/tokens.js';
 import { ReportRenderer } from '../ReportRenderer.js';
 import { registerAllSections } from '../sections/index.js';
