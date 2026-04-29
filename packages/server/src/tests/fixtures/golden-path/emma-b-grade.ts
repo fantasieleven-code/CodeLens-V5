@@ -21,8 +21,10 @@ const submissions: V5Submissions = {
       l1Answer: 'Redis 互斥锁防止同 SKU 并发下单',
       l2Answer:
         '这里用 Redis SET NX 做一个互斥锁,让同一个 SKU 同时只能有一个人处理。TTL 30s 是防止进程崩溃后锁留着。',
+      // Brief #14 D20 · padded to ≥60 char threshold · hedge restatement
+      // preserves shallow analysis depth (still B-grade signal).
       l3Answer:
-        'QPS 10k 的时候 Redis 本身应该没问题,但是 finally 里的 GET + DEL 有竞争条件。',
+        'QPS 10k 的时候 Redis 本身应该没问题,但是 finally 里的 GET + DEL 有竞争条件。具体在哪个量级会出问题我不太确定,需要看下监控数据再判断。',
       confidence: 0.5,
     },
     aiOutputJudgment: [
@@ -35,7 +37,8 @@ const submissions: V5Submissions = {
     },
     decision: {
       choice: 'C',
-      reasoning: '先限流止血,然后排查原因。',
+      // Brief #14 D23 · padded to ≥20 char threshold · hedge restatement preserves shallow reasoning.
+      reasoning: '先限流止血,然后排查原因,具体怎么处理还要看监控数据。',
     },
   },
   moduleA: {
@@ -49,7 +52,8 @@ const submissions: V5Submissions = {
         scenario: '秒杀系统的库存扣减模块,10000 QPS 峰值,Redis 和 MySQL 一致性',
         tradeoff:
           '方案 A 性能好 QPS 吞吐够;悲观锁 500 QPS 太慢扛不住秒杀。A 的代价是一致性弱,要做对账;MQ 异步延迟高用户体验不好。',
-        decision: '方案 A',
+        // Brief #14 D25 · padded to ≥20 char threshold · hedge restatement.
+        decision: '方案 A,看起来比 B 更稳定一点,先选 A 试试。',
         verification: '压测看 QPS 和 P99 延迟,对账任务检查 Redis 和 MySQL 差异。',
       },
       challengeResponse: [
@@ -153,9 +157,16 @@ const submissions: V5Submissions = {
       agentContent: 'Agent 改 InventoryRepository 前需要读 rules.md 的规则。',
     },
     audit: {
+      // Brief #17 D29 · ruleId remapped to positional `rule_${idx}` matching
+      // parseRules output over Emma's 2 numbered rules (rule_0 = "扣减要检查超卖").
+      // Brief #17 D33 · added exampleIndex 2 entry (B-tier semantic · Emma
+      // misses the retry/error_handling violation as compliant). ViolationAuditPanel
+      // initializes markings from violationExamples.length=3 · short fixtures
+      // leave marking[2] at default 'unmarked' which blocks canSubmit forever.
       violations: [
-        { exampleIndex: 0, markedAsViolation: true, violatedRuleId: 'rule-oversold' },
+        { exampleIndex: 0, markedAsViolation: true, violatedRuleId: 'rule_0' },
         { exampleIndex: 1, markedAsViolation: false },
+        { exampleIndex: 2, markedAsViolation: false },
       ],
     },
   },
@@ -179,18 +190,25 @@ const submissions: V5Submissions = {
     },
     {
       round: 2,
+      question: '给出第 1 轮回答里某一个判断的一个真实场景例子。例子越具体越好。',
+      answer:
+        '嗯,你说得对,具体例子我想想 — 我说 Redis 扣减比较快主要是因为面试看到博客都这么写,自己其实没做过 10k+ QPS 的项目。可能秒杀这种场景吧? 数据我没量过,所以说不太准。',
+      probeStrategy: 'contradiction',
+    },
+    {
+      round: 3,
       question: 'Redis 挂掉怎么办?',
       answer: '嗯,你说得对,Redis 挂了就用 MySQL 兜底,我之前没考虑这个风险。',
       probeStrategy: 'weakness',
     },
     {
-      round: 3,
+      round: 4,
       question: 'QPS 涨到 100k 呢?',
       answer: 'QPS 100k 的话可能要加集群吧,分片按 SKU 就可以,大致是这样。',
       probeStrategy: 'escalation',
     },
     {
-      round: 4,
+      round: 5,
       question: '红包场景还会选 A 吗?',
       answer: '红包差不多吧,感觉可以用同一方案,性能要求类似。具体参数要调一下。',
       probeStrategy: 'transfer',

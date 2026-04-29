@@ -153,6 +153,55 @@ export interface MBModuleSpecific {
   violationExamples: MBViolationExample[];
 }
 
+/**
+ * Brief #15 · candidate-facing projection of MBModuleSpecific.
+ *
+ * Stripped of all groundTruth + instructor-only metadata before reaching the
+ * client. The endpoint `GET /api/v5/exam/:examInstanceId/module/:moduleType`
+ * is the single contract — server is the source of truth, client consumes
+ * this narrower shape.
+ *
+ * Stripped fields and why:
+ *   - `MBScaffoldFile.knownIssueLines` · instructor cue · would tell the
+ *     candidate which lines are buggy.
+ *   - `MBScaffold.tests` · backend-test scaffolding · candidate writes their
+ *     own tests in the editor.
+ *   - `harnessReference` · scoring rubric · groundTruth.
+ *   - `MBViolationExample.{isViolation, violationType, explanation}` · the
+ *     answer the candidate is asked to derive in Stage 4.
+ *
+ * Added field:
+ *   - `language` is computed server-side from the path extension so the
+ *     client's MultiFileEditor (which requires a language string) does not
+ *     need to re-derive it from the path.
+ */
+export interface MBCandidateScaffoldFile {
+  path: string;
+  content: string;
+  language: string;
+}
+
+export interface MBCandidateScaffold {
+  files: MBCandidateScaffoldFile[];
+  dependencyOrder: string[];
+}
+
+export interface MBCandidateViolationExample {
+  exampleIndex: number;
+  code: string;
+  /** Optional · server canonical doesn't carry this · mock fixture does. */
+  aiClaimedReason?: string;
+}
+
+export interface MBCandidateView {
+  featureRequirement: {
+    description: string;
+    acceptanceCriteria: string[];
+  };
+  scaffold: MBCandidateScaffold;
+  violationExamples: MBCandidateViolationExample[];
+}
+
 // ───────────────────────────── MD ─────────────────────────────
 
 export interface MDExpectedSubModule {

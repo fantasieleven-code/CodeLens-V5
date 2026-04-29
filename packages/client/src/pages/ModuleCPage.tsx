@@ -47,6 +47,19 @@ const PROBE_PROMPTS = [
   '现在回到第 1 轮的选型问题：如果让你重新做一次，你会改变决策吗？',
 ];
 
+// Brief #19 C8 (Bug #1) · canonical per-round probe strategies. Voice mode
+// derives these dynamically via the probe-engine; text mode follows the
+// fixed pipeline order so scoring (sBeliefUpdateMagnitude reads round 2 ==
+// 'contradiction' to compute belief delta) sees the same shape it would
+// from a voice session. Index aligns with currentRound (0-indexed).
+const PROBE_STRATEGIES = [
+  'baseline',
+  'contradiction',
+  'weakness',
+  'escalation',
+  'transfer',
+] as const;
+
 const TOTAL_ROUNDS = 5;
 const ROUND_TIME_LIMIT = 120; // 2 min per round
 
@@ -283,39 +296,61 @@ export const ModuleCPage: React.FC = () => {
   }, [messages, status]);
 
   // Text mode submit
+  // Brief #17 D35 · fire-and-forget pattern (matches D34 SE alignment +
+  // Phase0Page:139-148 design pattern + 5 other module pages). Server handler
+  // for `v5:modulec:answer` was claimed in source comment but Brief #19
+  // Phase 1 audit Q1 grep verified NO socket.on('v5:modulec:answer')
+  // exists anywhere in server code · text-mode answers were always
+  // silent-dropped. Brief #19 C7 σ HTTP fallback to POST
+  // /api/v5/exam/:sessionId/modulec/round/:roundIdx persists per-round
+  // via the shared mc.service saveRoundAnswer (Brief #19 C1 extraction).
+  // Belt-and-suspenders keeps the socket emit for V5.0.1 when the
+  // server-side socket.on handler is also added.
   const submitTextRound = useCallback(() => {
     if (textSubmitting || textAnswer.trim().length < 10) return;
     setTextSubmitting(true);
     const socket = getSocket();
     const prompt = PROBE_PROMPTS[currentRound];
+    const submittedAnswer = textAnswer.trim();
     const payload: V5ModuleCAnswer = {
       round: currentRound + 1,
       question: prompt,
-      answer: textAnswer.trim(),
+      answer: submittedAnswer,
     };
-    socket.emit(
-      'v5:modulec:answer',
-      payload,
-      (ok: boolean) => {
-        setTextSubmitting(false);
-        if (!ok) return;
-        flushRoundBehavior(currentRound, { textModeUsed: true });
-        setTextAnswers((prev) => [...prev, textAnswer.trim()]);
-        setTextAnswer('');
-        // Add to chat display
-        setMessages((prev) => [
-          ...prev,
-          { id: `text-q-${currentRound}`, role: 'ai', content: prompt, timestamp: Date.now() },
-          { id: `text-a-${currentRound}`, role: 'user', content: textAnswer.trim(), timestamp: Date.now() },
-        ]);
-        if (currentRound + 1 >= TOTAL_ROUNDS) {
-          setFinished(true);
-        } else {
-          setCurrentRound((r) => r + 1);
-        }
-      },
-    );
-  }, [textAnswer, textSubmitting, currentRound, flushRoundBehavior]);
+    socket.emit('v5:modulec:answer', payload, (_ok: boolean) => {});
+    if (sessionId) {
+      // Brief #19 C8 Bug #1 fix · per-round canonical probeStrategy
+      // (was hardcoded 'text-mode' in C7 · scoring sBeliefUpdateMagnitude
+      // expects 'contradiction' on R2 to compute belief delta correctly).
+      const probeStrategy = PROBE_STRATEGIES[currentRound] ?? 'baseline';
+      void fetch(`/api/v5/exam/${sessionId}/modulec/round/${currentRound + 1}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          answer: submittedAnswer,
+          question: prompt,
+          probeStrategy,
+        }),
+      }).catch(() => {});
+    }
+
+    // Local state transitions fire unconditionally · the local store is the
+    // source of truth for in-session UI (mirrors Phase0Page rationale).
+    flushRoundBehavior(currentRound, { textModeUsed: true });
+    setTextAnswers((prev) => [...prev, submittedAnswer]);
+    setTextAnswer('');
+    setMessages((prev) => [
+      ...prev,
+      { id: `text-q-${currentRound}`, role: 'ai', content: prompt, timestamp: Date.now() },
+      { id: `text-a-${currentRound}`, role: 'user', content: submittedAnswer, timestamp: Date.now() },
+    ]);
+    if (currentRound + 1 >= TOTAL_ROUNDS) {
+      setFinished(true);
+    } else {
+      setCurrentRound((r) => r + 1);
+    }
+    setTextSubmitting(false);
+  }, [textAnswer, textSubmitting, currentRound, flushRoundBehavior, sessionId]);
 
   const skipRound = useCallback(() => {
     flushRoundBehavior(currentRound, { textModeUsed: mode === 'text' });
@@ -355,11 +390,17 @@ export const ModuleCPage: React.FC = () => {
       mcDuration: now - ref.pageEnteredAt,
     });
 
-    // Notify server to mark session COMPLETED + trigger final scoring
-    const socket = getSocket();
-    socket.emit('session:end', () => {});
+    // Notify server to mark session COMPLETED + trigger final scoring.
+    // Brief #18 D38 (σ) · HTTP fallback for the missing socket session:end
+    // handler. Fire-and-forget · advance() must not block on network — the
+    // candidate has already finished, so retry/error handling is server-side
+    // (admin.ts:379 lazy-trigger on next report fetch will still run if this
+    // request lands later).
+    if (sessionId) {
+      void fetch(`/api/v5/exam/${sessionId}/complete`, { method: 'POST' }).catch(() => {});
+    }
     advance();
-  }, [advance, currentRound, mode, flushRoundBehavior, behavior]);
+  }, [advance, currentRound, mode, flushRoundBehavior, behavior, sessionId]);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);

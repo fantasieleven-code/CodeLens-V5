@@ -27,7 +27,7 @@
  *     structured markdown.
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import type { V5MBStandards } from '@codelens-v5/shared';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../../lib/tokens.js';
 
@@ -45,10 +45,12 @@ export const MB3StandardsPanel: React.FC<MB3StandardsPanelProps> = ({
   const [rulesContent, setRulesContent] = useState('');
   const [agentContent, setAgentContent] = useState('');
 
-  const canSubmit = useMemo(() => {
-    if (disabled) return false;
-    return rulesContent.trim().length > 0;
-  }, [disabled, rulesContent]);
+  // Brief #17 D28(α) · canSubmit no longer requires rulesContent · empty
+  // RULES.md is a legitimate D-tier semantic signal (candidate skipped/refused
+  // to author standards) that Stage 4 audit must observe, not a UI block.
+  // Soft hint surfaces when empty; submit button stays clickable.
+  const canSubmit = !disabled;
+  const showEmptyRulesHint = !disabled && rulesContent.trim().length === 0;
 
   const handleSubmit = useCallback(() => {
     if (!canSubmit) return;
@@ -70,7 +72,7 @@ export const MB3StandardsPanel: React.FC<MB3StandardsPanelProps> = ({
       </section>
 
       <label style={styles.fieldLabel}>
-        <span style={styles.fieldLabelText}>RULES.md（必填）</span>
+        <span style={styles.fieldLabelText}>RULES.md（建议）</span>
         <textarea
           style={styles.textarea}
           data-testid="mb-standards-rules"
@@ -110,9 +112,9 @@ export const MB3StandardsPanel: React.FC<MB3StandardsPanelProps> = ({
         >
           提交规范，进入审核
         </button>
-        {!canSubmit && !disabled && (
+        {showEmptyRulesHint && (
           <span style={styles.warn} data-testid="mb-standards-warn">
-            RULES.md 不能为空 — Stage 4 需要规则来审核 AI 输出。
+            建议至少描述一条规则，但你也可以直接提交。
           </span>
         )}
       </div>

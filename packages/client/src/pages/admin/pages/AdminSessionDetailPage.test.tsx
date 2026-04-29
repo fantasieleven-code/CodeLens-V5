@@ -38,12 +38,17 @@ describe('<AdminSessionDetailPage />', () => {
     expect(sessionCard).toHaveTextContent('sess-00001');
   });
 
-  it('shows report block + link when status is COMPLETED', async () => {
+  it('renders inline report sections (hero + capability + signal-bars) when status is COMPLETED', async () => {
     renderAt('/admin/sessions/sess-00001');
     await waitFor(() =>
       expect(screen.getByTestId('admin-session-detail-report')).toBeInTheDocument(),
     );
-    expect(screen.getByTestId('admin-session-detail-report-link')).toBeInTheDocument();
+    // Brief #18 D31 · admin now renders the actual report sections inline
+    // via adminReportToViewModel adapter, replacing the previous demo-link stub.
+    expect(screen.getByTestId('hero-section')).toBeInTheDocument();
+    expect(screen.getByTestId('hero-grade-badge')).toBeInTheDocument();
+    expect(screen.getByTestId('capability-profiles-section')).toBeInTheDocument();
+    expect(screen.queryByTestId('admin-session-detail-report-link')).toBeNull();
   });
 
   it('shows pending block when status is not COMPLETED', async () => {

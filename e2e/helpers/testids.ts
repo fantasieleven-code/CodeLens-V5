@@ -71,8 +71,8 @@ export const P0_TESTIDS = {
   l1Option: (idx: number) => `phase0-l1-option-${idx}`,
   l2Answer: 'phase0-l2-answer',
   l3Answer: 'phase0-l3-answer',
-  // Brief #13 D5 · phase0-l3-confidence does not exist on Phase0Page · driver
-  // dead call removed.
+  // Brief #20 C4 · slider added · 0..100 normalized to 0..1 in submission.
+  l3Confidence: 'phase0-l3-confidence',
   // Brief #13 D2/D3 · page uses `phase0-ai-judgment-{1|2}-...` (1-indexed,
   // `ai-` infix, `reason` not `reasoning`). Driver still passes 0-indexed `i`;
   // helper translates.
@@ -89,7 +89,9 @@ export const P0_TESTIDS = {
 
 export const MA_TESTIDS = {
   container: 'moduleA-container',
-  r1Scheme: (id: 'A' | 'B' | 'C') => `ma-r1-scheme-${id}`,
+  // Brief #14 D18 · page renders `ma-r1-scheme-${s.id.toLowerCase()}` ·
+  // driver normalize lowercase to match page truth.
+  r1Scheme: (id: 'A' | 'B' | 'C') => `ma-r1-scheme-${id.toLowerCase()}`,
   r1Reasoning: 'ma-r1-reasoning',
   r1StructuredScenario: 'ma-r1-structured-scenario',
   r1StructuredTradeoff: 'ma-r1-structured-tradeoff',
@@ -139,6 +141,8 @@ export const MB_TESTIDS = {
   chatSend: 'mb-chat-send',
   chatStreamActive: 'mb-chat-stream-active',
   chatMessage: (i: number) => `mb-chat-message-${i}`,
+  // Brief #16 D26 · execution → standards stage transition button.
+  executionFinish: 'mb-execution-finish',
   standardsRulesTextarea: 'mb-standards-rules',
   standardsAgentTextarea: 'mb-standards-agent',
   standardsSubmit: 'mb-standards-submit',
@@ -157,6 +161,9 @@ export const MC_TESTIDS = {
   // Brief #13 D8 · page uses `module-c-page`.
   container: 'module-c-page',
   preflight: 'modulec-preflight',
+  // Brief #17 D30 · MicPreflight gates ModeTabs (ModuleCPage.tsx:393-401).
+  // Skip routes to text-fallback · CI environment has no microphone.
+  preflightSkip: 'modulec-preflight-skip',
   modeVoice: 'modulec-mode-voice',
   modeText: 'modulec-mode-text',
   voiceStatus: 'modulec-voice-status',
@@ -193,6 +200,8 @@ export const SE_TESTIDS = {
   // V5.0.5 housekeeping candidate.
   dimensionSlider: 'selfassess-slider',
   reasoning: 'selfassess-reasoning',
+  // Brief #20 C5 · multi-line textarea, one decision per line.
+  reviewedDecisions: 'selfassess-reviewed-decisions',
   submit: 'selfassess-submit',
 } as const;
 

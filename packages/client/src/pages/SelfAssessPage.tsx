@@ -36,6 +36,10 @@ export const SelfAssessPage: React.FC = () => {
 
   const [confidence, setConfidence] = useState(60);
   const [reasoning, setReasoning] = useState('');
+  // Brief #20 C5 · multi-line textarea, one decision per line. Empty/whitespace
+  // lines are filtered before submission so trailing newlines don't pollute
+  // the array.
+  const [reviewedDecisionsText, setReviewedDecisionsText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,48 +83,47 @@ export const SelfAssessPage: React.FC = () => {
 
     // Persist the canonical V5 submission shape locally so CompletePage
     // renders selfAssess as done and DecisionSummary on downstream pages
-    // has a stable snapshot to read from. Socket emit is additive — once
-    // shared/ws.ts adopts `v5:selfassess:submit`, switch to
-    // setModuleSubmission (which will mirror the emit).
+    // has a stable snapshot to read from.
+    const reviewedDecisions = reviewedDecisionsText
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
     const submission: V5SelfAssessSubmission = {
       confidence,
       reasoning: reasoning.trim(),
+      ...(reviewedDecisions.length > 0 ? { reviewedDecisions } : {}),
     };
     setSubmission('selfAssess', submission);
 
-    const socket = getSocket();
-    // The server handler for `self-assess:submit` doesn't exist yet (pending
-    // Backend Cluster D). Without a timeout, a missing ack leaves the button
-    // stuck on "提交中…" forever. Guard with an 8s fallback — once the server
-    // handler lands, acks arrive well under that and the timeout is invisible.
-    let settled = false;
-    const timeoutId = window.setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      setSubmitting(false);
-      setError('提交遇到问题,请稍后重试');
-    }, 8000);
-
-    socket.emit(
+    // Brief #17 D34 fire-and-forget + Brief #19 C6 σ HTTP fallback (belt-
+    // and-suspenders). Socket emit kept for V5.0.1 root-socket wire; HTTP
+    // fetch is the guaranteed persist path until then (DB-verified
+    // metadata.selfAssess empty in Brief #10 §E E2 root-cause).
+    const responseTimeMs = Date.now() - mountTimeRef.current;
+    getSocket().emit(
       'self-assess:submit',
       {
         sessionId: sessionId ?? 'selfassess-pending',
         selfConfidence: confidence,
         selfIdentifiedRisk: reasoning.trim() || undefined,
-        responseTimeMs: Date.now() - mountTimeRef.current,
+        responseTimeMs,
       },
-      (ok: boolean) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timeoutId);
-        setSubmitting(false);
-        if (ok) {
-          advance();
-        } else {
-          setError('提交失败，请重试');
-        }
-      },
+      (_ok: boolean) => {},
     );
+    if (sessionId) {
+      void fetch(`/api/v5/exam/${sessionId}/selfassess/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          selfConfidence: confidence,
+          selfIdentifiedRisk: reasoning.trim() || undefined,
+          responseTimeMs,
+          ...(reviewedDecisions.length > 0 ? { reviewedDecisions } : {}),
+        }),
+      }).catch(() => {});
+    }
+    setSubmitting(false);
+    advance();
   };
 
   return (
@@ -179,6 +182,21 @@ export const SelfAssessPage: React.FC = () => {
         <div style={styles.charCount}>
           {reasoning.trim().length} 字 {reasoning.trim().length < 10 && '（还需要写更多）'}
         </div>
+      </section>
+
+      <section style={styles.section}>
+        <h2 style={styles.sectionTitle}>回顾过的决策摘要（每行一条，可选）</h2>
+        <p style={styles.sectionHint}>
+          列出在自评前你重新审视过的关键决策点 · 用于校准元认知评估。
+        </p>
+        <textarea
+          value={reviewedDecisionsText}
+          onChange={(e) => setReviewedDecisionsText(e.target.value)}
+          placeholder="例：&#10;Phase 0 方案选择&#10;MA 第二轮的代码审查&#10;MB Cursor chat 选型"
+          style={styles.textarea}
+          rows={4}
+          data-testid="selfassess-reviewed-decisions"
+        />
       </section>
 
       {error && <div style={styles.error}>{error}</div>}

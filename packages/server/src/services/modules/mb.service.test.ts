@@ -30,6 +30,7 @@ import {
   appendDiffEvents,
   appendEditSessions,
   appendFileNavigation,
+  appendTestRuns,
   appendVisibilityEvent,
   calculatePassRate,
   persistAudit,
@@ -563,6 +564,84 @@ describe('persistFinalTestRun (Task 23 / Cluster B)', () => {
   it('no-ops when session is missing', async () => {
     findUnique.mockResolvedValueOnce(null);
     await persistFinalTestRun('missing', { passRate: 0.5, duration: 100 });
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe('appendTestRuns (Brief #20 sub-cycle · regression closer)', () => {
+  it('appends new runs + sets finalTestPassRate to last run\'s passRate', async () => {
+    findUnique.mockResolvedValueOnce({
+      metadata: {
+        mb: {
+          editorBehavior: {
+            testRuns: [{ timestamp: 1, passRate: 0.4, duration: 200 }],
+          },
+        },
+      },
+    });
+    update.mockResolvedValueOnce({});
+
+    await appendTestRuns('s1', [
+      { timestamp: 100, passRate: 0.6, duration: 250 },
+      { timestamp: 200, passRate: 0.9, duration: 300 },
+    ]);
+
+    const { data } = update.mock.calls[0][0];
+    expect(data.metadata.mb.editorBehavior.testRuns).toEqual([
+      { timestamp: 1, passRate: 0.4, duration: 200 },
+      { timestamp: 100, passRate: 0.6, duration: 250 },
+      { timestamp: 200, passRate: 0.9, duration: 300 },
+    ]);
+    expect(data.metadata.mb.finalTestPassRate).toBe(0.9);
+  });
+
+  it('dedups by (timestamp, passRate, duration) so retries are idempotent', async () => {
+    findUnique.mockResolvedValueOnce({
+      metadata: {
+        mb: {
+          editorBehavior: {
+            testRuns: [{ timestamp: 100, passRate: 0.6, duration: 250 }],
+          },
+        },
+      },
+    });
+    update.mockResolvedValueOnce({});
+
+    await appendTestRuns('s1', [
+      { timestamp: 100, passRate: 0.6, duration: 250 }, // duplicate
+      { timestamp: 200, passRate: 0.9, duration: 300 },
+    ]);
+
+    const { data } = update.mock.calls[0][0];
+    expect(data.metadata.mb.editorBehavior.testRuns).toHaveLength(2);
+    expect(data.metadata.mb.finalTestPassRate).toBe(0.9);
+  });
+
+  it('no-ops on empty array', async () => {
+    await appendTestRuns('s1', []);
+    expect(findUnique).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('no-ops when all runs are duplicates', async () => {
+    findUnique.mockResolvedValueOnce({
+      metadata: {
+        mb: {
+          editorBehavior: {
+            testRuns: [{ timestamp: 100, passRate: 0.6, duration: 250 }],
+          },
+        },
+      },
+    });
+
+    await appendTestRuns('s1', [{ timestamp: 100, passRate: 0.6, duration: 250 }]);
+
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('no-ops when session is missing', async () => {
+    findUnique.mockResolvedValueOnce(null);
+    await appendTestRuns('missing', [{ timestamp: 1, passRate: 0.5, duration: 100 }]);
     expect(update).not.toHaveBeenCalled();
   });
 });

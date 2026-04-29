@@ -282,10 +282,13 @@ const submissions: V5Submissions = {
         '当 Agent 生成或修改 InventoryRepository 或 InventoryService 时,必须阅读 rules.md 的 5 条规则并在 PR 描述里勾选每一条。任何涉及 redis.decr / mysql.insert 的改动都要配套 tests/inventory.test.ts 更新。',
     },
     audit: {
+      // Brief #17 D29 · ruleIds remapped to positional `rule_${idx}` matching
+      // parseRules output over Liam's 5 numbered rules (rule_3 = "Oversold
+      // checks must throw" · rule_0 = idempotency/requestId for retry safety).
       violations: [
-        { exampleIndex: 0, markedAsViolation: true, violatedRuleId: 'rule-oversold-check' },
+        { exampleIndex: 0, markedAsViolation: true, violatedRuleId: 'rule_3' },
         { exampleIndex: 1, markedAsViolation: false },
-        { exampleIndex: 2, markedAsViolation: true, violatedRuleId: 'rule-retry-required' },
+        { exampleIndex: 2, markedAsViolation: true, violatedRuleId: 'rule_0' },
       ],
     },
   },
@@ -311,20 +314,27 @@ const submissions: V5Submissions = {
     },
     {
       round: 2,
+      question: '给出第 1 轮回答里某一个判断的一个真实场景例子。例子越具体越好。',
+      answer:
+        '你说得对,这一点我之前讲得偏抽象。具体例子: 拿 R1 里"Redis 原子 decr P99 10ms"那个判断,我们之前在内部秒杀活动实测,峰值 18k QPS 下 P99 是 12ms,而 MySQL 悲观锁 SELECT FOR UPDATE 同等压力下 P99 200ms+,差了一个数量级。更准确地说,这个 10ms 数字是基于 4 核 8G Redis 单实例 + 1ms RTT 内网,如果 hot key 路由不均会到 30ms 边界。但是核心观点仍然成立 — A 方案在万级 QPS 场景仍是正解,只是要补一个 hot-key 探测告警,应该改为"Redis 扣减 + hot-key 监控 + MySQL 异步落库"三件套。',
+      probeStrategy: 'contradiction',
+    },
+    {
+      round: 3,
       question: 'Redis 挂掉的时候怎么办?你方案 A 的可用性如何保证?',
       answer:
         '你说得对,我承认 R1 没充分覆盖 Redis 崩溃的窗口期风险 — 我错了,把 AOF 能力当成了一步到位的可用性兜底。更准确地说,应该改为 AOF 每秒持久化 + sentinel 主从热备,把 RTO 从 30s 压到 5s 内;同时窗口期降级到 MySQL 悲观锁的 QPS 500 作为兜底,并通过上游限流把峰值压到 QPS 300 以内。但是核心观点仍然成立 — A 方案在 10000 QPS 场景下依然是正解,只是可用性 SLA 的 tradeoff 需要更严格的运维配套。取决于业务对 30s 窗口 vs 5s 窗口的成本敏感度,如果是支付秒杀需要 5s,如果是活动秒杀 30s 可以接受。',
       probeStrategy: 'weakness',
     },
     {
-      round: 3,
+      round: 4,
       question: '如果 QPS 涨到 100k,你的 A 方案还撑得住吗?',
       answer:
         '撑不住。Redis 单机瓶颈约 5w QPS,100k 必须上集群 + sharding 按 skuId 分片。基于 R2 的修正思路,我会在集群层也做 AOF + sentinel 保证高可用。热门 SKU 要本地缓存 + 读写分离兜底,取决于 skew 程度 — 如果是 Top 10 SKU 占 80% 流量,还要额外上 Redis proxy(如 Codis)。这次的教训是单点瓶颈思维早该放弃,其实分布式架构才是 100k+ QPS 的基线,原本以为单机优化还有空间。',
       probeStrategy: 'escalation',
     },
     {
-      round: 4,
+      round: 5,
       question: '如果换成红包抢购场景,你还会选 A 吗?',
       answer:
         '还会选 A,核心原则"Redis 扣减 + 异步落库"不变。沿着这个思路迁移到红包:精度控制上,Lua 脚本里要用 bignum 处理金额(1 分 = 100 分单位),避免浮点误差;幂等键从 requestId 换成 userId + redpackId,因为红包一个用户只能抢一次。TTL 从 30s 延长到 24h 覆盖整个红包生命周期。取决于活动规模,如果是万元级红包雨,要加入抢购冷却 — 更好的做法是做分桶削峰。意识到之前没想到红包有社交属性,需要做防刷 + 黑名单,这在秒杀里是弱需求。',

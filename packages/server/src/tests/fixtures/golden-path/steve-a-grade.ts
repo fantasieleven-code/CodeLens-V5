@@ -24,7 +24,8 @@ const submissions: V5Submissions = {
     },
     aiOutputJudgment: [
       { choice: 'A', reasoning: 'A 看起来更完整一点,有 redis 调用,B 没有。' },
-      { choice: 'A', reasoning: 'A 更直接。' }, // wrong — groundTruth is B
+      // Brief #14 D19 · padded to ≥20 char threshold · semantic vacancy preserved (still wrong choice)
+      { choice: 'A', reasoning: 'A 更直接,看起来更简单一点,我倾向选 A。' }, // wrong — groundTruth is B
     ],
     aiClaimVerification: {
       response: 'AI 说用了 MULTI,但我觉得代码里好像没有 MULTI 这种写法?',
@@ -60,9 +61,11 @@ const submissions: V5Submissions = {
       ].join('\n'),
     },
     round2: {
+      // Brief #14 D19 · per-defect comment padded to ≥10 char threshold ·
+      // hedge style preserves shallow review depth signal.
       markedDefects: [
-        { defectId: 'd1', commentType: 'bug', comment: '这里返回值没检查' },
-        { defectId: 'd3', commentType: 'bug', comment: '日志不够' },
+        { defectId: 'd1', commentType: 'bug', comment: '这里返回值没检查,可能有问题' },
+        { defectId: 'd3', commentType: 'bug', comment: '日志不够,看着不太够用' },
       ],
     },
     round3: {
@@ -223,10 +226,13 @@ const submissions: V5Submissions = {
         'Agent 在改 InventoryRepository 或 InventoryService 的时候,必须先读 rules.md 的 6 条规则。任何涉及 `redis.decr()` 或 `mysql.insert()` 的改动都需要配套更新 tests/inventory.test.ts,不要漏测边界。上下文不够时先看 scaffold 里的 dependencyOrder,避免跳过 Controller 层的 validation。',
     },
     audit: {
+      // Brief #17 D29 · ruleIds remapped to positional `rule_${idx}` matching
+      // parseRules output over Steve's 6 numbered rules (rule_0 = "OversoldError
+      // throw" · rule_5 = "测试覆盖 oversold/并发/retry").
       violations: [
-        { exampleIndex: 0, markedAsViolation: true, violatedRuleId: 'rule-oversold' },
+        { exampleIndex: 0, markedAsViolation: true, violatedRuleId: 'rule_0' },
         { exampleIndex: 1, markedAsViolation: false },
-        { exampleIndex: 2, markedAsViolation: true, violatedRuleId: 'rule-retry' },
+        { exampleIndex: 2, markedAsViolation: true, violatedRuleId: 'rule_5' },
       ],
     },
   },
@@ -252,20 +258,27 @@ const submissions: V5Submissions = {
     },
     {
       round: 2,
+      question: '给出第 1 轮回答里某一个判断的一个真实场景例子。例子越具体越好。',
+      answer:
+        '我承认这点支撑不太够,具体例子让我想想 — R1 我说"MySQL 直接写太慢",更准确地说,之前做的优惠券系统,Redis 扣库存压测能扛 2-3w QPS,MySQL 用悲观锁 SELECT FOR UPDATE 大概 800 QPS 上不去。但是这个数据是 1 年前的,MySQL 8.x InnoDB 改进可能缩小差距,所以核心观点是 A 在高 QPS 场景仍然有优势,只是差距比当年我以为的小。',
+      probeStrategy: 'contradiction',
+    },
+    {
+      round: 3,
       question: 'Redis 挂掉的时候怎么办?',
       answer:
         'Redis 挂了可以用 AOF 恢复,但是整体看,方案 A 的核心观点还是站得住的。MySQL 可以作为降级兜底,可能还是要做告警监控。',
       probeStrategy: 'weakness',
     },
     {
-      round: 3,
+      round: 4,
       question: '如果 QPS 涨到 100k 呢?',
       answer:
         '100k 单机扛不住,应该需要上集群 + sharding 按 sku 分。具体怎么分我没做过这种量级的项目,可能大概按 skuId hash 分。',
       probeStrategy: 'escalation',
     },
     {
-      round: 4,
+      round: 5,
       question: '红包抢购场景你还会选 A 吗?',
       answer:
         '红包还是可以用 A,差不多的场景。但是参数要调 — 红包不能超发,这次的教训是具体业务要区别对待。',

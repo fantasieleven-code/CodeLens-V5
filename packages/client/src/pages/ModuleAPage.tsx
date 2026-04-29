@@ -184,8 +184,18 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
         challengeResponse: r1ChallengeResponse,
       },
       round2: {
+        // Brief #20 sub-cycle · lookup canonical defectId by line. Page
+        // previously fabricated `cand-N`, which never matched scoring's
+        // `examData.MA.defects[].defectId` and zeroed sHiddenBugFound /
+        // sReviewPrioritization / sCodeReviewQuality for every candidate
+        // (real + e2e). `cand-${idx + 1}` retained as fallback when the
+        // user reviews a non-defect line — kept distinct so scoring
+        // marks-but-fails (false positive) rather than treating as
+        // canonical defect.
         markedDefects: r2Reviews.map((r, idx) => ({
-          defectId: `cand-${idx + 1}`,
+          defectId:
+            moduleContent.defects.find((d) => d.line === r.line)?.defectId ??
+            `cand-${idx + 1}`,
           commentType: r.commentType,
           comment: r.comment,
           fixSuggestion: r.fixSuggestion || undefined,
@@ -205,15 +215,19 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
 
     onSubmit?.(submission);
     setSubmission('moduleA', submission);
-    // Server persist via Task 26 `moduleA:submit`. Fire-and-forget mirroring
-    // Task 25 `phase0:submit`: the local store is the source of truth for
-    // in-session UI; the ack is reserved for V5.0.5 retry/error UX and does
-    // not gate advance() (no timeout guard yet).
+    // Brief #19 σ HTTP fallback · belt-and-suspenders mirroring Phase0Page.
     getSocket().emit(
       'moduleA:submit',
       { sessionId: sessionId ?? 'moduleA-pending', submission },
       (_ok: boolean) => {},
     );
+    if (sessionId) {
+      void fetch(`/api/v5/exam/${sessionId}/modulea/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submission }),
+      }).catch(() => {});
+    }
     advance();
   }, [
     canSubmitR4,

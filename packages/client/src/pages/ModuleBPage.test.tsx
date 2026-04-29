@@ -55,6 +55,8 @@ vi.mock('@monaco-editor/react', () => ({
     />
   ),
   useMonaco: () => null,
+  // Brief #16 D27(b-light) · Monaco prewarm consumed via dynamic import.
+  loader: { init: () => Promise.resolve() },
 }));
 
 // MBTerminalPanel pulls xterm / matchMedia. Stub to a button that emits
@@ -117,11 +119,11 @@ vi.mock('../lib/socket.js', () => ({
 import { ModuleBPage } from './ModuleBPage.js';
 import { useSessionStore } from '../stores/session.store.js';
 import { useModuleStore } from '../stores/module.store.js';
-import type { MBMockModule } from './moduleB/mock.js';
+import type { MBCandidateView } from '@codelens-v5/shared';
 
 // Minimal module fixture — small enough to keep tests fast, just enough
 // content for the rules parser + audit panel to render 1 example.
-const FIXTURE: MBMockModule = {
+const FIXTURE: MBCandidateView = {
   featureRequirement: {
     description: 'implement filter_orders(orders, min_amount)',
     acceptanceCriteria: ['preserve order', 'pure function'],
@@ -134,8 +136,8 @@ const FIXTURE: MBMockModule = {
     dependencyOrder: ['util.py', 'main.py'],
   },
   violationExamples: [
-    { code: 'def f(): return []', aiClaimedReason: 'pure' },
-    { code: 'def f(): x.sort()', aiClaimedReason: 'in-place' },
+    { exampleIndex: 0, code: 'def f(): return []', aiClaimedReason: 'pure' },
+    { exampleIndex: 1, code: 'def f(): x.sort()', aiClaimedReason: 'in-place' },
   ],
 };
 
@@ -468,12 +470,9 @@ describe('ModuleBPage · Stage 4 (audit) + complete', () => {
 // ─────────────────── prop / shell behavior ───────────────────
 
 describe('ModuleBPage · prop & shell behavior', () => {
-  it('falls back to MB_MOCK_FIXTURE when no module prop is provided', () => {
-    render(<ModuleBPage />);
-    expect(screen.getByTestId('mb-planning-feature-description')).toHaveTextContent(
-      'filter_orders',
-    );
-  });
+  // Brief #15 · the previous fallback-to-MB_MOCK_FIXTURE case was removed —
+  // no-prop path now goes through useModuleContent fetch (covered by the
+  // 'fetch-on-mount loading + error gates' describe block below).
 
   it('bare={true} skips ModuleShell wrapping', () => {
     const { container } = render(<ModuleBPage module={FIXTURE} bare />);
@@ -492,5 +491,46 @@ describe('ModuleBPage · prop & shell behavior', () => {
       ([ev]) => ev === 'v5:mb:planning:submit',
     );
     expect(planningCall?.[1].sessionId).toBe('mb-pending');
+  });
+});
+
+// ─────────────────── Brief #15 · fetch-on-mount gates ───────────────────
+
+describe('ModuleBPage · fetch-on-mount loading + error gates', () => {
+  beforeEach(() => {
+    useSessionStore.setState({ examInstanceId: 'e-1' });
+    vi.stubGlobal('fetch', vi.fn());
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('renders loading gate when no module prop and fetch in flight', () => {
+    (fetch as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+      new Promise(() => {}),
+    );
+    render(<ModuleBPage bare />);
+    expect(screen.getByTestId('mb-content-loading')).toBeInTheDocument();
+  });
+
+  it('renders error gate on 404', async () => {
+    (fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+    });
+    render(<ModuleBPage bare />);
+    const node = await screen.findByTestId('mb-content-error');
+    expect(node.textContent).toContain('未找到');
+  });
+
+  it('hydrates planning stage when fetch resolves', async () => {
+    (fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => FIXTURE,
+    });
+    render(<ModuleBPage bare />);
+    await screen.findByTestId('mb-page-root');
+    expect(screen.queryByTestId('mb-content-loading')).toBeNull();
   });
 });

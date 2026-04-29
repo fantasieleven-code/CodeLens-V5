@@ -684,3 +684,41 @@ Per B1+B2+A3 race condition incidents (observation #156/#157) · `git worktree a
 ### Helper test coverage + other items
 
 Per B2 backlog entry · `monaco-helper.test.ts` + `terminal-helper.test.ts` direct unit tests · V5.0.5 nice-to-have。
+
+### Brief LOC estimate granularity audit (Brief #20 sub-cycle ratify-error #8 prevention)
+
+**Origin** · Brief #20 closure 实测显示估值 vs 实际 prod LOC 系统性 2-4× 低估(C1 估 10/15 实 40/49 · C2 估 40/25 实 129/170 · C6 估 25 实 71)· §E E1/E3/E5 silent absorbed 至 closure 才暴露 · 用户 ratify 时 catch (Pattern G silent absorb 同模式)。
+
+**V5.0.5 rule candidate · Detection** (sprint discipline upgrade · brief #20 closure):
+
+- 若 brief 首 commit 实测 LOC ≥ **2× 估值** · 触发 mid-brief recalibrate · 不等 closure
+- 每 commit 后 `git --numstat` 实测 + 跟 dispatch 估值对账 · 写到 turn-summary
+- 估值差异连续 2 commit 都 ≥ 2× · stop-report · 不 absorb 边界 · 升级回 Planning Claude
+- §E status table 必须 mid-brief 更新 · 不只 closure 报 · 防 silent absorb
+- §E 是**断路器** · 任何单触发 mid-brief 即停 · 不计算 fence 总值 · 防 brief #20 closure"all gates green silent absorb 三 §E"反向重犯
+
+**V5.0.5 rule candidate · Generation Rule 1 · structural family-pattern** (brief #20 sub-cycle 新增 · obs#170):
+
+- 当新代码加入 **known family**(append* / persist* / signal-{module} / 等已有 ≥ 3 sibling 模式)· estimate floor = `family case-count × family-avg lines/case` 实测 sibling 不想象 · 不是 "我估这个新东西需要几行"
+- estimate 写法 · 显式标 "joins family X · floor from siblings = N lines" · 让 user 跟我都能 spot-verify 是否参考了 family
+- generic estimate 模式 · 先 grep sibling pattern · 计 lines · 再加 delta · 不从零起估
+- 真因证据 · brief #20 sub-cycle commit 2 appendTestRuns 估 +12 test (case-count 模型) · 实数 +85 test (5 case × 16 lines/case = 80 line floor)· multiplier 7.08× · 完美匹配 family floor 6.7× ratio
+
+**V5.0.5 rule candidate · Generation Rule 2 · editorial verbosity carve-out** (brief #20 sub-cycle A1 新增):
+
+- estimate 写法必含双桶 · `core +X / overhead +Y` 显式拆 · 不只总 LOC
+  - core = 修法纯 functional code(无 comment / 无 forward-pay / 无 defensive)
+  - overhead = comment / V5.0.5 housekeeping note / git blame 防 silent removal / family-conformance test scaffold
+- estimate 时 user 单独 ratify overhead 是否需要(minimal vs forward-pay)· 防 mid-commit recalibrate
+- 接力 Planning Claude / Brief Claude 见 estimate `core +5 / overhead +2` (minimal) vs `core +5 / overhead +20` (forward-pay) 区分清晰
+- 真因证据 · brief #20 sub-cycle A1 spec disable 估 +3 注释 (minimal-marker 假设)· 实数 +20 (V5.0.5 housekeeping 3 option + toFixed(0) 真因诊断 + git blame 防 silent removal)· multiplier 6.67× · author 自选 forward-pay
+
+**V5.0.5 rule candidate · Generation Rule 3 · 元 rule** (brief #20 sub-cycle A1 抽象):
+
+- estimate 模型对 "修法 minimum-viable completion" vs "best-practice completion" 必须显式选定 · 默认假设 minimum-viable
+- best-practice 是 sprint-discipline up-front choice · 不是 mid-commit silent escalate
+- 同根本因(sprint-overhead implicit-zero)· 不同 manifestation(structural family-pattern vs editorial verbosity)· generation rule 双轴 carve-out 防同模式
+
+**Priority** · High · sprint discipline core · 跟 Pattern G silent push streak guard 同级 · 防接力 Brief Claude 重复同模式。
+
+**Tracking** · obs#170 (Brief #20 sub-cycle 闭环) · obs#170 sub-cycle commit 2 expansion (estimate 模型双轴漂分析) · this entry is the V5.0.5 rule formalization。

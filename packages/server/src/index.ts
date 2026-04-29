@@ -34,6 +34,7 @@ import { candidateSelfViewRouter } from './routes/candidate-self-view.js';
 import { voiceRouter } from './routes/voice.js';
 import { mcVoiceChatRouter } from './routes/mc-voice-chat.js';
 import { sessionRouter } from './routes/session.js';
+import { examContentRouter } from './routes/exam-content.js';
 import { registerSocketHandlers } from './socket/index.js';
 
 const app = express();
@@ -66,6 +67,9 @@ app.use('/api/v5/mc', mcVoiceChatRouter);
 // per ratified design (Hotfix #12 + Brief #13 C7) · no auth gate · response
 // shape narrowed to candidate-facing fields only (no scoringResult/grade).
 app.use('/api/v5/session', sessionRouter);
+// Brief #15 · candidate-facing exam-module content · GET /api/v5/exam/:examInstanceId/module/:moduleType
+// MB-only in this brief · other module types return 501 · groundTruth-stripped response.
+app.use('/api/v5/exam', examContentRouter);
 app.use('/auth', authRouter);
 
 app.use(errorHandler);

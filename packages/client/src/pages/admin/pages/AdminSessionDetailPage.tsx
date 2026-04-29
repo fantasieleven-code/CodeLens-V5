@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { adminApi } from '../../../services/adminApi.js';
 import type {
@@ -6,6 +6,10 @@ import type {
   V5AdminSessionReport,
 } from '@codelens-v5/shared';
 import { SUITES } from '@codelens-v5/shared';
+import { adminReportToViewModel } from '../../../report/admin-adapter.js';
+import { HeroSection } from '../../../report/sections/HeroSection.js';
+import { CapabilityProfilesSection } from '../../../report/sections/CapabilityProfilesSection.js';
+import { SignalBarsSection } from '../../../report/sections/SignalBarsSection.js';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../../../lib/tokens.js';
 
 function formatDate(ts: number | null): string {
@@ -19,6 +23,10 @@ export const AdminSessionDetailPage: React.FC = () => {
   const [report, setReport] = useState<V5AdminSessionReport | null>(null);
   const [reportNotReady, setReportNotReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const reportViewModel = useMemo(
+    () => (report ? adminReportToViewModel(report) : null),
+    [report],
+  );
 
   useEffect(() => {
     if (!sessionId) return;
@@ -138,34 +146,14 @@ export const AdminSessionDetailPage: React.FC = () => {
         )}
       </section>
 
-      {session.status === 'COMPLETED' && report ? (
-        <section style={styles.card} data-testid="admin-session-detail-report">
-          <h2 style={styles.sectionTitle}>评估报告</h2>
-          <div style={styles.reportSummary}>
-            <div>
-              <div style={styles.label}>Grade</div>
-              <div style={styles.reportGrade}>{report.gradeDecision.grade}</div>
-            </div>
-            <div>
-              <div style={styles.label}>综合分</div>
-              <div style={styles.reportComposite}>
-                {report.gradeDecision.composite.toFixed(1)}
-              </div>
-            </div>
-            <div>
-              <div style={styles.label}>置信度</div>
-              <div>{report.gradeDecision.confidence}</div>
-            </div>
-          </div>
-          <p style={styles.reasoning}>{report.gradeDecision.reasoning}</p>
-          <Link
-            to={`/report/demo-${session.suiteId === 'architect' ? 's-plus' : session.grade === 'B' ? 'b' : 'a'}`}
-            data-testid="admin-session-detail-report-link"
-            style={styles.primaryBtn}
-            state={{ embedAdminContext: true }}
-          >
-            查看完整报告 →
-          </Link>
+      {session.status === 'COMPLETED' && report && reportViewModel ? (
+        <section
+          style={styles.reportContainer}
+          data-testid="admin-session-detail-report"
+        >
+          <HeroSection viewModel={reportViewModel} />
+          <CapabilityProfilesSection viewModel={reportViewModel} />
+          <SignalBarsSection viewModel={reportViewModel} />
         </section>
       ) : session.status === 'COMPLETED' && reportNotReady ? (
         <section
@@ -248,34 +236,15 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: 'monospace',
     color: colors.subtext1,
   },
-  reportSummary: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: spacing.md,
-  },
-  reportGrade: {
-    fontSize: fontSizes.xxl,
-    fontWeight: fontWeights.bold,
-    color: colors.mauve,
-  },
-  reportComposite: {
-    fontSize: fontSizes.xl,
-    fontWeight: fontWeights.semibold,
-    color: colors.text,
-  },
   reasoning: {
     margin: 0,
     color: colors.subtext1,
     fontSize: fontSizes.sm,
     lineHeight: 1.6,
   },
-  primaryBtn: {
-    alignSelf: 'flex-start',
-    padding: `${spacing.sm} ${spacing.lg}`,
-    backgroundColor: colors.blue,
-    color: colors.base,
-    borderRadius: radii.md,
-    textDecoration: 'none',
-    fontWeight: fontWeights.semibold,
+  reportContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: spacing.lg,
   },
 };

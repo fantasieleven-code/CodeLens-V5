@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
+import type { MBModuleSpecific } from '@codelens-v5/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ExamDataService } from './exam-data.service.js';
+import { ExamDataService, stripMBToCandidateView } from './exam-data.service.js';
 
 type FindUniqueMock = ReturnType<typeof vi.fn>;
 
@@ -92,5 +93,40 @@ describe('ExamDataService module getters', () => {
   it('returns null when the requested module row is missing', async () => {
     findUnique.mockResolvedValueOnce(null);
     expect(await service.getMBData(EXAM_ID)).toBeNull();
+  });
+});
+
+describe('stripMBToCandidateView · groundTruth invariant', () => {
+  it('omits all instructor-only fields and groundTruth', () => {
+    const full: MBModuleSpecific = {
+      featureRequirement: { description: 'd', acceptanceCriteria: ['a'] },
+      scaffold: {
+        files: [{ path: 'src/x.ts', content: 'c', knownIssueLines: [3, 4] }],
+        tests: [{ path: 'tests/x.test.ts', content: 'describe', purpose: 'unit' }],
+        dependencyOrder: ['src/x.ts'],
+      },
+      harnessReference: {
+        keyConstraints: ['atomic'],
+        constraintCategories: ['correctness'],
+      },
+      violationExamples: [
+        {
+          exampleIndex: 0,
+          code: 'bad',
+          isViolation: true,
+          violationType: 'correctness',
+          explanation: 'leaks groundTruth',
+        },
+      ],
+    };
+    const view = stripMBToCandidateView(full);
+    const json = JSON.stringify(view);
+    expect(json).not.toContain('knownIssueLines');
+    expect(json).not.toContain('isViolation');
+    expect(json).not.toContain('violationType');
+    expect(json).not.toContain('explanation');
+    expect(json).not.toContain('harnessReference');
+    expect(view.scaffold).not.toHaveProperty('tests');
+    expect(view.scaffold.files[0].language).toBe('typescript');
   });
 });

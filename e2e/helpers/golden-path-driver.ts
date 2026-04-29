@@ -278,8 +278,23 @@ export class GoldenPathDriver {
 
     await this.page.locator(byTestId(P0_TESTIDS.l2Answer)).fill(p0.codeReading.l2Answer);
     await this.page.locator(byTestId(P0_TESTIDS.l3Answer)).fill(p0.codeReading.l3Answer);
-    // Brief #13 D5 · `phase0-l3-confidence` not present in Phase0Page · driver
-    // dead call removed.
+
+    // Brief #20 C4 · ConfidenceSection slider gated on L3-done. Same range-
+    // input native-setter trick as SE_TESTIDS.dimensionSlider (D34) so the
+    // controlled-component handler runs.
+    await this.page
+      .locator(byTestId(P0_TESTIDS.l3Confidence))
+      .evaluate((el, value) => {
+        const input = el as HTMLInputElement;
+        const setter = Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          'value',
+        )?.set;
+        setter?.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }, String(Math.round((p0.codeReading.confidence ?? 0.5) * 100)))
+      .catch(() => {});
 
     // AI output judgment · 2 items.
     for (let i = 0; i < p0.aiOutputJudgment.length; i++) {
@@ -339,14 +354,21 @@ export class GoldenPathDriver {
 
     // Round 2 · defect annotation · single-defect-cycle UX (Brief #13 D6).
     // Page renders one shared review form scoped via `ma-r2-review-line-${N}`
-    // line-marker click. Fixture defectId ('d1','d2',...) doesn't map to page
-    // line numbers, so we click line `i+1` deterministically — golden-path
-    // scoring only cares that N reviews are submitted, not which lines.
-    // The "保存评论" save button has no testid; locate via role+name.
+    // line-marker click.
+    //
+    // Brief #20 sub-cycle · click MUST land on a line that matches MA mock's
+    // defects[].line so the page's lookup (ModuleAPage round2 submit ·
+    // moduleContent.defects.find(d => d.line === r.line)?.defectId) resolves
+    // to canonical 'd1'/'d2'/'d3' instead of falling back to 'cand-N'. The
+    // mock fixture's defects sit at lines [4, 9, 21] · keep this constant in
+    // sync with `packages/client/src/pages/moduleA/mock.ts:defects[].line`
+    // (V5.0.5 housekeeping · lift to a shared constant or import the mock).
+    const MA_MOCK_DEFECT_LINES = [4, 9, 21];
     for (let i = 0; i < ma.round2.markedDefects.length; i++) {
       const defect = ma.round2.markedDefects[i];
+      const line = MA_MOCK_DEFECT_LINES[i] ?? i + 1;
       await this.page
-        .locator(byTestId(MA_TESTIDS.r2ReviewLine(i + 1)))
+        .locator(byTestId(MA_TESTIDS.r2ReviewLine(line)))
         .click();
       await this.page
         .locator(byTestId(MA_TESTIDS.r2ReviewType))
@@ -416,6 +438,10 @@ export class GoldenPathDriver {
       // wait failure; finalTestPassRate is asserted by B3 spec on admin route.
     });
 
+    // Brief #16 D26 · execution → standards stage transition · sync setStage in
+    // ModuleBPage.handleFinishExecution · no async wait needed.
+    await this.page.locator(byTestId(MB_TESTIDS.executionFinish)).click();
+
     // Chat interactions (optional · fixture may or may not have chat events).
     // Chat observation via DOM-render · mb-chat-stream-active visibility +
     // mb-chat-message-{i} count (ws.ts: v5:mb:chat_stream + chat_complete
@@ -423,29 +449,41 @@ export class GoldenPathDriver {
     // has chatEvents; otherwise skip.
 
     // Standards phase.
+    // Brief #16 D28(i) · stage transition click is unconditional · content
+    // depth is the candidate-grade signal (Max has empty rulesContent · should
+    // still progress, not stall here). Driver fills only what the fixture
+    // provides; submit fires regardless.
     if (mb.standards?.rulesContent) {
       await this.page
         .locator(byTestId(MB_TESTIDS.standardsRulesTextarea))
         .fill(mb.standards.rulesContent);
-      if (mb.standards.agentContent) {
-        await this.page
-          .locator(byTestId(MB_TESTIDS.standardsAgentTextarea))
-          .fill(mb.standards.agentContent);
-      }
-      await this.page.locator(byTestId(MB_TESTIDS.standardsSubmit)).click();
     }
+    if (mb.standards?.agentContent) {
+      await this.page
+        .locator(byTestId(MB_TESTIDS.standardsAgentTextarea))
+        .fill(mb.standards.agentContent);
+    }
+    await this.page.locator(byTestId(MB_TESTIDS.standardsSubmit)).click();
 
     // Audit phase.
+    // Brief #17 D29 · violation toggle is a <select> (unmarked/compliant/
+    // violation) per ViolationAuditPanel.tsx:245-255 · rule chooser is a
+    // <select> with positional rule_${idx} options from parseRulesFromContent
+    // (panel L77-92) · driver MUST selectOption({ value }) for both, and MUST
+    // set status for `markedAsViolation === false` cases too (otherwise the
+    // select stays at default `unmarked` and canSubmit gates fail).
     if (mb.audit?.violations) {
       for (let i = 0; i < mb.audit.violations.length; i++) {
         const violation = mb.audit.violations[i];
-        if (violation.markedAsViolation) {
-          await this.page.locator(byTestId(MB_TESTIDS.auditViolation(i))).check();
-          if (violation.violatedRuleId) {
-            await this.page
-              .locator(byTestId(MB_TESTIDS.auditRuleId(i)))
-              .fill(violation.violatedRuleId);
-          }
+        const violationStatus = violation.markedAsViolation ? 'violation' : 'compliant';
+        await this.page
+          .locator(byTestId(MB_TESTIDS.auditViolation(i)))
+          .selectOption({ value: violationStatus });
+
+        if (violation.markedAsViolation && violation.violatedRuleId) {
+          await this.page
+            .locator(byTestId(MB_TESTIDS.auditRuleId(i)))
+            .selectOption({ value: violation.violatedRuleId });
         }
       }
       await this.page.locator(byTestId(MB_TESTIDS.auditSubmit)).click();
@@ -460,12 +498,83 @@ export class GoldenPathDriver {
     await this.page.locator(byTestId(MB_TESTIDS.advance)).click();
   }
 
+  /**
+   * Brief #20 C3 · MB editorBehavior + finalTestPassRate driver-side bypass.
+   *
+   * ModuleBPage L232-239 hardcodes empty editorBehavior arrays and the page
+   * never wires its real Monaco/chat/test telemetry into the submission shape.
+   * Real candidates populate these via socket `behavior:batch`; the e2e
+   * driver doesn't replay those events, so without this bypass every
+   * fixture observes empty editorBehavior + finalTestPassRate=0 in scoring.
+   *
+   * Posts fixture data via POST /mb/editor-behavior (Brief #20 C2 endpoint)
+   * + POST /mb/test-result. Server-side append* functions dedup so re-posting
+   * is safe; spread-merge preserves any already-persisted live telemetry.
+   *
+   * Runs in the page's fetch context (page.evaluate) so the same session
+   * cookie that the candidate session uses is naturally attached.
+   */
+  private async pushMbBypassData(
+    sessionId: string,
+    mb: NonNullable<V5Submissions['mb']>,
+  ): Promise<void> {
+    const eb = mb.editorBehavior;
+    if (eb) {
+      const hasAny =
+        (eb.aiCompletionEvents?.length ?? 0) > 0 ||
+        (eb.chatEvents?.length ?? 0) > 0 ||
+        (eb.diffEvents?.length ?? 0) > 0 ||
+        (eb.fileNavigationHistory?.length ?? 0) > 0 ||
+        (eb.editSessions?.length ?? 0) > 0 ||
+        (eb.documentVisibilityEvents?.length ?? 0) > 0 ||
+        (eb.testRuns?.length ?? 0) > 0;
+      if (hasAny) {
+        await this.page.evaluate(
+          async ({ sessionId: sid, payload }) => {
+            await fetch(`/api/v5/exam/${sid}/mb/editor-behavior`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+          },
+          { sessionId, payload: eb },
+        );
+      }
+    }
+    // Brief #20 sub-cycle · /mb/editor-behavior now dispatches the testRuns
+    // sub-array (and appendTestRuns sets finalTestPassRate to the LAST run's
+    // passRate). Falling back to /mb/test-result only when fixture's
+    // editorBehavior.testRuns is empty / absent · ensures finalTestPassRate
+    // still pins down for fixtures whose sole signal is the closing pass rate.
+    const fixtureTestRuns = eb?.testRuns ?? [];
+    if (fixtureTestRuns.length === 0 && typeof mb.finalTestPassRate === 'number') {
+      await this.page.evaluate(
+        async ({ sessionId: sid, passRate }) => {
+          await fetch(`/api/v5/exam/${sid}/mb/test-result`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ passRate, duration: 1000 }),
+          });
+        },
+        { sessionId, passRate: mb.finalTestPassRate },
+      );
+    }
+  }
+
   // ─── Step 10 · MC module (text-fallback mode) ───────────
 
   async runMC(mc: NonNullable<V5Submissions['moduleC']>): Promise<void> {
     await this.page
       .locator(byTestId(MC_TESTIDS.container))
       .waitFor({ state: 'visible', timeout: 15_000 });
+
+    // Brief #17 D30 · MicPreflight gates ModeTabs (ModuleCPage.tsx:393-401).
+    // CI has no microphone · skip routes to text-fallback (legitimate outlet,
+    // not a bypass). After dismissal, ModeTabs renders.
+    await this.page.locator(byTestId(MC_TESTIDS.preflightSkip)).click();
+    await this.page
+      .locator(byTestId(MC_TESTIDS.modeText))
+      .waitFor({ state: 'visible', timeout: 10_000 });
 
     // Prefer text-fallback mode · real voice validated Cold Start Tier 2.
     await this.page.locator(byTestId(MC_TESTIDS.modeText)).click();
@@ -477,10 +586,16 @@ export class GoldenPathDriver {
       await this.page.waitForTimeout(500);
     }
 
-    await this.page.locator(byTestId(MC_TESTIDS.finish)).click();
+    // Brief #17 D37 · waitFor `modulec-done` BEFORE clicking `modulec-finish`.
+    // The finish button lives INSIDE the done card (ModuleCPage.tsx:374-388),
+    // and clicking it triggers `finishAndAdvance` → `advance()` → page navigates
+    // away from MC (CompletePage for full_stack since MC is last). A post-click
+    // waitFor would race against the unmount and time out. Matches the runMB
+    // L468-471 pattern (`mb-complete waitFor → mb-advance click`).
     await this.page
       .locator(byTestId(MC_TESTIDS.done))
       .waitFor({ state: 'visible', timeout: 15_000 });
+    await this.page.locator(byTestId(MC_TESTIDS.finish)).click();
   }
 
   // ─── Step 11 · MD module (forward-compat · current fixtures skip) ──
@@ -547,14 +662,38 @@ export class GoldenPathDriver {
     // Dimension sliders · fixture confidence maps to unified confidence value.
     // Brief #13 D11 · page renders a single shared `selfassess-slider`; per-
     // dim split is V5.0.5 housekeeping.
+    // Brief #17 D34 · `.fill()` on a range input is a Playwright no-op (silent
+    // failure with no error). Use the native HTMLInputElement value setter
+    // (preserves React's internal value tracker) and dispatch input + change
+    // events so the controlled-component handler runs.
     await this.page
       .locator(byTestId(SE_TESTIDS.dimensionSlider))
-      .fill(String(Math.round(se.confidence * 100)))
+      .evaluate((el, value) => {
+        const input = el as HTMLInputElement;
+        const setter = Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          'value',
+        )?.set;
+        setter?.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }, String(Math.round(se.confidence * 100)))
       .catch(() => {
         // Slider may be absent in some UI variants — non-fatal.
       });
 
     await this.page.locator(byTestId(SE_TESTIDS.reasoning)).fill(se.reasoning);
+
+    // Brief #20 C5 · reviewedDecisions textarea (newline-joined). Fixture
+    // field is optional; skip when absent so the empty array stays out of
+    // the HTTP body (server endpoint discards empty arrays anyway).
+    if (Array.isArray(se.reviewedDecisions) && se.reviewedDecisions.length > 0) {
+      await this.page
+        .locator(byTestId(SE_TESTIDS.reviewedDecisions))
+        .fill(se.reviewedDecisions.join('\n'))
+        .catch(() => {});
+    }
+
     await this.page.locator(byTestId(SE_TESTIDS.submit)).click();
   }
 
@@ -573,28 +712,36 @@ export class GoldenPathDriver {
     sessionId: string,
     timeoutMs = 300_000,
   ): Promise<void> {
+    // Brief #20 sub-cycle Path A · isVisible → waitFor race fix.
+    // Original loop did `goto + isVisible` immediately · React useEffect's 2
+    // sequential admin API calls (getSession then getSessionReport) had not
+    // resolved yet · isVisible returned false against a still-loading page ·
+    // the next `goto` reset state · loop never accumulated progress · test
+    // timed out at 300s with reports actually rendered (per error-context
+    // snapshots from Brief #19 + Brief #20 prior runs · 8/8 4-fail same mode).
+    //
+    // Fix · per cycle, `goto` then `waitFor({state:'visible'})` on the
+    // success testid up to perCheckTimeoutMs. The four DOM branches in
+    // AdminSessionDetailPage are mutually exclusive (one of -report /
+    // -report-incomplete / -report-loading / -report-pending) so a visible
+    // success testid is sufficient · prior `!incomplete && !pending` was
+    // paranoid defense.
     const deadline = Date.now() + timeoutMs;
-    const pollIntervalMs = 3_000;
+    const perCheckTimeoutMs = 5_000;
 
     while (Date.now() < deadline) {
       await this.page.goto(`/admin/sessions/${sessionId}`);
 
-      const reportReady = await this.page
-        .locator(byTestId(ADMIN_TESTIDS.sessionDetailReport))
-        .isVisible()
-        .catch(() => false);
-      const incomplete = await this.page
-        .locator(byTestId(ADMIN_TESTIDS.sessionDetailReportIncomplete))
-        .isVisible()
-        .catch(() => false);
-      const pending = await this.page
-        .locator(byTestId(ADMIN_TESTIDS.sessionDetailReportPending))
-        .isVisible()
-        .catch(() => false);
-
-      if (reportReady && !incomplete && !pending) return;
-
-      await this.page.waitForTimeout(pollIntervalMs);
+      try {
+        await this.page
+          .locator(byTestId(ADMIN_TESTIDS.sessionDetailReport))
+          .waitFor({ state: 'visible', timeout: perCheckTimeoutMs });
+        return;
+      } catch {
+        // Still loading / scoring incomplete · the next goto restarts the
+        // page, useEffect re-fetches (Brief #20 C1 cache makes follow-ups
+        // O(1)), and we retry until the deadline.
+      }
     }
 
     throw new Error(
@@ -614,24 +761,44 @@ export class GoldenPathDriver {
     await this.navigateToExam(sessionId);
     await this.clickIntroStart();
 
-    const participating = new Set(fx.participatingModules);
-    if (participating.has('phase0') && fx.submissions.phase0) {
-      await this.runP0(fx.submissions.phase0);
-    }
-    if (participating.has('moduleA') && fx.submissions.moduleA) {
-      await this.runMA(fx.submissions.moduleA);
-    }
-    if (participating.has('mb') && fx.submissions.mb) {
-      await this.runMB(fx.submissions.mb);
-    }
-    if (participating.has('moduleC') && fx.submissions.moduleC) {
-      await this.runMC(fx.submissions.moduleC);
-    }
-    if (participating.has('moduleD') && fx.submissions.moduleD) {
-      await this.runMD(fx.submissions.moduleD);
-    }
-    if (participating.has('selfAssess') && fx.submissions.selfAssess) {
-      await this.runSE(fx.submissions.selfAssess);
+    // Brief #17 D32 · iterate fx.participatingModules in array order rather
+    // than hardcoded sequence · matches frontend's `SUITES[suiteId].modules`
+    // (session.store.ts:134) which is the canonical navigation source. Prior
+    // hardcoded order assumed `mb → moduleC → SE` but all 4 MC-bearing suites
+    // (full_stack · architect · ai_engineer · deep_dive) intentionally have
+    // `... → SE → MC`, so a hardcoded driver diverged from real UI flow.
+    const moduleHandlers: Record<string, () => Promise<void>> = {
+      phase0: async () => {
+        if (fx.submissions.phase0) await this.runP0(fx.submissions.phase0);
+      },
+      moduleA: async () => {
+        if (fx.submissions.moduleA) await this.runMA(fx.submissions.moduleA);
+      },
+      mb: async () => {
+        if (fx.submissions.mb) {
+          await this.runMB(fx.submissions.mb);
+          await this.pushMbBypassData(sessionId, fx.submissions.mb);
+        }
+      },
+      moduleC: async () => {
+        if (fx.submissions.moduleC) await this.runMC(fx.submissions.moduleC);
+      },
+      moduleD: async () => {
+        if (fx.submissions.moduleD) await this.runMD(fx.submissions.moduleD);
+      },
+      selfAssess: async () => {
+        if (fx.submissions.selfAssess) await this.runSE(fx.submissions.selfAssess);
+      },
+    };
+
+    for (const moduleId of fx.participatingModules) {
+      const handler = moduleHandlers[moduleId];
+      if (!handler) {
+        throw new Error(
+          `GoldenPathDriver · unknown module in participatingModules: ${moduleId}`,
+        );
+      }
+      await handler();
     }
 
     await this.completeFlow();

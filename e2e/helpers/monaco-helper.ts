@@ -2,7 +2,6 @@ import { Page } from '@playwright/test';
 
 const MONACO_SELECTOR = '.monaco-editor .view-lines';
 const MONACO_INPUT = '.monaco-editor textarea[aria-label="Editor content"], .monaco-editor textarea.inputarea, .monaco-editor textarea';
-const FILE_TREE_ITEM = '[data-testid="mb-filetree"] [data-testid^="mb-filetree-item-"]';
 
 /**
  * Playwright helper for realistic Monaco editor interaction.
@@ -15,10 +14,12 @@ export class MonacoHelper {
    *  Monaco JS API — tests no longer need realistic keystroke timing here since
    *  typing signals aren't scored in MB2. */
   static async typeCode(page: Page, code: string, _delayMs = 80): Promise<void> {
-    await page.locator('.monaco-editor').first().waitFor({ state: 'visible', timeout: 30000 });
+    // Brief #16 D27(a) · cold-load CDN cost can land between 30-45s · 60s
+    // boundary keeps the variance check alive while accommodating slow CIs.
+    await page.locator('.monaco-editor').first().waitFor({ state: 'visible', timeout: 60000 });
     await page.waitForFunction(
       () => !!(window as any).monaco?.editor?.getEditors?.()?.length,
-      { timeout: 10000 },
+      { timeout: 30000 },
     );
     await page.evaluate((text) => {
       const editors = (window as any).monaco.editor.getEditors();
@@ -42,10 +43,12 @@ export class MonacoHelper {
   /** Clear the editor content via the Monaco JS API (Cmd+A/Ctrl+A no longer
    *  works reliably on EditContext-based Monaco). */
   static async selectAll(page: Page): Promise<void> {
-    await page.locator('.monaco-editor').first().waitFor({ state: 'visible', timeout: 30000 });
+    // Brief #16 D27(a) · cold-load CDN cost can land between 30-45s · 60s
+    // boundary keeps the variance check alive while accommodating slow CIs.
+    await page.locator('.monaco-editor').first().waitFor({ state: 'visible', timeout: 60000 });
     await page.waitForFunction(
       () => !!(window as any).monaco?.editor?.getEditors?.()?.length,
-      { timeout: 10000 },
+      { timeout: 30000 },
     );
     await page.evaluate(() => {
       const editors = (window as any).monaco.editor.getEditors();
@@ -80,10 +83,16 @@ export class MonacoHelper {
     ).waitFor({ state: 'visible', timeout: timeoutMs });
   }
 
-  /** Click a file in the file tree by its display name. */
-  static async clickFile(page: Page, filename: string): Promise<void> {
-    const item = page.locator(FILE_TREE_ITEM).filter({ hasText: filename }).first();
-    await item.click();
+  /**
+   * Click a file in the file tree by its full path.
+   *
+   * Brief #14 D22 · page testid encodes full path (`mb-filetree-item-${path}`)
+   * but visible button text is basename only (FileTree.tsx:39). Earlier
+   * `.filter({ hasText })` with the full path matched zero buttons. Switch
+   * to testid-direct lookup — the testid contract is unambiguous.
+   */
+  static async clickFile(page: Page, filePath: string): Promise<void> {
+    await page.locator(`[data-testid="mb-filetree-item-${filePath}"]`).click();
     // Brief wait for Monaco to load the file model
     await page.waitForTimeout(300);
   }

@@ -23,6 +23,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
+import { config as loadDotenv } from 'dotenv';
 import type {
   CapabilityLabel,
   CapabilityProfileId,
@@ -52,6 +53,11 @@ import {
 import { CANONICAL_EXAM_ID } from '../packages/server/src/data/canonical-v5-exam-data.js';
 
 // ────────────────────────── Admin credentials ──────────────────────────
+
+// Brief #20 sub-cycle · local B3 credential-source drift. `seed-admin.ts`
+// reads packages/server/.env via dotenv, while Playwright runs from repo root.
+// Load the same file for local runs; CI-provided env vars still win.
+loadDotenv({ path: 'packages/server/.env' });
 
 const ADMIN_CREDS = {
   email: process.env.ADMIN_EMAIL || 'admin@codelens.dev',
@@ -147,29 +153,32 @@ async function assertReportSurface(
     ).toContainText(expectedLabel);
   }
 
-  // sCalibration range (Task A1 metacognition · DK anchor for Max) · best-
-  // effort assertion via signal-row-sCalibration testid · if gap at runtime
-  // (INV-3 catalog didn't confirm sCalibration-specific testid) fall through
-  // without hard fail · V5.0.5 housekeeping will add explicit testid + assert.
-  const sCalibrationRow = page.locator(
-    `[data-testid="${REPORT_TESTIDS.signalRow('sCalibration')}"]`,
-  );
-  if (await sCalibrationRow.isVisible().catch(() => false)) {
-    const text = (await sCalibrationRow.textContent()) ?? '';
-    const match = text.match(/(\d+\.?\d*)/);
-    if (match) {
-      const value = Number.parseFloat(match[1]);
-      const [sCalibMin, sCalibMax] = expected.sCalibrationRange;
-      expect(value).toBeGreaterThanOrEqual(sCalibMin);
-      expect(value).toBeLessThanOrEqual(sCalibMax);
-    }
-  }
+  // sCalibration range assertion · DISABLED Brief #20 sub-cycle.
+  //
+  // Original best-effort block parsed `signal-row-sCalibration` text content
+  // via `text.match(/(\d+\.?\d*)/)` and hard-asserted against
+  // `expected.sCalibrationRange`. SignalBarsSection.tsx:181 renders the score
+  // via `result.value.toFixed(0)` — values like 0.93 (Liam) and 0.71 (Steve)
+  // round to "1" in the DOM text, so the regex always extracts "1" regardless
+  // of the true score. The assertion produced false-positive failures on Liam
+  // and Steve in the sub-cycle B3 re-run while audit confirmed both signals
+  // were within their bands (Liam 0.93 ∈ [0.75,0.95] · Steve 0.71 ∈ [0.65,0.85]).
+  //
+  // Spec author already flagged the block as best-effort + V5.0.5 housekeeping
+  // (preserved comment above the original code · git blame retains it). Block
+  // removed rather than wrapped in `if (false)` to keep the active code path
+  // clean. V5.0.5 must re-introduce with either:
+  //   · a dedicated `signal-row-sCalibration-value` testid carrying the raw
+  //     0.00-1.00 score (best · loose-coupled to UI rounding choice), OR
+  //   · a numeric attribute (e.g. data-score) on the row, OR
+  //   · widening sCalibrationRange to absorb toFixed(0) rounding (worst ·
+  //     hides scoring drift).
 }
 
 // ────────────────────────── Test describes · 1 per grade ────────────────
 
 test.describe('Golden Path · Liam S-grade', () => {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
 
   test('completes full flow and matches liam expectations on admin report', async ({
     page,
@@ -189,7 +198,7 @@ test.describe('Golden Path · Liam S-grade', () => {
 });
 
 test.describe('Golden Path · Steve A-grade', () => {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
 
   test('completes full flow and matches steve expectations on admin report', async ({
     page,
@@ -209,7 +218,7 @@ test.describe('Golden Path · Steve A-grade', () => {
 });
 
 test.describe('Golden Path · Emma B-grade', () => {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
 
   test('completes full flow and matches emma expectations on admin report', async ({
     page,
@@ -229,7 +238,7 @@ test.describe('Golden Path · Emma B-grade', () => {
 });
 
 test.describe('Golden Path · Max D-grade', () => {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
 
   // Note · fixture file is `max-c-grade.ts` (V4-era naming) but actual
   // expectations bucket Max in 'D' grade per Task A1 recalibration

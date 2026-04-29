@@ -333,6 +333,55 @@ describe('ScoringHydratorService — graceful degradation', () => {
   });
 });
 
+describe('ScoringHydratorService — Brief #20 C1 polling race cache', () => {
+  it('returns cached scoringResult and skips scoreSession when Session.scoringResult is present', async () => {
+    const findUnique = vi.fn().mockResolvedValue({
+      id: 's1',
+      metadata: fullMetadata(),
+      scoringResult: STUB_RESULT,
+    });
+    const update = vi.fn();
+    const service = new ScoringHydratorService(
+      buildPrisma({ findUnique, update }),
+      buildExamDataStub(),
+    );
+
+    const out = await service.hydrateAndScore('s1');
+
+    expect(scoreSessionMock).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+    expect(out.cached).toBe(true);
+    expect(out.scoringResult).toEqual(STUB_RESULT);
+    expect(out.suiteId).toBe('full_stack');
+    expect(out.participatingModules).toEqual([
+      'phase0',
+      'moduleA',
+      'mb',
+      'selfAssess',
+      'moduleC',
+    ]);
+  });
+
+  it('re-hydrates and re-persists when forceRefresh=true even if cache present', async () => {
+    const findUnique = vi.fn().mockResolvedValue({
+      id: 's1',
+      metadata: fullMetadata(),
+      scoringResult: STUB_RESULT,
+    });
+    const update = vi.fn().mockResolvedValue({});
+    const service = new ScoringHydratorService(
+      buildPrisma({ findUnique, update }),
+      buildExamDataStub(),
+    );
+
+    const out = await service.hydrateAndScore('s1', { forceRefresh: true });
+
+    expect(scoreSessionMock).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(out.cached).toBeUndefined();
+  });
+});
+
 describe('ScoringHydratorService — hard errors', () => {
   it('throws HydratorSessionNotFoundError when the session row is missing', async () => {
     const findUnique = vi.fn().mockResolvedValue(null);
