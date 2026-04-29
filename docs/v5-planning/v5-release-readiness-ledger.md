@@ -43,6 +43,10 @@ Fix:
 - The first Cold Start attempt exposed Monaco cold-load fragility once, then
   passed through MB on the rerun. This did not block the production gate after
   the MD fix, but it remains a V5.0.5 reliability candidate if it recurs.
+- Module submission persistence and scoring hydration are green, but canonical
+  module content delivery is still partial. `GET /api/v5/exam/:examInstanceId/module/:moduleType`
+  is implemented only for MB; P0/MA/MD/MC/SE still require Layer 2 content
+  parity work. See `docs/v5-planning/v5-module-pipeline-audit.md`.
 - Existing untracked `.env.bak-*` files are local backup artifacts and must not
   be committed. `packages/server/src/scripts/audit-liam-signal-gap.ts` remains
   a local forensic script unless deliberately promoted or deleted.

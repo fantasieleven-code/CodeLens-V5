@@ -2548,3 +2548,58 @@ production candidate app is still on σ fallback. Each module submission path
 must be verified from real UI action → persisted metadata namespace → Admin
 report signal map, or Pattern H can hide a missing module behind green lower
 layers.
+
+### #172 · Module pipeline audit separated persistence green from content parity gap
+
+**Type**:Layer 2 content parity / Pattern H scope truth
+**Date**:2026-04-29
+**Status**:open as next target candidate
+
+After Cold Start went green, a second-layer module audit split V5 readiness
+into three independent layers:
+
+1. candidate submission persistence,
+2. canonical module content delivery,
+3. hydration/scoring/report rendering.
+
+Layer 1 and Layer 3 are green for the V5.0 gate: a fresh `deep_dive` session
+can traverse P0 → MA → MB → MD → SelfAssess → MC and produce 48/48 non-null
+Admin report signals with 0 `N/A` / `待评估`.
+
+The audit found the remaining structural gap is Layer 2. `GET
+/api/v5/exam/:examInstanceId/module/:moduleType` exists, but only `mb` is
+implemented. Non-MB module content branches still return 501 by design:
+
+- P0 page defaults to `P0_MOCK_FIXTURE`
+- MA page defaults to `MA_MOCK_FIXTURE`
+- MD page defaults to `MD_MOCK_FIXTURE`
+- MC text fallback uses local prompt constants
+- SE has no heavy module content, but still has no canonical content branch
+
+At the same time, `ScoringHydratorService` already reads all six DB module
+specs through `ExamDataService` for scoring. That creates the drift class:
+
+```text
+candidate sees local/static page content
+hydrator scores against DB canonical examData
+```
+
+Cold Start passing does not disprove this drift class because the current
+fixture path is aligned enough to produce non-null signals. It proves
+submission and report production health, not full content-source parity.
+
+Recommended next target: `Layer 2 canonical module content parity`.
+
+Scope candidate:
+
+- add candidate-safe projections for P0/MA/MD/MC where needed,
+- extend the module content endpoint beyond MB,
+- swap real candidate routes to `useModuleContent` while preserving fixture
+  props for tests/storybook,
+- add integration tests asserting candidate-safe content for every module,
+- add a Playwright guard that fails if a real candidate route silently falls
+  back to local mock content while `examInstanceId` is present.
+
+Non-goal: do not combine this with root socket cleanup. HTTP submission
+fallbacks remain the V5.0 reliability path; content parity is a separate
+product-quality problem.
