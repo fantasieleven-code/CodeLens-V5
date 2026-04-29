@@ -17,10 +17,10 @@ canonical DB module content.
 
 | Layer                      | Status                           | Evidence                                                                                                       | Remaining issue                                                                                                   |
 | -------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Submission persistence     | Green for V5.0 gate              | Cold Start Playwright: P0/MA/MB/MD/SE/MC complete; 48/48 signal results; 0 null                                | Current reliability path is HTTP fallback for final submissions because root `useSocket()` remains V5.0.1 cleanup |
+| Submission persistence     | Green for V5.0 gate              | Cold Start Playwright: P0/MA/MB/MD/SE/MC complete; 48/48 signal results; 0 null; live `/interview` socket smoke | HTTP fallbacks remain belt-and-suspenders retry surfaces, not the only live transport                             |
 | Scoring hydration          | Green                            | `ScoringHydratorService` reads top-level namespaces only and Admin report renders 0 `N/A` / `待评估`           | No V4 `metadata.submissions.*` fallback by design                                                                 |
 | Canonical content delivery | Green after Layer 2 parity patch | `GET /api/v5/exam/:examInstanceId/module/:moduleType` now returns candidate-safe content for P0/MA/MB/MC/MD/SE | Existing deployed DBs must re-run `db:seed:canonical` so canonical ExamModule rows pick up MA/MD content updates  |
-| MB telemetry fidelity      | Gate-green but nuanced           | Real socket `behavior:batch` ingest exists; Cold Start uses e2e HTTP bypass for fixture-shaped editorBehavior  | Production live telemetry smoke should remain a V5.0.1 quality target after root socket wiring                    |
+| MB telemetry fidelity      | Gate-green but nuanced           | Real socket `behavior:batch` ingest exists; `/interview` namespace now wired; Cold Start uses e2e HTTP bypass  | A browser-level live telemetry smoke remains a V5.0.1 quality target                                             |
 
 ## Module Matrix
 
@@ -47,12 +47,12 @@ The V5.0 submission persistence layer is green against the release gate:
 
 Important scope truth: most module pages still use a belt-and-suspenders
 pattern. They emit the canonical socket event and also fire an HTTP fallback.
-The HTTP fallback is the guaranteed V5.0 write path because the root socket
-connection is not yet wired as the only reliable transport.
+After the socket namespace hardening patch, direct page emits auto-connect to
+the `/interview` namespace and the server registers the V5 handlers there.
 
 This is not a scoring compromise; it is a transport reliability boundary. The
-right V5.0.1 cleanup is to wire root socket session lifecycle and then decide
-which HTTP fallbacks remain as explicit retry/fallback surfaces.
+remaining cleanup is UX/policy: decide which HTTP fallbacks stay as explicit
+retry surfaces and how ack failures are shown to candidates.
 
 ## Layer 2 · Canonical Content Delivery
 
@@ -137,9 +137,9 @@ MB has two truths that must be kept separate:
    `POST /mb/test-result` when needed.
 
 The bypass is appropriate for deterministic e2e scoring calibration, but it is
-not evidence that real browser telemetry quality is perfect. After root socket
-wiring, a live telemetry smoke should verify that real candidate interactions
-populate at least the MB behavior slices used by the 23 MB signals.
+not evidence that real browser telemetry quality is perfect. A browser-level
+live telemetry smoke should verify that real candidate interactions populate at
+least the MB behavior slices used by the 23 MB signals.
 
 ## Root Cause Focus
 
@@ -173,5 +173,5 @@ Scope:
 
 Non-goal:
 
-- HTTP submission fallbacks were not removed. Socket-root cleanup remains a
-  separate transport reliability task.
+- HTTP submission fallbacks were not removed. They remain explicit retry
+  surfaces while candidate-facing ack/error UX is finalized.

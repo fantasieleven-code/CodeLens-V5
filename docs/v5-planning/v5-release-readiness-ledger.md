@@ -23,9 +23,7 @@ Cold Start initially failed with exactly four null signals:
 
 DB inspection showed `metadata.moduleD` was absent while `suiteId=deep_dive`
 and `moduleOrder` included `moduleD`. Root cause was not scoring: Module D had
-only socket fire-and-forget persistence, while the current V5.0 app still
-depends on HTTP fallback for guaranteed module submission writes because the
-root `useSocket()` connection remains V5.0.1 cleanup.
+only socket fire-and-forget persistence before the HTTP fallback patch.
 
 Fix:
 
@@ -37,6 +35,15 @@ Fix:
   AI prompt rows.
 - Add `e2e/cold-start-validation.spec.ts` and include it in the golden-path
   Playwright config.
+
+Follow-up hardening closed the underlying socket transport mismatch:
+
+- Client `getSocket()` now auto-connects because V5 pages emit directly through
+  the shared socket helper.
+- Server registers handlers on both root and `/interview`; the client uses the
+  `/interview` Socket.IO namespace.
+- A live Socket.IO smoke connects to `/interview` and proves `moduleA:submit`
+  reaches server persistence with ack `true`.
 
 ## Remaining Truths
 
