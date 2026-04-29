@@ -26,7 +26,8 @@ FROM node:20-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY package.json package-lock.json ./
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+
 COPY --from=build /app/node_modules node_modules
 
 COPY --from=build /app/packages/shared/package.json packages/shared/package.json
@@ -37,4 +38,4 @@ COPY --from=build /app/packages/server/prisma packages/server/prisma
 
 EXPOSE 4000
 
-CMD ["npm", "run", "start", "--workspace=@codelens-v5/server"]
+CMD ["node", "packages/server/dist/index.js"]
