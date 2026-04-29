@@ -9,13 +9,13 @@ import {
 } from '../../lib/tokens.js';
 
 /**
- * F-A15 · 透明度声明(Transparency Statement)
+ * ReportTransparencyFooter
  *
  * 报告末尾的固定 trailer,不依赖 suite.reportSections,每份报告都展示。
  * 面向候选人 + HR 两类读者,基调是 professional + sympathetic,避免法律化合同语言。
  * 措辞:等级/信号/局限/数据处理四段,用"设计目标 / 持续校准"而非"validated / proven"。
  */
-export function TransparencyStatement(): React.ReactElement {
+export function ReportTransparencyFooter(): React.ReactElement {
   return (
     <Card padding="lg" data-testid="transparency-statement">
       <h3 style={styles.title}>

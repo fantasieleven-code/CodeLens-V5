@@ -12,7 +12,7 @@ import { MDHeroSection } from './MDHeroSection.js';
 import { MCTranscriptSection } from './MCTranscriptSection.js';
 import { SignalBarsSection } from './SignalBarsSection.js';
 import { ComplianceSection } from './ComplianceSection.js';
-import { TransparencyStatement } from './TransparencyStatement.js';
+import { ReportTransparencyFooter } from './ReportTransparencyFooter.js';
 
 /**
  * 一次性注册所有 V5 section。幂等:每次调用先清空 registry 再全量注册,
@@ -91,5 +91,5 @@ export {
   MCTranscriptSection,
   SignalBarsSection,
   ComplianceSection,
-  TransparencyStatement,
+  ReportTransparencyFooter,
 };

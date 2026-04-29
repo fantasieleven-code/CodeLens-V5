@@ -2,7 +2,7 @@
  * Consent page bilingual copy (Option α — V5.0 inline pattern).
  *
  * V5.0 ships zh + en literals side-by-side per section, matching the
- * convention already in `report/sections/TransparencyStatement.tsx`. V5.1
+ * convention already in `report/sections/ReportTransparencyFooter.tsx`. V5.1
  * will extract the zh side as i18n source-of-truth once a translation
  * layer is added.
  *
