@@ -6,15 +6,15 @@ Last updated: 2026-04-29
 
 | Gate                        | Status                              | Evidence                                                                                                  | Scope truth                                                                                                                           |
 | --------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Main CI                     | ✅ green                            | main run `25088716892` at `edaae5d`                                                                       | lint/typecheck, unit tests, build, e2e smoke/golden config, Docker build + Trivy                                                      |
+| Main CI                     | ✅ green                            | main run `25110323628` at `f4ab1aa`                                                                       | lint/typecheck, unit tests, build, e2e smoke/golden config, Docker build + Trivy                                                      |
 | Docker/Trivy                | ✅ green                            | PR #101 → #102 → #103                                                                                     | Real Dockerfile + runtime npm removal; not a scan downgrade                                                                           |
 | Golden Path B3              | ✅ green before Cold Start addition | `npm run test:golden-path` 5/5 on 2026-04-29                                                              | 4 calibrated fixtures + smoke; proves grade/composite/report surface                                                                  |
 | Hydrator Cold Start unit    | ✅ green                            | `npm --prefix packages/server test -- cold-start-validation.test.ts` 4/4                                  | Synthetic metadata + mocked LLM; hydrator seam, not full production                                                                   |
 | Final Cold Start Playwright | ✅ green                            | `npx playwright test --config=e2e/playwright.golden-path.config.ts e2e/cold-start-validation.spec.ts` 1/1 | Real new `deep_dive` session through P0/MA/MB/MD/SE/MC, Admin API asserts 48/48 signal results, 0 null, report DOM 0 `N/A` / `待评估` |
 
-## Root Cause Closed In This Pass
+## Root Causes Closed In This Pass
 
-Cold Start initially failed with exactly four null signals:
+Cold Start initially failed with exactly four MD null signals:
 
 - `sConstraintIdentification`
 - `sDesignDecomposition`
@@ -49,16 +49,34 @@ Follow-up hardening closed the underlying socket transport mismatch:
   persists through `mc.service.saveRoundAnswer`, while HTTP remains the retry
   surface.
 
+A later docs-only PR run exposed a second production race: a fresh `deep_dive`
+session completed with 17 null signals across Module A, MB final-state/rules,
+and SE. Root cause was not scoring; candidate pages advanced after
+fire-and-forget submit emits/fetches, so the first admin report hydrate could
+score and cache before module metadata had landed.
+
+Fix:
+
+- Add `packages/client/src/lib/persistCandidateSubmission.ts`, which races the
+  socket ack and HTTP fallback and resolves success when either channel confirms
+  persistence.
+- Gate Phase0, Module A, MB final submit, Module D, and SelfAssess `advance()`
+  on confirmed persistence.
+- Keep the candidate on the current module and show a retryable error when both
+  persistence channels fail.
+- Update page tests so ack success advances after persistence and ack failure
+  blocks advance. See observation #187.
+
 ## Remaining Truths
 
 - The first Cold Start attempt exposed Monaco cold-load fragility once, then
   passed through MB on the rerun. This did not block the production gate after
   the MD fix, but it remains a V5.0.5 reliability candidate if it recurs.
 - Module submission persistence, scoring hydration, and canonical module
-  content delivery are green after the Layer 2 parity patch. Existing deployed
-  DBs must re-run `npm --prefix packages/server run db:seed:canonical` to
-  upsert the updated MA/MD canonical content. See
-  `docs/v5-planning/v5-module-pipeline-audit.md`.
+  content delivery are green after the Layer 2 parity patch and the candidate
+  persistence-gated advance patch. Existing deployed DBs must re-run
+  `npm --prefix packages/server run db:seed:canonical` to upsert the updated
+  MA/MD canonical content. See `docs/v5-planning/v5-module-pipeline-audit.md`.
 - Existing untracked `.env.bak-*` files are local backup artifacts and must not
   be committed. The one-off local forensic script
   `packages/server/src/scripts/audit-liam-signal-gap.ts` was deleted after the
