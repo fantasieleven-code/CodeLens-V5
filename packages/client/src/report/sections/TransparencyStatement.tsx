@@ -44,14 +44,14 @@ export function TransparencyStatement(): React.ReactElement {
           <span style={styles.sectionTitleEn}> · What we measure (and what we don't)</span>
         </h4>
         <p style={styles.body}>
-          我们通过 43 个信号观察你的技术判断、AI 协作、系统设计、代码质量、沟通表达与元认知。
+          我们通过 48 个信号观察你的技术判断、AI 协作、系统设计、代码质量、沟通表达与元认知。
           这些信号关注的是"你在本次场景里如何做决策、如何与 AI 协作、如何呈现思路",
           而不是"你对某个具体技术栈的熟练度"。
           我们没有测量的东西包括:长期协作、跨时区沟通、领域知识深度、情绪韧性等。
           请把这份报告理解为一次面试的切片,而不是完整画像。
         </p>
         <p style={styles.bodyEn}>
-          We observe 43 signals spanning technical judgment, AI collaboration, system design, code quality, communication, and metacognition. These signals focus on how you make decisions, collaborate with AI, and articulate your thinking in this scenario — not your familiarity with a particular stack. Things we do not measure: long-running teamwork, async collaboration, domain depth, emotional resilience. Treat this report as a slice of one interview, not a complete portrait.
+          We observe 48 signals spanning technical judgment, AI collaboration, system design, code quality, communication, and metacognition. These signals focus on how you make decisions, collaborate with AI, and articulate your thinking in this scenario — not your familiarity with a particular stack. Things we do not measure: long-running teamwork, async collaboration, domain depth, emotional resilience. Treat this report as a slice of one interview, not a complete portrait.
         </p>
       </section>
 

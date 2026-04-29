@@ -2977,3 +2977,33 @@ Three-view ratify:
   `sessionId` the handler would either silently fail or guess state.
 - CCL: small release-safe patch. HTTP retry stays intact, and focused unit plus
   live Socket.IO smoke cover the contract.
+
+### #177 · Report trailer signal-count drift closed
+
+**Type**:content truth / user-facing transparency / cross-surface drift
+**Date**:2026-04-29
+**Status**:closed by signal-count content-only patch
+
+Observation #144 found a user-facing drift: the public Transparency page had
+already moved to the post-A14a truth (`48 signals = 45 pure-rule + 3 LLM`),
+but the report trailer `TransparencyStatement` still said "43 个信号" / "43
+signals". `CLAUDE.md` had since been fixed by observation #154, leaving the
+report trailer as the only current product surface with the old count.
+
+Fix pattern:
+
+- Update `TransparencyStatement` zh/en copy to 48.
+- Update its test assertion from 43 to 48 so the public report trailer cannot
+  silently regress.
+- Reconcile the public transparency copy comment and the `signals/index.ts`
+  header to the canonical 48 = 45 pure-rule + 3 MD LLM-whitelist framing.
+- Mark the A15 signal-count literal backlog item as done.
+
+Three-view ratify:
+
+- Karpathy: product truth should be boring and consistent; report trailer and
+  public transparency page now tell the same story.
+- Gemini: content-only scope avoids touching scoring, but grep confirms no
+  current user-facing source still advertises 43.
+- CCL: tiny patch with focused copy tests and registry-count assertion; no
+  release risk.

@@ -36,11 +36,11 @@ describe('<TransparencyStatement />', () => {
     expect(text).not.toMatch(/validated|proven/i);
   });
 
-  it('discloses the 43-signal coverage + explicit "what we do not measure" list', () => {
+  it('discloses the 48-signal coverage + explicit "what we do not measure" list', () => {
     render(<TransparencyStatement />);
     const signalsCard = screen.getByTestId('transparency-signals');
-    expect(signalsCard.textContent).toContain('43 个信号');
+    expect(signalsCard.textContent).toContain('48 个信号');
     expect(signalsCard.textContent).toContain('我们没有测量的东西');
-    expect(signalsCard.textContent).toContain('43 signals');
+    expect(signalsCard.textContent).toContain('48 signals');
   });
 });
