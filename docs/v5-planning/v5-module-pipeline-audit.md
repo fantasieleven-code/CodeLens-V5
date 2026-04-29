@@ -1,7 +1,7 @@
 # V5 Module Pipeline Audit
 
 Date: 2026-04-29
-Last implementation update: PR candidate `feat/layer2-module-content-parity`
+Last implementation update: session route + session-end socket reconciliation
 
 Purpose: separate the release truth into three independent layers:
 
@@ -31,7 +31,7 @@ canonical DB module content.
 | Module B   | DB-backed candidate-safe MB content via `useModuleContent(examInstanceId, 'mb')`                                                  | Stage 4 audit submit builds `V5MBSubmission`                                                                            | Socket `v5:mb:submit` plus HTTP `POST /api/v5/exam/:sessionId/mb/submit`; telemetry via `behavior:batch` / MB socket handlers                                 | `metadata.mb`            | `readMbNamespace(meta)`             | 23 MB   |
 | Module D   | DB-backed candidate-safe MD content via `useModuleContent(examInstanceId, 'md')`; local fixture only for tests/preview/no session | Submit button builds `V5ModuleDSubmission`                                                                              | Socket `moduleD:submit` plus HTTP `POST /api/v5/exam/:sessionId/moduled/submit`                                                                               | `metadata.moduleD`       | `readNamespace(meta, 'moduleD')`    | 4 MD    |
 | SelfAssess | Local page state + `DecisionSummary` from local store                                                                             | Submit button builds `V5SelfAssessSubmission`                                                                           | Socket `self-assess:submit` plus HTTP `POST /api/v5/exam/:sessionId/selfassess/submit`                                                                        | `metadata.selfAssess`    | `readNamespace(meta, 'selfAssess')` | 2 SE    |
-| Module C   | DB-backed probe strategies via `useModuleContent(examInstanceId, 'mc')`; constants only fallback while content loads/no session   | Each text round posts an answer; final button marks session complete                                                    | Socket `v5:modulec:answer` plus HTTP `POST /api/v5/exam/:sessionId/modulec/round/:roundIdx`; final `POST /complete` ends session                               | `metadata.moduleC` array | `readModuleCNamespace(meta)`        | 4 MC    |
+| Module C   | DB-backed probe strategies via `useModuleContent(examInstanceId, 'mc')`; constants only fallback while content loads/no session   | Each text round posts an answer; final button marks session complete                                                    | Socket `v5:modulec:answer` plus HTTP `POST /api/v5/exam/:sessionId/modulec/round/:roundIdx`; final socket `session:end` plus HTTP `/complete` fallback ends session | `metadata.moduleC` array | `readModuleCNamespace(meta)`        | 4 MC    |
 
 Signal distribution: P0 5, MA 10, MB 23, MD 4, SE 2, MC 4 = 48 total.
 
@@ -50,8 +50,9 @@ pattern. They emit the canonical socket event and also fire an HTTP fallback.
 After the socket namespace hardening patch, direct page emits auto-connect to
 the `/interview` namespace and the server registers the V5 handlers there.
 Module C now has the same real socket + HTTP retry shape as the other
-submission pages; `v5:modulec:answer` carries `sessionId` explicitly because
-there is still no socket-level session middleware.
+submission pages; `v5:modulec:answer` and final `session:end` both carry
+`sessionId` explicitly because there is still no socket-level session
+middleware.
 
 Candidate session bootstrap is a separate read path:
 `GET /api/v5/session/:sessionId` returns only candidate-facing metadata

@@ -19,6 +19,7 @@ import { registerModuleAHandlers } from './moduleA-handlers.js';
 import { registerModuleCHandlers } from './moduleC-handlers.js';
 import { registerModuleDHandlers } from './moduleD-handlers.js';
 import { registerPhase0Handlers } from './phase0-handlers.js';
+import { registerSessionHandlers } from './session-handlers.js';
 import { registerSelfAssessHandlers } from './self-assess-handlers.js';
 
 export function registerSocketHandlers(io: SocketIOServer): void {
@@ -41,6 +42,7 @@ function registerNamespaceHandlers(
     registerModuleAHandlers(io, socket);
     registerModuleCHandlers(io, socket);
     registerModuleDHandlers(io, socket);
+    registerSessionHandlers(io, socket);
 
     socket.on('disconnect', (reason) => {
       logger.info('[socket] disconnected', { socketId: socket.id, namespace: namespaceName, reason });

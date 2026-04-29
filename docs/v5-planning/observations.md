@@ -3107,3 +3107,37 @@ Three-view ratify:
   name reappeared, but its contract is not the deleted V4 lifecycle surface.
 - CCL: doc/comment-only patch reduces future planning error with no runtime
   behavior change.
+
+### #181 · Module C final completion still used HTTP-only despite shared `session:end`
+
+**Type**:module pipeline gap / socket contract drift / release reliability
+**Date**:2026-04-29
+**Status**:closed by session-end socket completion patch
+
+The module-pipeline audit found one remaining asymmetry after Module C answer
+persistence was socket-wired: `ClientToServerEvents` declared `session:end`,
+but the server registered no handler for it, and the type carried no
+`sessionId`. That made the event unusable in the current V5 socket model,
+where module pages emit through `getSocket()` without socket-level session
+middleware and therefore must carry `sessionId` in the payload. ModuleCPage
+could only mark the session complete through `POST /api/v5/exam/:sessionId/complete`.
+
+Fix pattern:
+
+- Change shared `session:end` to `{ sessionId } + ack`.
+- Add `registerSessionHandlers` and wire it on both root and `/interview`
+  namespaces, using `sessionService.endSession`.
+- Make ModuleC completion socket-primary with HTTP `/complete` fallback on
+  ack failure or no-ack timeout.
+- Keep the HTTP endpoint idempotent as the retry surface; do not remove it.
+
+Three-view ratify:
+
+- Karpathy: final completion is the lifecycle sibling of module submits; it
+  should share the same explicit-envelope socket path instead of remaining an
+  HTTP-only exception.
+- Gemini: rejects deleting the HTTP fallback or pretending the old
+  `session:end(ack)` type worked. Without `sessionId`, the event had no target
+  session in the current V5 socket architecture.
+- CCL: small patch with high release value: one handler, one client call, and
+  focused tests. No scoring or persistence semantics are changed.
