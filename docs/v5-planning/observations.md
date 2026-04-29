@@ -2859,3 +2859,43 @@ Final evidence:
 Scope truth: full local `npm test` still fails in unrelated admin page tests
 because jsdom fetch cannot parse relative `/api/admin/...` URLs in those tests.
 That failure predates this patch and is not the release gate for Layer 2 parity.
+
+### #174 · MA content parity hardening must fail closed
+
+**Type**:hardening / groundTruth safety / canonical data contract
+**Date**:2026-04-29
+**Status**:closed by MA hardening patch
+
+Post-#173 review found three non-blocking compromises that were acceptable for
+the parity patch but not for elegant release quality:
+
+1. `MAModuleSpecific.migrationScenario` stayed optional, so real MA R4 could
+   silently fall back to the client mock fixture if DB canonical content was
+   stale.
+2. `ModuleAPage` kept a mock-only `defects[]` cast to resolve canonical
+   `defectId` in the page regression test.
+3. `persistModuleASubmission` silently preserved incoming placeholder
+   `defectId` values when `metadata.examInstanceId`, MA examData, or the
+   reviewed line mapping was missing.
+
+Fix pattern:
+
+- Promote `migrationScenario` to required in shared MA module/candidate types;
+  build now catches stale MA fixtures instead of letting R4 use mock content.
+- Make the page always submit `defectId: line-${line}` plus `line`; only server
+  persistence can normalize to canonical `examData.MA.defects[].defectId`.
+- Add `ModuleACanonicalDataError` fail-closed behavior for missing
+  `examInstanceId`, missing MA canonical data, missing reviewed line, or missing
+  line→defect mapping. Socket ack becomes `false`; HTTP fallback forwards the
+  error instead of writing unscorable metadata.
+
+Three-view ratify:
+
+- Karpathy: simpler boundary. Client owns candidate intent (`line` + comment);
+  server owns canonical answer-key mapping. No mock answer-key branch remains in
+  the production component.
+- Gemini: adversarially safer. Stale DB seed or malformed submission now stops
+  at persist time; it cannot create quiet scoring drift.
+- CCL: release-safe. The patch is MA-only, covered by focused unit tests and
+  root build; existing missing-session behavior remains non-throw for the
+  already-deleted session case.

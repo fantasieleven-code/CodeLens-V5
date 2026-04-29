@@ -165,6 +165,15 @@ const MA: MAModuleSpecific = {
     rootCause:
       '失败版本缺少 Redis decr 返回值检查,高并发下会超卖;同时 MySQL 写入失败不会回滚 Redis,导致库存永久错误。',
   },
+  migrationScenario: {
+    newBusinessContext:
+      '双 11 抢红包场景 — 活动整点开放 2 分钟,预生成红包池共 50,000 个(金额随机 1-50 元),预估 500,000 用户同时点击"抢"。要求每个红包只能被一个用户领到,抢成功必须在 2 秒内返回金额。',
+    relatedDimension: '高并发下的互斥分配与原子扣减',
+    differingDimension:
+      '规模差 25× · 延迟预算更松 · 容错要求更宽(单个红包丢失可补发,订单库存不可错)',
+    promptText:
+      '在这个"抢红包"的新场景下,你在 R1 为"秒杀下单"选的方案还成立吗?请说明底层原则、需要调整的参数或实现细节。',
+  },
 };
 
 const MB: MBModuleSpecific = {

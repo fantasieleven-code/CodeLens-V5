@@ -36,6 +36,13 @@ import { prisma } from '../../config/db.js';
 import { logger } from '../../lib/logger.js';
 import { examDataService } from '../exam-data.service.js';
 
+export class ModuleACanonicalDataError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ModuleACanonicalDataError';
+  }
+}
+
 async function readSessionMeta(sessionId: string): Promise<Record<string, unknown> | null> {
   const session = await prisma.session.findUnique({
     where: { id: sessionId },
@@ -96,16 +103,29 @@ async function normalizeRound2DefectIds(
   submission: V5ModuleASubmission,
 ): Promise<V5ModuleASubmission> {
   const examInstanceId = typeof meta.examInstanceId === 'string' ? meta.examInstanceId : undefined;
-  if (!examInstanceId) return submission;
+  if (!examInstanceId) {
+    throw new ModuleACanonicalDataError('Module A submit requires session.metadata.examInstanceId');
+  }
   const maExam = await examDataService.getMAData(examInstanceId);
-  if (!maExam) return submission;
+  if (!maExam) {
+    throw new ModuleACanonicalDataError(
+      `Module A canonical exam data missing for examInstanceId=${examInstanceId}`,
+    );
+  }
   const byLine = new Map(maExam.defects.map((d) => [d.line, d.defectId]));
   const markedDefects = submission.round2.markedDefects.map((m) => {
-    if (typeof m.line !== 'number') return m;
+    if (typeof m.line !== 'number') {
+      throw new ModuleACanonicalDataError('Module A round2 markedDefects require line numbers');
+    }
     const canonical = byLine.get(m.line);
+    if (!canonical) {
+      throw new ModuleACanonicalDataError(
+        `Module A canonical defect missing for reviewed line=${m.line}`,
+      );
+    }
     return {
       ...m,
-      defectId: canonical ?? `line-${m.line}`,
+      defectId: canonical,
     };
   });
   return {

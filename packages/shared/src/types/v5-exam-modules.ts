@@ -129,7 +129,7 @@ export interface MAModuleSpecific {
    * Layer 2 canonical content parity promotes it into the DB-backed module
    * spec so UI content and scoring examData share the same source.
    */
-  migrationScenario?: {
+  migrationScenario: {
     newBusinessContext: string;
     relatedDimension: string;
     differingDimension: string;
@@ -143,7 +143,7 @@ export interface MACandidateView {
   counterArguments: Record<string, string[]>;
   codeForReview: string;
   failureScenario: Pick<MAFailureScenario, 'successCode' | 'failedCode'>;
-  migrationScenario?: MAModuleSpecific['migrationScenario'];
+  migrationScenario: MAModuleSpecific['migrationScenario'];
 }
 
 // ───────────────────────────── MB ─────────────────────────────

@@ -94,7 +94,7 @@ export function stripMAToCandidateView(data: MAModuleSpecific): CandidateModuleV
       successCode: data.failureScenario.successCode,
       failedCode: data.failureScenario.failedCode,
     },
-    ...(data.migrationScenario ? { migrationScenario: { ...data.migrationScenario } } : {}),
+    migrationScenario: { ...data.migrationScenario },
   };
 }
 
