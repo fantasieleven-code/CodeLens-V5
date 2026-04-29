@@ -115,4 +115,32 @@ describe('ModuleCPage', () => {
       }),
     });
   });
+
+  it('ends the session over socket and skips HTTP complete when ack succeeds', async () => {
+    socketEmit.mockImplementation((event: string, _payload: unknown, ack?: (ok: boolean) => void) => {
+      if (event === 'session:end') ack?.(true);
+    });
+    render(<ModuleCPage />);
+
+    fireEvent.click(screen.getByTestId('modulec-preflight-skip'));
+    fireEvent.click(screen.getByTestId('modulec-mode-text'));
+
+    for (let i = 0; i < 5; i += 1) {
+      fireEvent.change(screen.getByTestId('modulec-answer-input'), {
+        target: { value: `This is candidate answer number ${i + 1}.` },
+      });
+      fireEvent.click(screen.getByTestId('modulec-submit'));
+    }
+
+    await screen.findByTestId('modulec-done');
+    vi.mocked(fetch).mockClear();
+    fireEvent.click(screen.getByTestId('modulec-finish'));
+
+    expect(socketEmit).toHaveBeenCalledWith(
+      'session:end',
+      { sessionId: 'sess-mc' },
+      expect.any(Function),
+    );
+    expect(fetch).not.toHaveBeenCalledWith('/api/v5/exam/sess-mc/complete', { method: 'POST' });
+  });
 });

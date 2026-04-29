@@ -403,13 +403,28 @@ export const ModuleCPage: React.FC = () => {
     });
 
     // Notify server to mark session COMPLETED + trigger final scoring.
-    // Brief #18 D38 (σ) · HTTP fallback for the missing socket session:end
-    // handler. Fire-and-forget · advance() must not block on network — the
-    // candidate has already finished, so retry/error handling is server-side
-    // (admin.ts:379 lazy-trigger on next report fetch will still run if this
-    // request lands later).
+    // Socket is primary now that `session:end` has a V5 explicit-sessionId
+    // envelope; HTTP stays as the non-blocking fallback for ack failure or
+    // no-ack timeout. advance() must not block on network: the candidate has
+    // already finished, and admin report fetch can lazy-trigger scoring once
+    // completion lands.
     if (sessionId) {
-      void fetch(`/api/v5/exam/${sessionId}/complete`, { method: 'POST' }).catch(() => {});
+      let settled = false;
+      const fallbackComplete = () => {
+        if (settled) return;
+        settled = true;
+        void fetch(`/api/v5/exam/${sessionId}/complete`, { method: 'POST' }).catch(() => {});
+      };
+      const timeoutId = window.setTimeout(fallbackComplete, 1500);
+      getSocket().emit('session:end', { sessionId }, (ok: boolean) => {
+        if (settled) return;
+        window.clearTimeout(timeoutId);
+        if (ok) {
+          settled = true;
+          return;
+        }
+        fallbackComplete();
+      });
     }
     advance();
   }, [advance, currentRound, mode, flushRoundBehavior, behavior, sessionId]);

@@ -17,7 +17,15 @@ export interface ClientToServerEvents {
   'session:start': (ack: (ok: boolean) => void) => void;
   'session:pause': (ack: (ok: boolean) => void) => void;
   'session:resume': (ack: (ok: boolean) => void) => void;
-  'session:end': (ack: (ok: boolean) => void) => void;
+  /**
+   * V5 candidate completion boundary. ModuleCPage emits this when the final
+   * probe round is done so the server can mark the Session COMPLETED.
+   *
+   * sessionId is explicit for the same reason as module submit events: V5
+   * module pages emit through getSocket() without socket-level session
+   * middleware.
+   */
+  'session:end': (data: { sessionId: string }, ack: (ok: boolean) => void) => void;
   // v3: Module-based events
   'module:next': (ack: (ok: boolean) => void) => void;
   'micro-verify:submit': (

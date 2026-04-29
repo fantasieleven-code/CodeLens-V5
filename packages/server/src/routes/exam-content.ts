@@ -113,10 +113,11 @@ function getCandidateModuleContent(
 /**
  * Brief #18 D38 (σ) · POST /api/v5/exam/:sessionId/complete
  *
- * HTTP fallback for the missing socket `session:end` handler. ModuleCPage
- * `finishAndAdvance` calls this after the final MC round to transition the
- * session to status='COMPLETED', which makes admin.ts:379 lazy-trigger
- * `scoringHydratorService.hydrateAndScore` on the next admin report fetch.
+ * HTTP fallback for the socket `session:end` completion path. ModuleCPage
+ * calls this only if socket ack fails or times out after the final MC round.
+ * Both paths transition the session to status='COMPLETED', which makes
+ * admin.ts lazy-trigger `scoringHydratorService.hydrateAndScore` on the next
+ * admin report fetch.
  *
  * Idempotent · `sessionService.endSession` is safe to call repeatedly:
  * each call sets status='COMPLETED' + completedAt=now, no state machine
