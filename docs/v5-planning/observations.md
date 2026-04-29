@@ -3275,3 +3275,32 @@ Three-view ratify:
   types, so suppression would hide useful signal.
 - CCL: small patch with high future value: CI lint output becomes actionable
   again because new warnings are no longer buried in known noise.
+
+### #186 · Brief #20 forensic script was local throwaway, not release code
+
+**Type**:local artifact cleanup / release ledger reconciliation
+**Date**:2026-04-29
+**Status**:closed by deleting the untracked forensic script locally and updating
+the release ledger
+
+`packages/server/src/scripts/audit-liam-signal-gap.ts` existed only as an
+untracked Brief #20 sub-cycle investigation helper. Its own header described it
+as throwaway and the release readiness ledger already stated it should remain
+local unless deliberately promoted or deleted.
+
+Fix pattern:
+
+- Delete the untracked script instead of committing or promoting it.
+- Leave the untracked `.env.bak-*` files alone; they are local backup artifacts
+  and must not be committed.
+- Update the release readiness ledger so future handoff reads the script cleanup
+  as closed rather than pending.
+
+Three-view ratify:
+
+- Karpathy: deleting the script keeps the repository release surface clean. A
+  one-off audit helper should not become permanent API by accident.
+- Gemini: rejects silently leaving the ledger stale after deletion. The file
+  state and release truth must agree for the next owner.
+- CCL: smallest viable cleanup: one local deletion plus a docs-only ledger
+  update, with no production or test behavior touched.
