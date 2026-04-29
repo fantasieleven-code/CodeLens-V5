@@ -3578,3 +3578,31 @@ Three-view ratify:
   relying on Playwright runtime loading was the blind spot.
 - CCL: one config file plus one CI step and a one-line import-shape repair.
   No e2e scenario behavior, scoring logic, or app runtime code changes.
+
+### #194 · Exam route guard should be named by route boundary after ProfileGuard shipped
+
+**Type**:frontend naming hygiene / candidate route clarity / V5.0.5 housekeeping
+**Date**:2026-04-30
+**Status**:closed by `CandidateGuard` → `ExamGuard` rename
+
+`CandidateGuard` was a reasonable name when it was the only candidate-side
+guard. After F-A12 introduced `ProfileGuard`, the old name became ambiguous:
+it does not guard all candidate routes, only `/exam/:sessionId`. The component
+is now `ExamGuard`, matching the route boundary it protects.
+
+Fix pattern:
+
+- Rename `CandidateGuard.tsx` / colocated test to `ExamGuard.tsx` /
+  `ExamGuard.test.tsx`.
+- Update `App.tsx` imports and route wrapper.
+- Update candidate-page comments that reference the guard.
+- Preserve the exact consent localStorage and redirect behavior.
+
+Three-view ratify:
+
+- Karpathy: name the abstraction after its real boundary. This keeps
+  `ExamGuard` and `ProfileGuard` parallel without introducing a new layer.
+- Gemini: historical observations keep the old term for provenance; live code
+  no longer has an ambiguous guard name.
+- CCL: pure rename-sized patch. No route shape, API contract, or auth logic
+  changes.

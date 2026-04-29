@@ -6,7 +6,7 @@
  *   - profile flag present → redirect to /exam/:sessionToken (avoid re-submit)
  *   - otherwise → render children (ProfileSetup)
  *
- * Mirrors CandidateGuard's Pattern D defense: flags are per-session-token
+ * Mirrors ExamGuard's Pattern D defense: flags are per-session-token
  * UX shortcuts, not the source of truth (server-side consentAcceptedAt /
  * profile record is authoritative).
  */

@@ -427,7 +427,7 @@ Added during Task B-A10-lite(backend candidate self-view · brief docs flag + ob
 Accumulated follow-ups captured during Task F-A12 ProfileSetup(observations #131-#133):
 
 - **CandidateApiError `details` field**:backend AppError envelope supports `{ error: { code, message, details? } }` per drift #6. Today's `CandidateApiError` only carries `{ code, status, message }` — F-A12 C2 test 4 explicitly skipped `details` assertion (T2 α ratify). When a downstream consumer needs field-level 422 breakdown (e.g. surface "which field failed"), widen `CandidateApiError` with `readonly details?: unknown` and thread it through `parseErrorBody`. Non-breaking add.
-- **`CandidateGuard` → `ExamGuard` rename candidate**:the name `CandidateGuard` was fine when it was the only candidate-side guard, but F-A12 introduces `ProfileGuard`. The former gates `/exam/:sessionId`, so `ExamGuard` is more descriptive. Pure rename · ~3 file touch (component, App.tsx import, colocated test). No behavior change.
+- ~~**`CandidateGuard` → `ExamGuard` rename candidate**:the name `CandidateGuard` was fine when it was the only candidate-side guard, but F-A12 introduces `ProfileGuard`. The former gates `/exam/:sessionId`, so `ExamGuard` is more descriptive. Pure rename · ~3 file touch (component, App.tsx import, colocated test). No behavior change.~~ **DONE 2026-04-30**: renamed component/test/import/comment surfaces to `ExamGuard`; behavior unchanged. See observation #194.
 
 ---
 
