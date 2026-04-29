@@ -3540,3 +3540,41 @@ Three-view ratify:
   sandbox log noise. The failing signals identify a final-state metadata race.
 - CCL: small client-side ordering patch with targeted tests. It changes no
   scoring formulas, signal thresholds, or server data contracts.
+
+### #193 · e2e TypeScript must be a CI gate, not an ad-hoc preflight
+
+**Type**:CI coverage / e2e helper type safety / Pattern F Layer 3 closure
+**Date**:2026-04-30
+**Status**:closed by `e2e/tsconfig.json` + CI lint-and-typecheck step
+
+Backlog Rule #12 recorded that `e2e/helpers/**.ts` and Playwright config/spec
+files were outside all TypeScript gates. Playwright would compile them only
+when the e2e job loaded the matching config/spec path, so helper drift could
+hide until runtime. This was already observed during B2/B3 via ad-hoc
+`npx tsc --noEmit` catches.
+
+Fix pattern:
+
+- Add `e2e/tsconfig.json` extending the repo base config.
+- Include `e2e/**/*.ts` plus the golden-path fixture imports consumed by the
+  specs.
+- Add `npx tsc --noEmit -p e2e/tsconfig.json` to the CI
+  `lint-and-typecheck` job.
+- Keep lint scope unchanged for now; this PR closes the typed-load gap without
+  widening style enforcement.
+
+The new gate immediately caught a real TypeScript-only drift in
+`mb-telemetry-smoke.spec.ts`: the browser-side dynamic import used the Vite URL
+literal `/src/lib/socket.ts`, which runs in the browser but is not a local
+TypeScript module path. The fix keeps the browser runtime URL intact while
+storing it in a string variable so `tsc` does not attempt local module
+resolution.
+
+Three-view ratify:
+
+- Karpathy: the clean boundary is a dedicated e2e TypeScript project. Moving
+  helpers into a workspace package would be a restructure for no current gain.
+- Gemini: the new gate proved value immediately by catching a concrete drift;
+  relying on Playwright runtime loading was the blind spot.
+- CCL: one config file plus one CI step and a one-line import-shape repair.
+  No e2e scenario behavior, scoring logic, or app runtime code changes.

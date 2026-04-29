@@ -44,7 +44,8 @@ async function emitBehaviorBatchFromBrowser(page: Page, sessionId: string): Prom
       off: (event: string, handler: (...args: unknown[]) => void) => void;
       emit: (event: string, payload: unknown) => void;
     };
-    const mod = (await import('/src/lib/socket.ts')) as { getSocket: () => BrowserSocket };
+    const socketModulePath = '/src/lib/socket.ts';
+    const mod = (await import(socketModulePath)) as { getSocket: () => BrowserSocket };
     const socket = mod.getSocket();
     if (!socket.connected) {
       await new Promise<void>((resolve, reject) => {
