@@ -3378,3 +3378,47 @@ Three-view ratify:
   payload wrong for future report sections.
 - CCL: small server-only patch with focused tests. It changes no scoring
   algorithm and removes a V4 ghost read from the release report path.
+
+### #189 · MB stage submit fire-and-forget can race final submit metadata
+
+**Type**:production data integrity / MB metadata ordering / Cold Start flake root cause
+**Date**:2026-04-29
+**Status**:closed by MB stage ack ordering patch
+
+The main CI run after PR #120 failed Cold Start with exactly two null MB
+signals: `sPrecisionFix` and `sRuleEnforcement`. Both are final-state signals:
+`sPrecisionFix` needs `submissions.mb.finalFiles`, while `sRuleEnforcement`
+needs final audit data. PR #121's Admin report payload fix passed its own e2e
+and then main e2e, so the failure was not the report `submissions` field. The
+remaining credible race was Module B's stage socket writes.
+
+Root cause: ModuleBPage emitted `v5:mb:planning:submit`,
+`v5:mb:standards:submit`, and `v5:mb:audit:submit` as fire-and-forget writes,
+while final `v5:mb:submit` also persisted the full MB submission. The server
+service writes `metadata.mb` through read-modify-write JSON updates. A late
+standards/audit stage write could read an older `metadata.mb`, then land after
+the final submit and overwrite the final slice (`finalFiles` / final audit),
+producing null final-state MB signals.
+
+Fix pattern:
+
+- Add ack callbacks to `v5:mb:planning:submit` and
+  `v5:mb:standards:submit`.
+- Gate ModuleBPage Stage 1→2 and Stage 3→4 transitions on those acks.
+- Keep the candidate on the current stage and show a retryable error if the
+  stage slice fails to persist.
+- Stop emitting redundant `v5:mb:audit:submit` from final submit; the canonical
+  final `v5:mb:submit` already carries and persists audit.
+- Keep the server audit handler registered for compatibility, but remove the
+  production UI path that could race the final submission.
+
+Three-view ratify:
+
+- Karpathy: ordering belongs at the module boundary. A stage transition should
+  mean its slice has persisted; otherwise final scoring can observe a history
+  that the candidate UI has already moved past.
+- Gemini: rejects adding sleeps/retries to Cold Start. That would hide the
+  late-write hazard and leave real sessions exposed.
+- CCL: bounded frontend/shared/server patch. It changes event ordering and
+  removes one redundant client emit without changing MB scoring algorithms or
+  widening null tolerances.

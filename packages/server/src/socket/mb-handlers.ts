@@ -92,6 +92,8 @@ interface SubmitPayload {
   submission: V5MBSubmission;
 }
 
+type Ack = (ok: boolean) => void;
+
 function safe<T extends unknown[]>(
   socket: Socket,
   event: string,
@@ -111,28 +113,52 @@ function safe<T extends unknown[]>(
 export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
   socket.on(
     'v5:mb:planning:submit',
-    safe(socket, 'v5:mb:planning:submit', async (payload: PlanningPayload) => {
-      await persistPlanning(payload.sessionId, payload.planning);
-      await eventBus.emit(V5Event.MODULE_SUBMITTED, {
-        sessionId: payload.sessionId,
-        module: 'mb.planning',
-      });
-    }),
+    async (payload: PlanningPayload, ack?: Ack) => {
+      try {
+        await persistPlanning(payload.sessionId, payload.planning);
+        await eventBus.emit(V5Event.MODULE_SUBMITTED, {
+          sessionId: payload.sessionId,
+          module: 'mb.planning',
+        });
+        ack?.(true);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.warn('[socket:mb] v5:mb:planning:submit failed', {
+          socketId: socket.id,
+          sessionId: payload?.sessionId,
+          error: message,
+        });
+        socket.emit('v5:mb:planning:submit:error', { error: message });
+        ack?.(false);
+      }
+    },
   );
 
   socket.on(
     'v5:mb:standards:submit',
-    safe(socket, 'v5:mb:standards:submit', async (payload: StandardsPayload) => {
-      const standards: V5MBStandards = {
-        rulesContent: payload.rulesContent,
-        ...(payload.agentContent !== undefined ? { agentContent: payload.agentContent } : {}),
-      };
-      await persistStandards(payload.sessionId, standards);
-      await eventBus.emit(V5Event.MODULE_SUBMITTED, {
-        sessionId: payload.sessionId,
-        module: 'mb.standards',
-      });
-    }),
+    async (payload: StandardsPayload, ack?: Ack) => {
+      try {
+        const standards: V5MBStandards = {
+          rulesContent: payload.rulesContent,
+          ...(payload.agentContent !== undefined ? { agentContent: payload.agentContent } : {}),
+        };
+        await persistStandards(payload.sessionId, standards);
+        await eventBus.emit(V5Event.MODULE_SUBMITTED, {
+          sessionId: payload.sessionId,
+          module: 'mb.standards',
+        });
+        ack?.(true);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.warn('[socket:mb] v5:mb:standards:submit failed', {
+          socketId: socket.id,
+          sessionId: payload?.sessionId,
+          error: message,
+        });
+        socket.emit('v5:mb:standards:submit:error', { error: message });
+        ack?.(false);
+      }
+    },
   );
 
   socket.on(
