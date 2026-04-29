@@ -185,6 +185,9 @@ describe('ScoringHydratorService — happy path', () => {
 
     expect(out.sessionId).toBe('s1');
     expect(out.suiteId).toBe('full_stack');
+    expect(Object.keys(out.submissions).sort()).toEqual(
+      ['mb', 'moduleA', 'moduleC', 'phase0', 'selfAssess'].sort(),
+    );
     expect(out.scoringResult).toEqual(STUB_RESULT);
     expect(out.hydrationReport.phase0).toBe('present');
     expect(out.hydrationReport.mb).toBe('present');
@@ -252,6 +255,9 @@ describe('ScoringHydratorService — graceful degradation', () => {
 
     expect(out.hydrationReport.selfAssess).toBe('absent');
     expect(out.hydrationReport.moduleC).toBe('absent');
+    expect(out.submissions.selfAssess).toBeUndefined();
+    expect(out.submissions.moduleC).toBeUndefined();
+    expect(out.submissions.phase0).toBeDefined();
     const submissions = (scoreSessionMock.mock.calls[0][0] as { submissions: Record<string, unknown> })
       .submissions;
     expect(submissions.selfAssess).toBeUndefined();
@@ -272,6 +278,8 @@ describe('ScoringHydratorService — graceful degradation', () => {
 
     expect(out.hydrationReport.phase0).toBe('malformed');
     expect(out.hydrationReport.moduleC).toBe('malformed');
+    expect(out.submissions.phase0).toBeUndefined();
+    expect(out.submissions.moduleC).toBeUndefined();
     const submissions = (scoreSessionMock.mock.calls[0][0] as { submissions: Record<string, unknown> })
       .submissions;
     expect(submissions.phase0).toBeUndefined();
@@ -327,6 +335,7 @@ describe('ScoringHydratorService — graceful degradation', () => {
     const out = await service.hydrateAndScore('s1');
 
     expect(out.hydrationReport.phase0).toBe('absent');
+    expect(out.submissions.phase0).toBeUndefined();
     const submissions = (scoreSessionMock.mock.calls[0][0] as { submissions: Record<string, unknown> })
       .submissions;
     expect(submissions.phase0).toBeUndefined();
@@ -352,6 +361,8 @@ describe('ScoringHydratorService — Brief #20 C1 polling race cache', () => {
     expect(update).not.toHaveBeenCalled();
     expect(out.cached).toBe(true);
     expect(out.scoringResult).toEqual(STUB_RESULT);
+    expect(out.submissions.phase0).toBeDefined();
+    expect(out.submissions.mb).toBeDefined();
     expect(out.suiteId).toBe('full_stack');
     expect(out.participatingModules).toEqual([
       'phase0',

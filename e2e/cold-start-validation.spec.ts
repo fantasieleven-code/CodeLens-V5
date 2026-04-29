@@ -126,6 +126,7 @@ test.describe('Cold Start Validation · deep_dive all modules', () => {
     expect(report.participatingModules).toEqual([...DEEP_DIVE_MODULES]);
     expect(definitionIds).toHaveLength(48);
     expect(resultIds).toHaveLength(48);
+    expect(Object.keys(report.submissions).sort()).toEqual([...DEEP_DIVE_MODULES].sort());
     expect(missingResults, `missing signal results: ${missingResults.join(', ')}`).toEqual([]);
     expect(nullSignals, `null signals: ${nullSignals.join(', ')}`).toEqual([]);
 

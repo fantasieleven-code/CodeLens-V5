@@ -423,13 +423,20 @@ describe('GET /admin/sessions/:sessionId/report', () => {
       candidate: { id: 'c1', name: 'Alice', email: 'a@b.com' },
       createdAt: new Date(1),
       completedAt: new Date(2),
-      metadata: { submissions: { foo: 'bar' } },
+      metadata: {
+        submissions: { foo: 'bar' },
+        moduleA: { round1: { reasoning: 'top-level truth' } },
+      },
       scoringResult: mockScoring,
     });
+    const hydratedSubmissions = {
+      moduleA: { round1: { reasoning: 'top-level truth' } },
+    };
     hydrateAndScore.mockResolvedValue({
       sessionId: 'sess-1',
       suiteId: 'full_stack',
       participatingModules: ['phase0', 'moduleA', 'mb', 'selfAssess', 'moduleC'],
+      submissions: hydratedSubmissions,
       scoringResult: mockScoring,
       hydrationReport: { phase0: 'present', moduleA: 'present', mb: 'present', moduleD: 'absent', selfAssess: 'present', moduleC: 'present', examData: {} },
     });
@@ -445,6 +452,8 @@ describe('GET /admin/sessions/:sessionId/report', () => {
     expect(payload.signalDefinitions).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: 'sMock' })]),
     );
+    expect(payload.submissions).toBe(hydratedSubmissions);
+    expect(payload.submissions).not.toEqual({ foo: 'bar' });
   });
 });
 
