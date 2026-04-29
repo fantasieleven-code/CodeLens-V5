@@ -24,6 +24,7 @@ export default defineConfig({
   testMatch: [
     '**/golden-path.spec.ts',
     '**/cold-start-validation.spec.ts',
+    '**/mb-telemetry-smoke.spec.ts',
     '**/smoke.spec.ts',
   ],
   fullyParallel: false,

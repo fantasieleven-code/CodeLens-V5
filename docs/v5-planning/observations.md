@@ -3422,3 +3422,46 @@ Three-view ratify:
 - CCL: bounded frontend/shared/server patch. It changes event ordering and
   removes one redundant client emit without changing MB scoring algorithms or
   widening null tolerances.
+
+### #190 · MB live telemetry had client/server event-shape drift
+
+**Type**:production telemetry fidelity / Pattern C event-shape drift / browser smoke gap
+**Date**:2026-04-29
+**Status**:closed by MB live telemetry smoke + client event-shape alignment
+
+The module pipeline audit marked MB telemetry as "gate-green but nuanced":
+server-side `behavior:batch` ingest existed, and Cold Start could score via the
+deterministic `/mb/editor-behavior` HTTP bypass, but no browser-level smoke
+proved that the Vite client socket helper could populate
+`metadata.mb.editorBehavior` through `/interview`.
+
+The browser-boundary review found a real shape drift:
+
+- `AIChatPanel` tracked `chat_prompt_sent` with `{ promptLength }`, while
+  `behavior-handlers.ts` only persists chat events that carry `prompt`,
+  `responseLength`, and `duration`.
+- `AIChatPanel` tracked `diff_responded`, while the server dispatch only maps
+  `diff_accepted` / `diff_rejected`.
+- `CursorModeLayout` knew the accept/reject decision but did not emit the
+  server-ingestable diff event.
+
+Fix pattern:
+
+- Track `chat_response_received` after `v5:mb:chat_complete`, carrying the
+  original prompt, response length, and elapsed duration.
+- Track `diff_accepted` / `diff_rejected` in `CursorModeLayout`, with accepted
+  boolean and line deltas.
+- Add `e2e/mb-telemetry-smoke.spec.ts`: create a real admin session, import the
+  Vite-loaded `getSocket()` from the browser, emit `behavior:batch` through the
+  `/interview` namespace, and poll Prisma for `metadata.mb.editorBehavior`
+  chat/diff/file/edit slices.
+
+Three-view ratify:
+
+- Karpathy: the clean boundary is event-shape alignment at the client producer,
+  not relaxing the server mapper to accept vague payloads.
+- Gemini: the smoke proves the real browser socket boundary; a server-only
+  integration test was already present and would not catch this drift.
+- CCL: bounded telemetry patch. It changes no scoring formulas and no final
+  submission persistence; it only makes already-designed MB signals receive the
+  production browser data they expect.

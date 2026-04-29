@@ -20,7 +20,7 @@ canonical DB module content.
 | Submission persistence     | Green for V5.0 gate              | Cold Start Playwright: P0/MA/MB/MD/SE/MC complete; 48/48 signal results; 0 null; live `/interview` socket smoke | HTTP fallbacks remain belt-and-suspenders retry surfaces, not the only live transport                             |
 | Scoring hydration          | Green                            | `ScoringHydratorService` reads top-level namespaces only and Admin report renders 0 `N/A` / `待评估`           | No V4 `metadata.submissions.*` fallback by design                                                                 |
 | Canonical content delivery | Green after Layer 2 parity patch | `GET /api/v5/exam/:examInstanceId/module/:moduleType` now returns candidate-safe content for P0/MA/MB/MC/MD/SE | Existing deployed DBs must re-run `db:seed:canonical` so canonical ExamModule rows pick up MA/MD content updates  |
-| MB telemetry fidelity      | Gate-green but nuanced           | Real socket `behavior:batch` ingest exists; `/interview` namespace now wired; Cold Start uses e2e HTTP bypass  | A browser-level live telemetry smoke remains a V5.0.1 quality target                                             |
+| MB telemetry fidelity      | Green                            | Browser-level `mb-telemetry-smoke.spec.ts` proves Vite client socket helper → `/interview` → `behavior:batch` → `metadata.mb.editorBehavior` for chat/diff/file/edit slices | Live candidate telemetry is now covered at the socket boundary; richer UX-level telemetry scenarios remain V5.0.5 polish |
 
 ## Module Matrix
 
@@ -159,10 +159,16 @@ MB has two truths that must be kept separate:
    `POST /mb/editor-behavior` and final test pass rate through
    `POST /mb/test-result` when needed.
 
-The bypass is appropriate for deterministic e2e scoring calibration, but it is
-not evidence that real browser telemetry quality is perfect. A browser-level
-live telemetry smoke should verify that real candidate interactions populate at
-least the MB behavior slices used by the 23 MB signals.
+The bypass is appropriate for deterministic e2e scoring calibration. The
+browser-level live telemetry smoke now covers the separate transport truth:
+the real Vite-loaded socket helper connects to `/interview`, emits
+`behavior:batch`, and persists chat / diff / file navigation / edit-session
+slices into `metadata.mb.editorBehavior`.
+
+The smoke also closed a client/server shape drift: the client now emits
+server-ingestable chat response telemetry (`prompt`, `responseLength`,
+`duration`) and diff accept/reject events (`diff_accepted` / `diff_rejected`
+with line deltas), matching `behavior-handlers.ts` dispatch rules.
 
 ## Root Cause Focus
 
