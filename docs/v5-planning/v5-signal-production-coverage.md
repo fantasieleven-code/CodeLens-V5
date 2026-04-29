@@ -81,7 +81,7 @@ audit 全程以 **47** 为准并在第 7 部分 Pattern 归档中记一次 F 命
 | Signal | Source field | Client emit | Server handler | Persistence path | Status |
 |--------|--------------|-------------|----------------|------------------|--------|
 | **MC · metacognition · 4 signals** |
-| sBeliefUpdateMagnitude | `submissions.moduleC[round=2].answer` + (dead) selfAssess/moduleA | `POST /api/moduleC/voice-chat` | `mcVoiceChatRouter.post('/voice-chat')` | `mc-voice-chat.ts:424 prisma.session.update({ metadata.moduleC })` | **ACTIVE**(voice path;`preModuleCStance` 字段 extract 但 scoring 未消费,对 selfAssess/moduleA 缺失不敏感) |
+| sBeliefUpdateMagnitude | `submissions.moduleC[round=2].answer` + (dead) selfAssess/moduleA | `POST /api/v5/mc/voice-chat` | `mcVoiceChatRouter.post('/voice-chat')` | `saveRoundAnswer(...) → metadata.moduleC` | **ACTIVE**(voice path;`preModuleCStance` 字段 extract 但 scoring 未消费,对 selfAssess/moduleA 缺失不敏感) |
 | sBoundaryAwareness | `submissions.moduleC[].answer` | 同上 | 同上 | 同上 | **ACTIVE** |
 | sCommunicationClarity | `submissions.moduleC[].answer` | 同上 | 同上 | 同上 | **ACTIVE** |
 | sReflectionDepth | `submissions.moduleC[].answer` | 同上 | 同上 | 同上 | **ACTIVE** |

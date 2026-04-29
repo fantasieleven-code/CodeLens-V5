@@ -18,10 +18,8 @@
  *   /__preview/sections → Section gallery (Task 2 dev tool)
  *   /                   → landing page (stub)
  *
- * Module pages (Phase0 / ModuleA / ModuleB / ModuleD) render the skeletons
- * introduced in Task 3. Real functionality lands in later task batches.
- * ModuleC stays as an inline placeholder until voice.store + useVoiceRTC
- * are wired (tracked separately from Task 3).
+ * Module pages render the V5 candidate flow. Module C uses the V5 voice
+ * endpoint with text fallback.
  */
 
 import React, { useEffect } from 'react';

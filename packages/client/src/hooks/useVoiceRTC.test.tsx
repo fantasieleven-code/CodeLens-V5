@@ -3,6 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 
 import { useVoiceStore } from '../stores/voice.store.js';
 import { useSessionStore } from '../stores/session.store.js';
+import VERTC from '@volcengine/rtc';
 
 vi.mock('@volcengine/rtc', () => ({
   default: {
@@ -55,5 +56,53 @@ describe('useVoiceRTC', () => {
       expect(useVoiceStore.getState().state).toBe('idle');
     });
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('defaults to the schema-gated V5 start endpoint before requesting the RTC token', async () => {
+    const engine = {
+      on: vi.fn(),
+      joinRoom: vi.fn().mockResolvedValue(undefined),
+      startAudioCapture: vi.fn().mockResolvedValue(undefined),
+      publishStream: vi.fn().mockResolvedValue(undefined),
+      stopAudioCapture: vi.fn().mockResolvedValue(undefined),
+      leaveRoom: vi.fn().mockResolvedValue(undefined),
+      destroy: vi.fn(),
+    };
+    vi.mocked(VERTC.createEngine).mockReturnValue(engine as never);
+    vi.mocked(navigator.mediaDevices.getUserMedia).mockResolvedValue({
+      getTracks: () => [{ stop: vi.fn() }],
+    } as never);
+    useSessionStore.setState({ sessionId: 'sess-voice', token: 'candidate-token' });
+    fetchSpy
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ roomId: 'room-1', taskId: 'task-1', mode: 'custom' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ token: 'rtc-token', appId: 'rtc-app', userId: 'candidate-1' }),
+      });
+
+    renderHook(() => useVoiceRTC({ enabled: true }));
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        1,
+        '/api/voice/v5/start',
+        expect.objectContaining({
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer candidate-token',
+          },
+          body: JSON.stringify({ sessionId: 'sess-voice' }),
+        }),
+      );
+    });
+    expect(fetchSpy).toHaveBeenNthCalledWith(
+      2,
+      '/api/voice/token',
+      expect.objectContaining({ method: 'POST' }),
+    );
   });
 });

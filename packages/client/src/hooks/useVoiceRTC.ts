@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useRef, useCallback } from 'react';
-import VERTC, { MediaType, StreamIndex } from '@volcengine/rtc';
+import VERTC, { MediaType } from '@volcengine/rtc';
 import { useVoiceStore } from '../stores/voice.store.js';
 import { useSessionStore } from '../stores/session.store.js';
 
@@ -18,15 +18,13 @@ interface VoiceRTCOptions {
   /** Whether CP4 is active and voice should start */
   enabled: boolean;
   /**
-   * Server endpoint that boots the voice agent. Defaults to v3's
-   * `/api/voice/start`. v4 Module C should pass `/api/voice/v4/start`
-   * (different prompt builder, schema-gated). Both endpoints return the
-   * same `{ roomId, taskId, mode }` shape.
+   * Server endpoint that boots the V5 Module C voice agent.
+   * `/api/voice/v5/start` is schema-gated and returns `{ roomId, taskId, mode }`.
    */
   startEndpoint?: string;
 }
 
-export function useVoiceRTC({ enabled, startEndpoint = '/api/voice/start' }: VoiceRTCOptions) {
+export function useVoiceRTC({ enabled, startEndpoint = '/api/voice/v5/start' }: VoiceRTCOptions) {
   const engineRef = useRef<ReturnType<typeof VERTC.createEngine> | null>(null);
   const joinedRef = useRef(false);
 

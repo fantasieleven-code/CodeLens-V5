@@ -492,7 +492,7 @@ Added during Task A5(backend Gap 11 Sentry env consumer-half closure · observat
 
 Added during Task A2 (Brief #2 v3 · voice-mount · observation #155):
 
-- **`routes/voice.ts` endpoint path vs header-doc drift**(non-blocking · documented · V5.0.1 reconcile):`voice.ts` L17-21 header-doc advertises 4 endpoints all at `/api/voice/v5/*` but router-prefix `/v5/` is wired to only `/v5/start`. Actual paths mounted at `/api/voice`:
+- ~~**`routes/voice.ts` endpoint path vs header-doc drift**(non-blocking · documented · V5.0.1 reconcile):`voice.ts` L17-21 header-doc advertises 4 endpoints all at `/api/voice/v5/*` but router-prefix `/v5/` is wired to only `/v5/start`. Actual paths mounted at `/api/voice`:~~ **DONE 2026-04-29**:header doc now lists actual `/api/voice/token`, `/api/voice/v5/start`, `/api/voice/stop`, `/api/voice/status`; client ModuleC now calls `/api/voice/v5/start` instead of stale `/api/voice/v4/start`.
   1. `POST /api/voice/token`(NOT `/v5/token`)
   2. `POST /api/voice/v5/start`(matches doc)
   3. `POST /api/voice/stop`(NOT `/v5/stop`)
@@ -542,7 +542,7 @@ Added during Task A2 (Brief #2 v3 · voice-mount · observation #155):
 
 Added during Task A3 (Brief #3 · mc-voice-chat-mount · observation #157):
 
-- **`docs/v5-planning/v5-signal-production-coverage.md:84` stale URL reference**(non-blocking · documented · V5.0.1 doc-sweep): line references `/api/moduleC/voice-chat` from V4 naming · actual V5 route is `/api/v5/mc/voice-chat` (per A3 C1 mount + `voice.ts:132` VERTC contract). Pure doc correction, zero code impact.
+- ~~**`docs/v5-planning/v5-signal-production-coverage.md:84` stale URL reference**(non-blocking · documented · V5.0.1 doc-sweep): line references `/api/moduleC/voice-chat` from V4 naming · actual V5 route is `/api/v5/mc/voice-chat` (per A3 C1 mount + `voice.ts:132` VERTC contract). Pure doc correction, zero code impact.~~ **DONE 2026-04-29**:row now references `POST /api/v5/mc/voice-chat` and `saveRoundAnswer(...) → metadata.moduleC`.
 
   Reconcile approaches:
   - **Approach α** · one-line path edit in `v5-signal-production-coverage.md` · narrative sync only
