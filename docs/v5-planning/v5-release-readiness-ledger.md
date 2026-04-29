@@ -109,6 +109,7 @@ pipeline audit:
   Brief #20 sub-cycle closed; it was never a release artifact.
 - `docs/v5-planning/v5-signal-production-coverage.md` is historical in places;
   the current release truth is this ledger plus passing Cold Start evidence.
-- GitHub Actions currently warns that Node.js 20 actions are deprecated and
-  will move to Node.js 24 defaults in 2026. This is a CI-maintenance follow-up,
-  not a V5.0 gate failure.
+- GitHub Actions Node.js 20 action-runtime deprecation was handled by upgrading
+  workflow actions from `checkout@v4` / `setup-node@v4` to v6 and
+  `upload-artifact@v4` to v7 while preserving the project test runtime at
+  `node-version: 20`. CI remains the proof gate for the action-major upgrade.
