@@ -95,6 +95,8 @@ export interface HydrateScoreResult {
   sessionId: string;
   suiteId: SuiteId;
   participatingModules: readonly V5ModuleKey[];
+  /** Top-level metadata namespaces actually used by the scoring pipeline. */
+  submissions: V5Submissions;
   scoringResult: V5ScoringResult;
   /** Per-namespace read status — useful for debugging degraded sessions. */
   hydrationReport: HydrationReport;
@@ -161,6 +163,10 @@ export class ScoringHydratorService {
     }
 
     const participatingModules = this.resolveParticipatingModules(meta, suiteId);
+    const { submissions, hydrationReport: subReport } = this.readSubmissions(
+      sessionId,
+      meta,
+    );
 
     // Brief #20 C1 · polling race short-circuit. When admin.ts:378-379 lazy-
     // triggers hydrateAndScore on every /admin/sessions/:id GET, the first
@@ -178,24 +184,15 @@ export class ScoringHydratorService {
         sessionId,
         suiteId,
         participatingModules,
+        submissions,
         scoringResult: cached as V5ScoringResult,
         hydrationReport: {
-          phase0: 'present',
-          moduleA: 'present',
-          mb: 'present',
-          moduleD: 'present',
-          selfAssess: 'present',
-          moduleC: 'present',
+          ...subReport,
           examData: {},
         },
         cached: true,
       };
     }
-
-    const { submissions, hydrationReport: subReport } = this.readSubmissions(
-      sessionId,
-      meta,
-    );
 
     const { examData, report: examDataReport } = await this.readExamData(
       sessionId,
@@ -241,6 +238,7 @@ export class ScoringHydratorService {
       sessionId,
       suiteId,
       participatingModules,
+      submissions,
       scoringResult,
       hydrationReport,
     };

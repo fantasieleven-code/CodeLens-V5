@@ -3339,3 +3339,42 @@ Three-view ratify:
 - CCL: one small cross-page helper plus focused page tests fixes the race at
   the source without changing scoring algorithms or widening signal null
   tolerance.
+
+### #188 · Admin report submissions must come from hydrator, not V4 ghost envelope
+
+**Type**:admin report payload integrity / namespace ownership / V4 ghost cleanup
+**Date**:2026-04-29
+**Status**:closed by hydrated report submissions patch
+
+The post-release-readiness module audit found one remaining split-truth path:
+`ScoringHydratorService` correctly reads candidate data from top-level
+metadata namespaces (`metadata.phase0`, `metadata.moduleA`, `metadata.mb`,
+`metadata.moduleD`, `metadata.selfAssess`, `metadata.moduleC`), but
+`GET /admin/sessions/:sessionId/report` still assembled
+`report.submissions` from the old `metadata.submissions` envelope. Cold Start
+did not catch this because it asserted scoring signal completeness and report
+DOM `N/A` absence; most scoring and UI guards use `signalResults`, while the
+report payload's `submissions` field could be stale or empty.
+
+Fix pattern:
+
+- Add `submissions` to `HydrateScoreResult`, populated from the same top-level
+  namespaces used to build `ScoreSessionInput`.
+- Move submission narrowing before the `Session.scoringResult` cache branch so
+  cache hits still return current metadata submissions and truthful namespace
+  statuses.
+- Make the admin report endpoint use `hydrateAndScore(...).submissions`
+  instead of reading `metadata.submissions`.
+- Add route coverage that seeds both a V4 ghost envelope and a top-level
+  namespace, then asserts the report returns the hydrated top-level data.
+
+Three-view ratify:
+
+- Karpathy: one source of truth. The hydrator already owns the DB-to-scoring
+  boundary, so exporting its packed submissions is cleaner than duplicating
+  namespace logic in the admin route.
+- Gemini: rejects a frontend fallback from `report.submissions` to signal
+  evidence. That would hide a server contract drift while leaving the API
+  payload wrong for future report sections.
+- CCL: small server-only patch with focused tests. It changes no scoring
+  algorithm and removes a V4 ghost read from the release report path.

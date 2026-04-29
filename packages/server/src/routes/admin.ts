@@ -375,11 +375,8 @@ export async function getAdminSessionReport(
       throw new ValidationError('Report available only for completed sessions');
     }
 
-    const { scoringResult, participatingModules, suiteId } =
+    const { scoringResult, participatingModules, suiteId, submissions } =
       await scoringHydratorService.hydrateAndScore(sessionId);
-
-    const meta = (row.metadata ?? {}) as Record<string, unknown>;
-    const submissions = (meta.submissions ?? {}) as V5AdminSessionReport['submissions'];
 
     const signalDefinitions: V5AdminSignalViewMeta[] = getAdminRegistry()
       .listSignals()

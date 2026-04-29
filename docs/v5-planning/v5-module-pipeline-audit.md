@@ -140,6 +140,11 @@ For exam data, hydrator reads all participating module specs through
 Admin report then lazy-hydrates/scored sessions and renders the full signal
 definition/result map. This is the layer Cold Start proves end to end.
 
+The Admin report payload now reuses `ScoringHydratorService`'s hydrated
+`submissions` output. It does not read the legacy `metadata.submissions.*`
+envelope, so report sections and scoring share the same top-level namespace
+truth.
+
 ## MB Telemetry Boundary
 
 MB has two truths that must be kept separate:
