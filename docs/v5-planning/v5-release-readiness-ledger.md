@@ -60,7 +60,8 @@ Follow-up hardening closed the underlying socket transport mismatch:
   upsert the updated MA/MD canonical content. See
   `docs/v5-planning/v5-module-pipeline-audit.md`.
 - Existing untracked `.env.bak-*` files are local backup artifacts and must not
-  be committed. `packages/server/src/scripts/audit-liam-signal-gap.ts` remains
-  a local forensic script unless deliberately promoted or deleted.
+  be committed. The one-off local forensic script
+  `packages/server/src/scripts/audit-liam-signal-gap.ts` was deleted after the
+  Brief #20 sub-cycle closed; it was never a release artifact.
 - `docs/v5-planning/v5-signal-production-coverage.md` is historical in places;
   the current release truth is this ledger plus passing Cold Start evidence.

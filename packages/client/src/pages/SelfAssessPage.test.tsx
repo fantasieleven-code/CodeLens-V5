@@ -1,16 +1,15 @@
 /**
- * SelfAssessPage tests — Task 9 + Brief #17 D34 fire-and-forget alignment:
+ * SelfAssessPage tests — Task 9 + candidate submission persistence alignment:
  *   - DecisionSummary renders above the reflection textarea and reflects
  *     submissions from session.store (ma / mb / md)
  *   - existing slider + textarea behavior still works (submit gating at 10 chars)
  *   - submit path: setModuleSubmissionLocal('selfAssess', …) + emit
- *     self-assess:submit + advance() unconditionally (Brief #17 D34 · matches
- *     Phase0Page:139-148 design pattern · 5 other module pages do the same)
+ *     self-assess:submit + advance() after persistence ack
  *   - submit gating: stays disabled when reasoning < 10 chars
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { V5MBSubmission, V5ModuleASubmission, V5ModuleDSubmission } from '@codelens-v5/shared';
 
 let mockSocket: {
@@ -86,7 +85,10 @@ function seed() {
 
 function newMockSocket() {
   mockSocket = {
-    emit: vi.fn(),
+    emit: vi.fn((...args: unknown[]) => {
+      const ack = args.at(-1);
+      if (typeof ack === 'function') ack(true);
+    }),
     on: vi.fn(),
     off: vi.fn(),
   };
@@ -137,11 +139,7 @@ describe('<SelfAssessPage />', () => {
     expect(submit.disabled).toBe(false);
   });
 
-  it('submit writes V5SelfAssessSubmission, emits socket, advances unconditionally (fire-and-forget)', () => {
-    // Brief #17 D34 · advance() fires immediately after emit · matches the
-    // pattern used by Phase0Page / ModuleAPage / ModuleBPage / ModuleCPage /
-    // ModuleDPage. Prior ack-gated semantics stranded the candidate when
-    // the socket wasn't connected at root level.
+  it('submit writes V5SelfAssessSubmission, emits socket, and advances after ack', async () => {
     render(<SelfAssessPage />);
 
     fireEvent.change(screen.getByTestId('selfassess-slider'), {
@@ -172,8 +170,7 @@ describe('<SelfAssessPage />', () => {
     });
     expect(typeof (payload as { responseTimeMs: number }).responseTimeMs).toBe('number');
 
-    // advance() called immediately · no ack wait.
-    expect(useModuleStore.getState().currentModule).toBe('moduleC');
+    await waitFor(() => expect(useModuleStore.getState().currentModule).toBe('moduleC'));
   });
 
   it('DecisionSummary renders MD summary with submodule + constraint counts', () => {

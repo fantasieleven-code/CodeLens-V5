@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen, fireEvent, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import type { V5Phase0Submission } from '@codelens-v5/shared';
 
 let mockSocket: {
@@ -89,7 +89,10 @@ function fillAiClaim(text = AI_CLAIM_RESPONSE) {
 describe('<Phase0Page />', () => {
   beforeEach(() => {
     mockSocket = {
-      emit: vi.fn(),
+      emit: vi.fn((...args: unknown[]) => {
+        const ack = args.at(-1);
+        if (typeof ack === 'function') ack(true);
+      }),
       on: vi.fn(),
       off: vi.fn(),
     };
@@ -188,7 +191,7 @@ describe('<Phase0Page />', () => {
   });
 
   describe('submit payload shape', () => {
-    it('constructs V5Phase0Submission with top-level aiClaimVerification', () => {
+    it('constructs V5Phase0Submission with top-level aiClaimVerification', async () => {
       const captured: { s: V5Phase0Submission | null } = { s: null };
       render(<Phase0Page onSubmit={(s) => (captured.s = s)} />);
 
@@ -202,6 +205,7 @@ describe('<Phase0Page />', () => {
 
       fireEvent.click(screen.getByTestId('phase0-submit'));
 
+      await waitFor(() => expect(captured.s).not.toBeNull());
       const s = captured.s;
       expect(s).not.toBeNull();
       expect(s?.codeReading.l1Answer).toBe(
@@ -221,7 +225,7 @@ describe('<Phase0Page />', () => {
       expect(typeof s?.aiClaimVerification.submittedAt).toBe('number');
     });
 
-    it('writes the submission into session.store and advances to moduleA', () => {
+    it('writes the submission into session.store and advances to moduleA', async () => {
       render(<Phase0Page />);
       fillL1();
       fillL2();
@@ -237,7 +241,7 @@ describe('<Phase0Page />', () => {
       expect(stored).toBeDefined();
       expect(stored?.aiOutputJudgment).toHaveLength(2);
 
-      expect(useModuleStore.getState().currentModule).toBe('moduleA');
+      await waitFor(() => expect(useModuleStore.getState().currentModule).toBe('moduleA'));
     });
   });
 
@@ -277,7 +281,11 @@ describe('<Phase0Page />', () => {
       expect(typeof ack).toBe('function');
     });
 
-    it('falls back to phase0-pending sessionId when store has none, and ack=false does not undo advance/local persist', () => {
+    it('falls back to phase0-pending sessionId when store has none, and ack=false blocks advance', async () => {
+      mockSocket.emit.mockImplementation((...args: unknown[]) => {
+        const ack = args.at(-1);
+        if (typeof ack === 'function') ack(false);
+      });
       // No sessionId set on the store — covers the early-Phase0 path before
       // session bootstrap completes.
       render(<Phase0Page />);
@@ -288,14 +296,14 @@ describe('<Phase0Page />', () => {
       const [, payload, ack] = call!;
       expect((payload as { sessionId: string }).sessionId).toBe('phase0-pending');
 
-      // Local persist + advance happen synchronously (fire-and-forget emit).
       expect(useSessionStore.getState().submissions.phase0).toBeDefined();
-      expect(useModuleStore.getState().currentModule).toBe('moduleA');
+      await waitFor(() => expect(screen.getByTestId('phase0-submit-error')).toBeInTheDocument());
+      expect(useModuleStore.getState().currentModule).toBe('phase0');
 
-      // Server-rejected ack must not crash the no-op callback nor revert state.
+      // Server-rejected ack must not crash when invoked again.
       expect(() => act(() => (ack as (ok: boolean) => void)(false))).not.toThrow();
       expect(useSessionStore.getState().submissions.phase0).toBeDefined();
-      expect(useModuleStore.getState().currentModule).toBe('moduleA');
+      expect(useModuleStore.getState().currentModule).toBe('phase0');
     });
   });
 

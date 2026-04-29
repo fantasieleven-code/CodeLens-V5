@@ -58,6 +58,7 @@ import { MB3StandardsPanel } from '../components/mb/MB3StandardsPanel.js';
 import { ViolationAuditPanel } from '../components/mb/ViolationAuditPanel.js';
 import { CursorModeLayout } from '../components/mb/CursorModeLayout.js';
 import { getSocket } from '../lib/socket.js';
+import { persistCandidateSubmission } from '../lib/persistCandidateSubmission.js';
 import { useModuleContent } from '../hooks/useModuleContent.js';
 import type { MBCandidateView } from '@codelens-v5/shared';
 import type { MultiFileEditorFile } from '../components/editors/MultiFileEditor.js';
@@ -104,6 +105,8 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
   const [planning, setPlanning] = useState<V5MBPlanning | null>(null);
   const [standards, setStandards] = useState<V5MBStandards | null>(null);
   const [files, setFiles] = useState<MultiFileEditorFile[]>([]);
+  const [finalSubmitting, setFinalSubmitting] = useState(false);
+  const [finalSubmitError, setFinalSubmitError] = useState<string | null>(null);
 
   // Hydrate `files` once content lands · empty until then · stages render
   // loading/error UX before this fires.
@@ -212,8 +215,10 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
   finalRefs.current = { planning, standards, files, latestPassRate };
 
   const handleAuditSubmit = useCallback(
-    (audit: V5MBAudit) => {
+    async (audit: V5MBAudit) => {
       const { planning: p, standards: s, files: f, latestPassRate: pr } = finalRefs.current;
+      setFinalSubmitting(true);
+      setFinalSubmitError(null);
       getSocket().emit('v5:mb:audit:submit', {
         sessionId,
         violations: audit.violations,
@@ -239,45 +244,25 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
         },
       };
 
-      onSubmit?.(submission);
       setSubmission('mb', submission);
       tracker.flush();
 
-      // Task 23 — fire `v5:mb:submit` so the server persists planning /
-      // standards / audit / finalFiles / finalTestPassRate (Cluster B unblock).
-      // editorBehavior is sent as empty arrays (see top-of-file comment) and
-      // the server STRIPS it before persist — Pattern H v2.2 cross-Task
-      // regression defense, otherwise Task 22's behavior:batch persisted
-      // aiCompletionEvents would be silently clobbered.
-      // PR #58 timeout-guard: UI advances to 'complete' regardless; ack just
-      // surfaces persist failures to the console. Window guard so SSR / test
-      // harness without window doesn't crash.
-      let settled = false;
-      const w = typeof window !== 'undefined' ? window : null;
-      const timeoutId = w?.setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        console.warn('[mb-submit] ack not received within 8s; persist may have failed');
-      }, 8000);
-      getSocket().emit('v5:mb:submit', { sessionId, submission }, (ok: boolean) => {
-        if (settled) return;
-        settled = true;
-        if (timeoutId !== undefined) w?.clearTimeout(timeoutId);
-        if (!ok) console.warn('[mb-submit] server reported persist failure');
+      const persisted = await persistCandidateSubmission({
+        event: 'v5:mb:submit',
+        payload: { sessionId, submission },
+        ...(sessionId !== 'mb-pending'
+          ? { http: { url: `/api/v5/exam/${sessionId}/mb/submit`, body: { submission } } }
+          : {}),
       });
-      // Brief #19 C5 σ HTTP fallback · belt-and-suspenders. Final-submit
-      // only; persistMbSubmission consolidates planning+standards+audit+
-      // finalFiles+finalTestPassRate from `submission` directly so a
-      // single endpoint covers the full MB metadata.mb shape.
-      if (sessionId) {
-        void fetch(`/api/v5/exam/${sessionId}/mb/submit`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ submission }),
-        }).catch(() => {});
+      if (!persisted) {
+        setFinalSubmitError('提交未保存成功,请重试。');
+        setFinalSubmitting(false);
+        return;
       }
 
+      onSubmit?.(submission);
       setStage('complete');
+      setFinalSubmitting(false);
     },
     [sessionId, tracker, onSubmit, setSubmission],
   );
@@ -366,12 +351,19 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
       )}
 
       {stage === 'audit' && (
-        <ViolationAuditPanel
-          sessionId={sessionId}
-          violationExamples={moduleContent.violationExamples}
-          rulesContent={standards?.rulesContent ?? ''}
-          onSubmit={handleAuditSubmit}
-        />
+        <>
+          <ViolationAuditPanel
+            sessionId={sessionId}
+            violationExamples={moduleContent.violationExamples}
+            rulesContent={standards?.rulesContent ?? ''}
+            onSubmit={finalSubmitting ? () => {} : handleAuditSubmit}
+          />
+          {finalSubmitError && (
+            <div style={styles.submitError} data-testid="mb-submit-error">
+              {finalSubmitError}
+            </div>
+          )}
+        </>
       )}
 
       {stage === 'complete' && (
@@ -494,4 +486,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   gateCard: { padding: spacing.xl, textAlign: 'center' },
   gateText: { fontSize: fontSizes.sm, color: colors.subtext0, margin: 0 },
+  submitError: {
+    color: colors.red,
+    fontSize: fontSizes.sm,
+    textAlign: 'right',
+  },
 };

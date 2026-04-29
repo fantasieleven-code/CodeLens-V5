@@ -16,7 +16,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import type { V5ModuleDSubmission } from '@codelens-v5/shared';
 
 let mockSocket: {
@@ -100,7 +100,10 @@ function fillRequiredFields() {
 describe('<ModuleDPage />', () => {
   beforeEach(() => {
     mockSocket = {
-      emit: vi.fn(),
+      emit: vi.fn((...args: unknown[]) => {
+        const ack = args.at(-1);
+        if (typeof ack === 'function') ack(true);
+      }),
       on: vi.fn(),
       off: vi.fn(),
     };
@@ -294,7 +297,7 @@ describe('<ModuleDPage />', () => {
   });
 
   describe('submit payload shape', () => {
-    it('emits V5ModuleDSubmission with interfaces split on newlines + empty submodules filtered', () => {
+    it('emits V5ModuleDSubmission with interfaces split on newlines + empty submodules filtered', async () => {
       const captured: { s: V5ModuleDSubmission | null } = { s: null };
       render(<ModuleDPage onSubmit={(s) => (captured.s = s)} />);
 
@@ -331,6 +334,7 @@ describe('<ModuleDPage />', () => {
 
       fireEvent.click(screen.getByTestId('md-submit'));
 
+      await waitFor(() => expect(captured.s).not.toBeNull());
       const s = captured.s;
       expect(s).not.toBeNull();
 
@@ -358,17 +362,17 @@ describe('<ModuleDPage />', () => {
       expect(s?.aiOrchestrationPrompts).toEqual([AI_PROMPT_A, AI_PROMPT_B]);
     });
 
-    it('filters empty AI prompt rows from the payload', () => {
+    it('filters empty AI prompt rows from the payload', async () => {
       const captured: { s: V5ModuleDSubmission | null } = { s: null };
       render(<ModuleDPage onSubmit={(s) => (captured.s = s)} />);
 
       fillRequiredFields();
       // Default prompt row stays empty → should be filtered.
       fireEvent.click(screen.getByTestId('md-submit'));
-      expect(captured.s?.aiOrchestrationPrompts).toEqual([]);
+      await waitFor(() => expect(captured.s?.aiOrchestrationPrompts).toEqual([]));
     });
 
-    it('writes the submission to session.store and advances module.store', () => {
+    it('writes the submission to session.store and advances module.store', async () => {
       render(<ModuleDPage />);
       fillRequiredFields();
       expect(useModuleStore.getState().currentModule).toBe('moduleD');
@@ -383,7 +387,7 @@ describe('<ModuleDPage />', () => {
       expect(stored?.tradeoffText).toBe(TRADEOFF);
 
       // architect ORDER: moduleD → selfAssess.
-      expect(useModuleStore.getState().currentModule).toBe('selfAssess');
+      await waitFor(() => expect(useModuleStore.getState().currentModule).toBe('selfAssess'));
     });
 
     it('does nothing when submit is clicked while gated', () => {
@@ -425,7 +429,11 @@ describe('<ModuleDPage />', () => {
       expect(typeof ack).toBe('function');
     });
 
-    it('falls back to moduleD-pending sessionId when store has none, and ack=false does not undo advance/local persist', () => {
+    it('falls back to moduleD-pending sessionId when store has none, and ack=false blocks advance', async () => {
+      mockSocket.emit.mockImplementation((...args: unknown[]) => {
+        const ack = args.at(-1);
+        if (typeof ack === 'function') ack(false);
+      });
       render(<ModuleDPage />);
       fillRequiredFields();
       fireEvent.click(screen.getByTestId('md-submit'));
@@ -434,14 +442,14 @@ describe('<ModuleDPage />', () => {
       const [, payload, ack] = call!;
       expect((payload as { sessionId: string }).sessionId).toBe('moduleD-pending');
 
-      // Local persist + advance happen synchronously (fire-and-forget emit).
       expect(useSessionStore.getState().submissions.moduleD).toBeDefined();
-      expect(useModuleStore.getState().currentModule).toBe('selfAssess');
+      await waitFor(() => expect(screen.getByTestId('md-submit-error')).toBeInTheDocument());
+      expect(useModuleStore.getState().currentModule).toBe('moduleD');
 
-      // Server-rejected ack must not crash the no-op callback nor revert state.
+      // Server-rejected ack must not crash when invoked again.
       expect(() => act(() => (ack as (ok: boolean) => void)(false))).not.toThrow();
       expect(useSessionStore.getState().submissions.moduleD).toBeDefined();
-      expect(useModuleStore.getState().currentModule).toBe('selfAssess');
+      expect(useModuleStore.getState().currentModule).toBe('moduleD');
     });
   });
 

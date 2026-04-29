@@ -26,7 +26,7 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import type { V5ModuleASubmission } from '@codelens-v5/shared';
-import { getSocket } from '../lib/socket.js';
+import { persistCandidateSubmission } from '../lib/persistCandidateSubmission.js';
 import { useModuleStore } from '../stores/module.store.js';
 import { useSessionStore } from '../stores/session.store.js';
 import { ModuleShell } from '../components/ModuleShell.js';
@@ -114,6 +114,8 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
   // --- Round 4 state
   const [r4Response, setR4Response] = useState('');
   const [r4StartedAt] = useState(() => Date.now());
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // --- current-round progression
   const currentRound: RoundId = !r1Done ? 'R1' : !r2Done ? 'R2' : !r3Done ? 'R3' : 'R4';
@@ -146,7 +148,7 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
     r3Diagnosis.trim().length >= R3_DIAGNOSIS_MIN;
 
   // --- R4 predicates
-  const canSubmitR4 = r4Response.trim().length >= R4_RESPONSE_MIN;
+  const canSubmitR4 = r4Response.trim().length >= R4_RESPONSE_MIN && !submitting;
 
   // ─────────────────── R2 review handlers ───────────────────
 
@@ -171,8 +173,10 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
 
   // ─────────────────── final submit (after R4) ───────────────────
 
-  const handleFinalSubmit = useCallback(() => {
+  const handleFinalSubmit = useCallback(async () => {
     if (!canSubmitR4 || !r1Scheme || !r3Correct || !moduleContent) return;
+    setSubmitting(true);
+    setSubmitError(null);
 
     const submission: V5ModuleASubmission = {
       round1: {
@@ -204,22 +208,22 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
       },
     };
 
-    onSubmit?.(submission);
     setSubmission('moduleA', submission);
-    // Brief #19 σ HTTP fallback · belt-and-suspenders mirroring Phase0Page.
-    getSocket().emit(
-      'moduleA:submit',
-      { sessionId: sessionId ?? 'moduleA-pending', submission },
-      (_ok: boolean) => {},
-    );
-    if (sessionId) {
-      void fetch(`/api/v5/exam/${sessionId}/modulea/submit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ submission }),
-      }).catch(() => {});
+    const persisted = await persistCandidateSubmission({
+      event: 'moduleA:submit',
+      payload: { sessionId: sessionId ?? 'moduleA-pending', submission },
+      ...(sessionId
+        ? { http: { url: `/api/v5/exam/${sessionId}/modulea/submit`, body: { submission } } }
+        : {}),
+    });
+    if (!persisted) {
+      setSubmitError('提交未保存成功,请重试。');
+      setSubmitting(false);
+      return;
     }
+    onSubmit?.(submission);
     advance();
+    setSubmitting(false);
   }, [
     canSubmitR4,
     r1Scheme,
@@ -236,6 +240,7 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
     setSubmission,
     sessionId,
     advance,
+    moduleContent,
   ]);
 
   if (!moduleContent) {
@@ -318,6 +323,12 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
           canSubmit={canSubmitR4}
           onSubmit={handleFinalSubmit}
         />
+      )}
+
+      {submitError && (
+        <div style={styles.submitError} data-testid="ma-submit-error">
+          {submitError}
+        </div>
       )}
     </div>
   );
@@ -1277,5 +1288,10 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: fontWeights.semibold,
     cursor: 'pointer',
     fontFamily: 'inherit',
+  },
+  submitError: {
+    color: colors.red,
+    fontSize: fontSizes.sm,
+    textAlign: 'right',
   },
 };
