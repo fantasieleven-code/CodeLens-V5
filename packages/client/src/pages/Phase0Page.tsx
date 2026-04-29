@@ -142,9 +142,7 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
 
     setSubmission('phase0', submission);
     // Brief #19 σ HTTP fallback · Brief #18 D38 σ pattern. Belt-and-
-    // suspenders: keeps the existing socket emit (so V5.0.1 root-socket
-    // wire fires it correctly without rework) AND adds an HTTP POST that
-    // works even when useSocket() is unwired (today's V5.0 reality).
+    // suspenders: direct `/interview` socket emit plus HTTP retry surface.
     // Both fire-and-forget · advance() never blocks on either.
     getSocket().emit(
       'phase0:submit',

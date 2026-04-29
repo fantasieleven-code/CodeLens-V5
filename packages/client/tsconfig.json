@@ -14,7 +14,6 @@
     "src/**/*.test.tsx",
     "src/**/*.spec.ts",
     "src/**/*.spec.tsx",
-    "src/hooks/useSocket.ts",
     "src/hooks/useErrorHandler.ts",
     "src/hooks/admin/**",
     "src/lib/anti-cheat.ts"

@@ -3178,3 +3178,39 @@ Three-view ratify:
 - CCL: small, low-risk cleanup after #181. It changes no runtime behavior and
   reduces the chance that a future worker implements a second Module C
   completion path by accident.
+
+### #183 · Client kept a dead V3 root socket hook outside typecheck
+
+**Type**:frontend V4 residue / typecheck exclude cleanup / socket architecture
+**Date**:2026-04-29
+**Status**:closed by client dead root-socket hook deletion patch
+
+The socket-contract audit after #182 confirmed
+`packages/client/src/hooks/useSocket.ts` was not a dormant feature waiting to
+be wired. It had 0 live imports, was explicitly excluded from
+`packages/client/tsconfig.json`, and imported V3 stores that no longer exist in
+the V5 client (`baseline.store`, `issue.store`). `packages/client/src/lib/socket.ts`
+already states the V5 architecture: module pages emit directly through
+`getSocket()` to `/interview`; no root socket hook is mounted for final-submit
+or behavior telemetry writes.
+
+Fix pattern:
+
+- Delete `packages/client/src/hooks/useSocket.ts` instead of trying to type it.
+- Remove only that client tsconfig exclude; leave unrelated excluded files for
+  their own owner pass.
+- Update stale page/socket comments that still framed `useSocket()` as a future
+  wiring target.
+- Mark the cross-task backlog item closed.
+
+Three-view ratify:
+
+- Karpathy: deleting the unwired hook is cleaner than resuscitating a V3 event
+  bus around V5 direct module emits. The architecture has one live client
+  socket entry point: `getSocket()`.
+- Gemini: rejects the cosmetic lint fix of adding missing stores or widening
+  shared socket types. That would make dead code compile while still not
+  running in production.
+- CCL: small patch with concrete payoff: removes a typecheck exclusion and the
+  source of most existing client lint warnings without touching runtime module
+  submission behavior.
