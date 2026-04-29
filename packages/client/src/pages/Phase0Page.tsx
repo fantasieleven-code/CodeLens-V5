@@ -26,7 +26,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import type { V5Phase0Submission } from '@codelens-v5/shared';
-import { getSocket } from '../lib/socket.js';
+import { persistCandidateSubmission } from '../lib/persistCandidateSubmission.js';
 import { useModuleStore } from '../stores/module.store.js';
 import { useSessionStore } from '../stores/session.store.js';
 import { ModuleShell } from '../components/ModuleShell.js';
@@ -93,6 +93,8 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
   ]);
   const [decision, setDecision] = useState<DecisionState>({ choice: null, reason: '' });
   const [aiClaim, setAiClaim] = useState<AiClaimState>({ response: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const l1Done = l1Answer !== null;
   const l2Done = l2Done_(l2Answer);
@@ -102,7 +104,8 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
   const decisionDone = decisionDone_(decision);
   const aiClaimDone = aiClaim.response.trim().length > 0;
 
-  const canSubmit = l1Done && l2Done && l3Done && j1Done && j2Done && decisionDone && aiClaimDone;
+  const canSubmit =
+    l1Done && l2Done && l3Done && j1Done && j2Done && decisionDone && aiClaimDone && !submitting;
 
   const updateJudgment = useCallback((idx: 0 | 1, patch: Partial<JudgmentState>) => {
     setJudgments((prev) => {
@@ -112,10 +115,12 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
     });
   }, []);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (!canSubmit || l1Answer === null || !decision.choice) return;
 
     if (!moduleContent) return;
+    setSubmitting(true);
+    setSubmitError(null);
     const l1Text = moduleContent.codeReadingQuestions.l1.options[l1Answer] ?? '';
 
     const submission: V5Phase0Submission = {
@@ -141,23 +146,21 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
     };
 
     setSubmission('phase0', submission);
-    // Brief #19 σ HTTP fallback · Brief #18 D38 σ pattern. Belt-and-
-    // suspenders: direct `/interview` socket emit plus HTTP retry surface.
-    // Both fire-and-forget · advance() never blocks on either.
-    getSocket().emit(
-      'phase0:submit',
-      { sessionId: sessionId ?? 'phase0-pending', submission },
-      (_ok: boolean) => {},
-    );
-    if (sessionId) {
-      void fetch(`/api/v5/exam/${sessionId}/phase0/submit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ submission }),
-      }).catch(() => {});
+    const persisted = await persistCandidateSubmission({
+      event: 'phase0:submit',
+      payload: { sessionId: sessionId ?? 'phase0-pending', submission },
+      ...(sessionId
+        ? { http: { url: `/api/v5/exam/${sessionId}/phase0/submit`, body: { submission } } }
+        : {}),
+    });
+    if (!persisted) {
+      setSubmitError('提交未保存成功,请重试。');
+      setSubmitting(false);
+      return;
     }
     onSubmit?.(submission);
     advance();
+    setSubmitting(false);
   }, [
     canSubmit,
     l1Answer,
@@ -255,6 +258,12 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
         </>
       )}
 
+      {submitError && (
+        <div style={styles.submitError} data-testid="phase0-submit-error">
+          {submitError}
+        </div>
+      )}
+
       <div style={styles.submitRow}>
         <button
           type="button"
@@ -266,7 +275,7 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
           disabled={!canSubmit}
           onClick={handleSubmit}
         >
-          提交 Phase 0
+          {submitting ? '提交中…' : '提交 Phase 0'}
         </button>
       </div>
     </div>
@@ -826,6 +835,11 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     justifyContent: 'flex-end',
     paddingBottom: spacing.xl,
+  },
+  submitError: {
+    color: colors.red,
+    fontSize: fontSizes.sm,
+    textAlign: 'right',
   },
   submitBtn: {
     padding: `${spacing.sm} ${spacing.xxl}`,

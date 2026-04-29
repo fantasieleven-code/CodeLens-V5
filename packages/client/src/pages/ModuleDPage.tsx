@@ -28,11 +28,9 @@
  * Submit path:
  *   - setSubmission('moduleD', payload) writes locally (CompletePage /
  *     DecisionSummary read from there)
- *   - getSocket().emit('moduleD:submit', ...) round-trips to server (Task 27
- *     Cluster C-MD persist closer). Fire-and-forget mirroring Task 25/26: the
- *     local store is the source of truth for in-session UI; the ack is
- *     reserved for V5.0.5 retry/error UX and does not gate advance().
- *   - advance() moves the module store forward
+ *   - persistCandidateSubmission('moduleD:submit', ...) confirms server
+ *     persistence through socket ack or HTTP fallback before advance().
+ *   - advance() moves the module store forward only after persistence succeeds
  *
  * Mock fallback:
  *   When no `module` prop is provided, falls back to MD_MOCK_FIXTURE so the
@@ -45,7 +43,7 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import type { V5ModuleDSubmission } from '@codelens-v5/shared';
-import { getSocket } from '../lib/socket.js';
+import { persistCandidateSubmission } from '../lib/persistCandidateSubmission.js';
 import { useModuleStore } from '../stores/module.store.js';
 import { useSessionStore } from '../stores/session.store.js';
 import { ModuleShell } from '../components/ModuleShell.js';
@@ -92,6 +90,8 @@ export const ModuleDPage: React.FC<ModuleDPageProps> = ({
   const [constraintsSelected, setConstraintsSelected] = useState<string[]>([]);
   const [tradeoffText, setTradeoffText] = useState('');
   const [aiOrchestrationPrompts, setAiOrchestrationPrompts] = useState<string[]>(['']);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // ─────────────────── handlers ───────────────────
 
@@ -140,10 +140,15 @@ export const ModuleDPage: React.FC<ModuleDPageProps> = ({
   );
 
   const canSubmit =
-    submoduleValid && dataFlowDescription.trim().length > 0 && tradeoffText.trim().length > 0;
+    submoduleValid &&
+    dataFlowDescription.trim().length > 0 &&
+    tradeoffText.trim().length > 0 &&
+    !submitting;
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (!canSubmit || !moduleContent) return;
+    setSubmitting(true);
+    setSubmitError(null);
 
     const submission: V5ModuleDSubmission = {
       subModules: subModules
@@ -171,21 +176,22 @@ export const ModuleDPage: React.FC<ModuleDPageProps> = ({
         .filter((p) => p.length > 0),
     };
 
-    onSubmit?.(submission);
     setSubmission('moduleD', submission);
-    getSocket().emit(
-      'moduleD:submit',
-      { sessionId: sessionId ?? 'moduleD-pending', submission },
-      (_ok: boolean) => {},
-    );
-    if (sessionId) {
-      void fetch(`/api/v5/exam/${sessionId}/moduled/submit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ submission }),
-      }).catch(() => {});
+    const persisted = await persistCandidateSubmission({
+      event: 'moduleD:submit',
+      payload: { sessionId: sessionId ?? 'moduleD-pending', submission },
+      ...(sessionId
+        ? { http: { url: `/api/v5/exam/${sessionId}/moduled/submit`, body: { submission } } }
+        : {}),
+    });
+    if (!persisted) {
+      setSubmitError('提交未保存成功,请重试。');
+      setSubmitting(false);
+      return;
     }
+    onSubmit?.(submission);
     advance();
+    setSubmitting(false);
   }, [
     canSubmit,
     subModules,
@@ -264,7 +270,7 @@ export const ModuleDPage: React.FC<ModuleDPageProps> = ({
           data-testid="md-submit"
           style={canSubmit ? styles.btnPrimary : styles.btnDisabled}
         >
-          提交并完成 Module D
+          {submitting ? '提交中…' : '提交并完成 Module D'}
         </button>
         {!canSubmit && (
           <span style={styles.warn} data-testid="md-submit-warn">
@@ -272,6 +278,11 @@ export const ModuleDPage: React.FC<ModuleDPageProps> = ({
           </span>
         )}
       </div>
+      {submitError && (
+        <div style={styles.submitError} data-testid="md-submit-error">
+          {submitError}
+        </div>
+      )}
     </div>
   );
 
@@ -793,5 +804,10 @@ const styles: Record<string, React.CSSProperties> = {
   warn: {
     fontSize: fontSizes.xs,
     color: colors.peach,
+  },
+  submitError: {
+    color: colors.red,
+    fontSize: fontSizes.sm,
+    textAlign: 'right',
   },
 };

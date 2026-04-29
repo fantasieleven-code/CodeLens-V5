@@ -10,7 +10,7 @@
 
 import React, { useMemo, useRef, useState } from 'react';
 import type { V5SelfAssessSubmission } from '@codelens-v5/shared';
-import { getSocket } from '../lib/socket.js';
+import { persistCandidateSubmission } from '../lib/persistCandidateSubmission.js';
 import { useModuleStore } from '../stores/module.store.js';
 import { useSessionStore } from '../stores/session.store.js';
 import { useBehaviorTracker } from '../hooks/useBehaviorTracker.js';
@@ -67,7 +67,7 @@ export const SelfAssessPage: React.FC = () => {
 
   const canSubmit = reasoning.trim().length >= 10 && !submitting;
 
-  const onSubmit = () => {
+  const onSubmit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
@@ -95,32 +95,32 @@ export const SelfAssessPage: React.FC = () => {
     };
     setSubmission('selfAssess', submission);
 
-    // Brief #17 D34 fire-and-forget + Brief #19 C6 σ HTTP fallback (belt-
-    // and-suspenders). Socket emit kept for V5.0.1 root-socket wire; HTTP
-    // fetch is the guaranteed persist path until then (DB-verified
-    // metadata.selfAssess empty in Brief #10 §E E2 root-cause).
+    // Persist before advance so the first admin scoring hydrate cannot cache a
+    // report before metadata.selfAssess lands.
     const responseTimeMs = Date.now() - mountTimeRef.current;
-    getSocket().emit(
-      'self-assess:submit',
-      {
-        sessionId: sessionId ?? 'selfassess-pending',
-        selfConfidence: confidence,
-        selfIdentifiedRisk: reasoning.trim() || undefined,
-        responseTimeMs,
-      },
-      (_ok: boolean) => {},
-    );
-    if (sessionId) {
-      void fetch(`/api/v5/exam/${sessionId}/selfassess/submit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          selfConfidence: confidence,
-          selfIdentifiedRisk: reasoning.trim() || undefined,
-          responseTimeMs,
-          ...(reviewedDecisions.length > 0 ? { reviewedDecisions } : {}),
-        }),
-      }).catch(() => {});
+    const payload = {
+      sessionId: sessionId ?? 'selfassess-pending',
+      selfConfidence: confidence,
+      selfIdentifiedRisk: reasoning.trim() || undefined,
+      responseTimeMs,
+    };
+    const body = {
+      selfConfidence: confidence,
+      selfIdentifiedRisk: reasoning.trim() || undefined,
+      responseTimeMs,
+      ...(reviewedDecisions.length > 0 ? { reviewedDecisions } : {}),
+    };
+    const persisted = await persistCandidateSubmission({
+      event: 'self-assess:submit',
+      payload,
+      ...(sessionId
+        ? { http: { url: `/api/v5/exam/${sessionId}/selfassess/submit`, body } }
+        : {}),
+    });
+    if (!persisted) {
+      setError('提交未保存成功,请重试。');
+      setSubmitting(false);
+      return;
     }
     setSubmitting(false);
     advance();

@@ -17,7 +17,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 // ─────────────────── jsdom-incompatible deps mocked first ───────────────────
 
@@ -98,7 +98,10 @@ function newMockSocket(): typeof mockSocket {
   const handlers: Record<string, ((...args: unknown[]) => void)[]> = {};
   return {
     handlers,
-    emit: vi.fn(),
+    emit: vi.fn((...args: unknown[]) => {
+      const ack = args.at(-1);
+      if (typeof ack === 'function') ack(true);
+    }),
     on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
       (handlers[event] ??= []).push(handler);
     }),
@@ -265,7 +268,7 @@ describe('ModuleBPage · Stage 2 (execution)', () => {
       });
     }
     fireEvent.click(screen.getByTestId('mb-audit-submit'));
-    expect(onSubmit).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit.mock.calls[0][0].finalTestPassRate).toBe(0.75);
   });
 
@@ -408,7 +411,7 @@ describe('ModuleBPage · Stage 4 (audit) + complete', () => {
         violations: expect.any(Array),
       }),
     );
-    expect(screen.getByTestId('mb-complete')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('mb-complete')).toBeInTheDocument());
     expect(screen.getByTestId('mb-stage-label')).toHaveTextContent('已完成');
   });
 
@@ -423,7 +426,7 @@ describe('ModuleBPage · Stage 4 (audit) + complete', () => {
     }
     fireEvent.click(screen.getByTestId('mb-audit-submit'));
 
-    expect(onSubmit).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     const submission = onSubmit.mock.calls[0][0];
     expect(submission.planning?.decomposition).toBe('plan');
     expect(submission.standards?.rulesContent).toBe('- 纯函数\n- 不修改入参');
@@ -448,6 +451,7 @@ describe('ModuleBPage · Stage 4 (audit) + complete', () => {
     fireEvent.click(screen.getByTestId('mb-audit-submit'));
 
     expect(useModuleStore.getState().currentModule).toBe('mb');
+    await waitFor(() => expect(screen.getByTestId('mb-advance')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('mb-advance'));
     expect(useModuleStore.getState().currentModule).toBe('selfAssess');
   });

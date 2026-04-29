@@ -3304,3 +3304,38 @@ Three-view ratify:
   state and release truth must agree for the next owner.
 - CCL: smallest viable cleanup: one local deletion plus a docs-only ledger
   update, with no production or test behavior touched.
+
+### #187 · Candidate module advance must be gated by persistence ack
+
+**Type**:production data integrity / Cold Start failure root cause
+**Date**:2026-04-29
+**Status**:closed by candidate submission persistence gating patch
+
+PR #119 initially touched docs only, but CI Cold Start exposed a real mainline
+race: the fresh deep_dive session completed with 17 null signals. The null set
+covered all 10 Module A signals, 4 MB final-state/rules signals, and both SE
+signals. The shared root cause was not signal logic; it was candidate pages
+advancing after fire-and-forget submit emits/fetches, allowing the first admin
+report hydrate to score and cache before later module metadata had landed.
+
+Fix pattern:
+
+- Introduce a client helper that races socket ack and HTTP fallback, resolving
+  success as soon as either channel confirms persistence.
+- Gate Phase0 / Module A / Module B final submit / Module D / SelfAssess
+  `advance()` on that persistence confirmation.
+- On failed persistence, keep the candidate on the current module and surface a
+  retryable error instead of continuing with local-only state.
+- Update page tests so `ack=true` advances after persistence and `ack=false`
+  blocks advance.
+
+Three-view ratify:
+
+- Karpathy: scoring correctness starts at the module boundary. Advancing before
+  persistence made local UI state diverge from DB truth; the clean boundary is
+  "persisted, then advance".
+- Gemini: rejects driver-only waits or CI reruns. Those would make Cold Start
+  green while leaving real candidates exposed to cached incomplete reports.
+- CCL: one small cross-page helper plus focused page tests fixes the race at
+  the source without changing scoring algorithms or widening signal null
+  tolerance.

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen, fireEvent, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import type { V5ModuleASubmission } from '@codelens-v5/shared';
 
 let mockSocket: {
@@ -102,7 +102,10 @@ function fillR4() {
 describe('<ModuleAPage />', () => {
   beforeEach(() => {
     mockSocket = {
-      emit: vi.fn(),
+      emit: vi.fn((...args: unknown[]) => {
+        const ack = args.at(-1);
+        if (typeof ack === 'function') ack(true);
+      }),
       on: vi.fn(),
       off: vi.fn(),
     };
@@ -291,7 +294,7 @@ describe('<ModuleAPage />', () => {
   });
 
   describe('submit payload shape', () => {
-    it('constructs a V5ModuleASubmission with canonical round4', () => {
+    it('constructs a V5ModuleASubmission with canonical round4', async () => {
       const captured: { s: V5ModuleASubmission | null } = { s: null };
       render(<ModuleAPage onSubmit={(s) => (captured.s = s)} />);
 
@@ -301,6 +304,7 @@ describe('<ModuleAPage />', () => {
       fillR4();
       fireEvent.click(screen.getByTestId('ma-r4-submit'));
 
+      await waitFor(() => expect(captured.s).not.toBeNull());
       const s = captured.s;
       expect(s).not.toBeNull();
 
@@ -339,7 +343,7 @@ describe('<ModuleAPage />', () => {
       expect(typeof s?.round4.timeSpentSec).toBe('number');
     });
 
-    it('writes the submission into session.store and advances to mb', () => {
+    it('writes the submission into session.store and advances to mb', async () => {
       render(<ModuleAPage />);
       fillR1();
       fillR2();
@@ -351,7 +355,7 @@ describe('<ModuleAPage />', () => {
       expect(stored).toBeDefined();
       expect(stored?.round1.schemeId).toBe('C');
       expect(stored?.round4.response).toBe(R4_RESPONSE);
-      expect(useModuleStore.getState().currentModule).toBe('mb');
+      await waitFor(() => expect(useModuleStore.getState().currentModule).toBe('mb'));
     });
   });
 
@@ -411,7 +415,11 @@ describe('<ModuleAPage />', () => {
       expect(typeof ack).toBe('function');
     });
 
-    it('falls back to moduleA-pending sessionId when store has none, and ack=false does not undo advance/local persist', () => {
+    it('falls back to moduleA-pending sessionId when store has none, and ack=false blocks advance', async () => {
+      mockSocket.emit.mockImplementation((...args: unknown[]) => {
+        const ack = args.at(-1);
+        if (typeof ack === 'function') ack(false);
+      });
       render(<ModuleAPage />);
       fillAll();
       fireEvent.click(screen.getByTestId('ma-r4-submit'));
@@ -420,14 +428,14 @@ describe('<ModuleAPage />', () => {
       const [, payload, ack] = call!;
       expect((payload as { sessionId: string }).sessionId).toBe('moduleA-pending');
 
-      // Local persist + advance happen synchronously (fire-and-forget emit).
       expect(useSessionStore.getState().submissions.moduleA).toBeDefined();
-      expect(useModuleStore.getState().currentModule).toBe('mb');
+      await waitFor(() => expect(screen.getByTestId('ma-submit-error')).toBeInTheDocument());
+      expect(useModuleStore.getState().currentModule).toBe('moduleA');
 
-      // Server-rejected ack must not crash the no-op callback nor revert state.
+      // Server-rejected ack must not crash when invoked again.
       expect(() => act(() => (ack as (ok: boolean) => void)(false))).not.toThrow();
       expect(useSessionStore.getState().submissions.moduleA).toBeDefined();
-      expect(useModuleStore.getState().currentModule).toBe('mb');
+      expect(useModuleStore.getState().currentModule).toBe('moduleA');
     });
   });
 
