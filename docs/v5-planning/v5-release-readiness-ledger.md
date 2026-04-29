@@ -6,7 +6,7 @@ Last updated: 2026-04-29
 
 | Gate                        | Status                              | Evidence                                                                                                  | Scope truth                                                                                                                           |
 | --------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Main CI                     | ✅ green                            | main run `25113660824` at `0d3b63f`                                                                       | lint/typecheck, unit tests, build, e2e smoke/golden config, Docker build + Trivy                                                      |
+| Main CI                     | ✅ green                            | main run `25117179759` at `6edb8c9`                                                                       | lint/typecheck, unit tests, build, e2e smoke/golden config, Docker build + Trivy; GitHub action runtime pins on Node 24-compatible majors |
 | Docker/Trivy                | ✅ green                            | PR #101 → #102 → #103                                                                                     | Real Dockerfile + runtime npm removal; not a scan downgrade                                                                           |
 | Golden Path B3              | ✅ green before Cold Start addition | `npm run test:golden-path` 5/5 on 2026-04-29                                                              | 4 calibrated fixtures + smoke; proves grade/composite/report surface                                                                  |
 | Hydrator Cold Start unit    | ✅ green                            | `npm --prefix packages/server test -- cold-start-validation.test.ts` 4/4                                  | Synthetic metadata + mocked LLM; hydrator seam, not full production                                                                   |
@@ -112,4 +112,5 @@ pipeline audit:
 - GitHub Actions Node.js 20 action-runtime deprecation was handled by upgrading
   workflow actions from `checkout@v4` / `setup-node@v4` to v6 and
   `upload-artifact@v4` to v7 while preserving the project test runtime at
-  `node-version: 20`. CI remains the proof gate for the action-major upgrade.
+  `node-version: 20`. Main run `25117179759` proved the upgraded action pins
+  across lint/typecheck, test, build, e2e artifact upload, Docker, and Trivy.
