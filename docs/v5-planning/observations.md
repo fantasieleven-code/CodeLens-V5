@@ -3465,3 +3465,39 @@ Three-view ratify:
 - CCL: bounded telemetry patch. It changes no scoring formulas and no final
   submission persistence; it only makes already-designed MB signals receive the
   production browser data they expect.
+
+### #191 · CI Node 20 action-runtime warning should be fixed at the action version, not hidden
+
+**Type**:CI maintenance / release hygiene / deprecation cleanup
+**Date**:2026-04-29
+**Status**:closed by GitHub Actions v6 upgrade, pending CI proof
+
+Main CI was green after the MB telemetry smoke, but GitHub annotated every
+`checkout@v4` / `setup-node@v4` job with the Node.js 20 action-runtime
+deprecation warning. This was not a V5.0 functional gate failure, but leaving a
+known platform deprecation in the release ledger would create avoidable future
+CI drift.
+
+Fix pattern:
+
+- Upgrade workflow actions from `actions/checkout@v4` to `actions/checkout@v6`.
+- Upgrade `actions/setup-node@v4` to `actions/setup-node@v6`.
+- Upgrade `actions/upload-artifact@v4` to `actions/upload-artifact@v7` after
+  PR CI showed the deprecation annotation had moved to artifact upload.
+- Suppress the known optional promptfoo-output upload warning with
+  `if-no-files-found: ignore`; prompt regression pass/fail remains governed by
+  the eval step itself.
+- Preserve `node-version: 20` for project install, build, test, e2e, and Docker
+  gate behavior. The patch changes the GitHub action runtime, not the app's
+  Node test runtime.
+- Do not use `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` as a workaround; the
+  cleaner release artifact is to consume maintained action majors directly.
+
+Three-view ratify:
+
+- Karpathy: action-version upgrade is the durable boundary fix; an env opt-in
+  would hide the symptom while keeping stale action pins.
+- Gemini: preserving `node-version: 20` separates CI platform cleanup from app
+  runtime migration, so failures can be attributed cleanly.
+- CCL: one workflow file plus ledger update; GitHub Actions execution is the
+  correct proof surface for this patch.
