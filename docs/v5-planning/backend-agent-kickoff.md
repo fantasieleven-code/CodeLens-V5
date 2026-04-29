@@ -33,14 +33,15 @@ registry、exam generator、SandboxProvider、ModelProvider 等。
 - LLM 调用统一经 ModelProvider(Task 7),不直接 fetch API
 
 ## Typecheck 基线管理
-- **Server typecheck baseline = 0（Task 4 后）**，见 `docs/v5-planning/TYPECHECK_EXCLUDES.md`。
-- excluded 文件的 re-enable owner：Task 5（health + e2b-health）/ Task 6（job-models）/ Task 11（routes/session）/ Task 13（event-bus `@ts-expect-error`）/ Task 15（routes/shared-report）。
-- 每个 PR 描述必须写 "Typecheck errors: N (delta: -X / +Y)"，baseline 不得增加。
-- 新增 V4 残留引用时：追加到 `TYPECHECK_EXCLUDES.md` 表格 + `packages/server/tsconfig.json` exclude 数组，PR 描述说明原因 + 引用 issue #10 + 得到 Steve 批准。
+- **Server typecheck baseline = 0**，见 `docs/v5-planning/TYPECHECK_EXCLUDES.md`。
+- `packages/server/tsconfig.json` 当前没有 V5 过渡期 source exclude；issue #10 已关闭。
+- 仍需跟踪的不是 tsconfig exclude，而是 `event-bus.service.ts` 内 3 个历史 `@ts-expect-error`。
+- 每个 PR 描述必须写 "Typecheck errors: 0" 或说明 delta；baseline 不得增加。
+- 新增 V4 残留引用时先 stop-report，说明为什么不能直接删除或修复；只有 Steve 裁决后才允许新增 `TYPECHECK_EXCLUDES.md` 条目和 tsconfig exclude。
 
-## CI Known-Red（V5 过渡期）
+## CI Baseline
 
-有 1 个 CI job（prompt-regression）因 Task 7 deliverable 未到位而持续红。详见 `docs/v5-planning/CI_KNOWN_RED.md`。Merge 时可以忽略该 job 的 FAILURE。V5.0 发布 gate 要求 `CI_KNOWN_RED.md` 清空。
+Main CI 当前要求 green；不要再按旧的 prompt-regression known-red 口径 self-merge。若 CI red，先读 run log 判断是否为本 PR 引入。
 
 ## 行为约束
 - **Standby = 字面待命**:零 git 操作,零文件写入

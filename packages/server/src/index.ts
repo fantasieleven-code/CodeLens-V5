@@ -65,8 +65,9 @@ app.use('/api/v5/mc', mcVoiceChatRouter);
 // per ratified design (Hotfix #12 + Brief #13 C7) · no auth gate · response
 // shape narrowed to candidate-facing fields only (no scoringResult/grade).
 app.use('/api/v5/session', sessionRouter);
-// Brief #15 · candidate-facing exam-module content · GET /api/v5/exam/:examInstanceId/module/:moduleType
-// MB-only in this brief · other module types return 501 · groundTruth-stripped response.
+// Candidate-facing exam module content + HTTP retry surfaces for module submits.
+// GET /api/v5/exam/:examInstanceId/module/:moduleType supports all V5 modules
+// with ground-truth stripped projections.
 app.use('/api/v5/exam', examContentRouter);
 app.use('/auth', authRouter);
 
