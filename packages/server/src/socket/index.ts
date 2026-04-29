@@ -10,7 +10,7 @@
  * Called once at startup from src/index.ts.
  */
 
-import type { Server as SocketIOServer } from 'socket.io';
+import type { Namespace, Server as SocketIOServer, Socket } from 'socket.io';
 
 import { logger } from '../lib/logger.js';
 import { registerBehaviorHandlers } from './behavior-handlers.js';
@@ -21,8 +21,17 @@ import { registerPhase0Handlers } from './phase0-handlers.js';
 import { registerSelfAssessHandlers } from './self-assess-handlers.js';
 
 export function registerSocketHandlers(io: SocketIOServer): void {
-  io.on('connection', (socket) => {
-    logger.info('[socket] connected', { socketId: socket.id });
+  registerNamespaceHandlers(io, io, 'root');
+  registerNamespaceHandlers(io, io.of('/interview'), '/interview');
+}
+
+function registerNamespaceHandlers(
+  io: SocketIOServer,
+  namespace: SocketIOServer | Namespace,
+  namespaceName: string,
+): void {
+  namespace.on('connection', (socket: Socket) => {
+    logger.info('[socket] connected', { socketId: socket.id, namespace: namespaceName });
 
     registerMBHandlers(io, socket);
     registerBehaviorHandlers(io, socket);
@@ -32,7 +41,7 @@ export function registerSocketHandlers(io: SocketIOServer): void {
     registerModuleDHandlers(io, socket);
 
     socket.on('disconnect', (reason) => {
-      logger.info('[socket] disconnected', { socketId: socket.id, reason });
+      logger.info('[socket] disconnected', { socketId: socket.id, namespace: namespaceName, reason });
     });
   });
 }

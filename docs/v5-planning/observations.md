@@ -2899,3 +2899,43 @@ Three-view ratify:
 - CCL: release-safe. The patch is MA-only, covered by focused unit tests and
   root build; existing missing-session behavior remains non-throw for the
   already-deleted session case.
+
+### #175 · Socket transport root cause was namespace plus auto-connect
+
+**Type**:transport root cause / socket reliability / Pattern H
+**Date**:2026-04-29
+**Status**:closed by socket namespace hardening patch
+
+Post-#174 audit revisited the repeated "socket silent drop → HTTP fallback"
+pattern and found the root cause had two layers:
+
+1. Client `getSocket()` connects to Socket.IO namespace `/interview`.
+2. Server `registerSocketHandlers(io)` registered handlers only on the root
+   namespace.
+3. Client socket construction used `autoConnect:false`, while V5 pages call
+   `getSocket().emit(...)` directly and no component calls `useSocket()` in the
+   current app tree.
+
+Fix pattern:
+
+- `getSocket()` now auto-connects, so direct page emits and `behavior:batch`
+  flushes have a live transport without requiring the legacy root `useSocket()`
+  hook.
+- Server registers the same V5 handlers on both root and `/interview`, keeping
+  root compatibility while fixing the namespace the shipped client actually
+  uses.
+- Added two guard tests: a unit registration test for root + `/interview`, and
+  a live Socket.IO smoke that starts an in-memory server, connects a client to
+  `/interview`, emits `moduleA:submit`, and asserts ack `true` plus server
+  persist invocation.
+
+Three-view ratify:
+
+- Karpathy: minimal architecture correction. No per-page socket rewrites and no
+  removal of HTTP fallback; the shared transport primitive now does what page
+  callers already assume.
+- Gemini: closes the actual silent-drop chain. Fixing only server namespace
+  would still leave `autoConnect:false`; fixing only auto-connect would still
+  connect to an unwired namespace.
+- CCL: release-safe. HTTP fallbacks remain as retry surfaces, but live socket
+  writes are no longer knowingly inert.
