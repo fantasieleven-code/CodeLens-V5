@@ -11,13 +11,13 @@
  *   audit     → ViolationAuditPanel     (Stage 4 — outputs V5MBAudit)
  *   complete  → advance() to next module
  *
- * Socket emits (5 distinct events from this orchestrator):
- *   - v5:mb:planning:submit   (Stage 1 → Stage 2 transition)
+ * Socket emits (4 distinct events from this orchestrator):
+ *   - v5:mb:planning:submit   (ack-gated Stage 1 → Stage 2 transition)
  *   - v5:mb:file_change       (manual edits during Stage 2 — source: 'manual_edit'.
  *                              AI-driven edits emit from CursorModeLayout's children
  *                              via their own socket calls, not from here.)
- *   - v5:mb:standards:submit  (Stage 3 → Stage 4 transition)
- *   - v5:mb:audit:submit      (Stage 4 → complete transition)
+ *   - v5:mb:standards:submit  (ack-gated Stage 3 → Stage 4 transition)
+ *   - v5:mb:submit            (Stage 4 final submit → complete transition)
  *   - v5:mb:visibility_change (Round 2 Part 3 调整 4 — only during Stage 2,
  *                              which is the only stage where decision-latency
  *                              signals care about tab focus.)
@@ -47,7 +47,13 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { V5MBAudit, V5MBPlanning, V5MBStandards, V5MBSubmission } from '@codelens-v5/shared';
+import type {
+  ClientToServerEvents,
+  V5MBAudit,
+  V5MBPlanning,
+  V5MBStandards,
+  V5MBSubmission,
+} from '@codelens-v5/shared';
 import { useModuleStore } from '../stores/module.store.js';
 import { useSessionStore } from '../stores/session.store.js';
 import { useBehaviorTracker } from '../hooks/useBehaviorTracker.js';
@@ -65,6 +71,44 @@ import type { MultiFileEditorFile } from '../components/editors/MultiFileEditor.
 import { colors, spacing, fontSizes, fontWeights, radii } from '../lib/tokens.js';
 
 type Stage = 'planning' | 'execution' | 'standards' | 'audit' | 'complete';
+type AckedMbStageEvent = 'v5:mb:planning:submit' | 'v5:mb:standards:submit';
+
+type AckedMbStagePayload<K extends AckedMbStageEvent> = ClientToServerEvents[K] extends (
+  payload: infer P,
+  ack: (ok: boolean) => void,
+) => void
+  ? P
+  : never;
+
+type AckedMbStageEmitter = <K extends AckedMbStageEvent>(
+  event: K,
+  payload: AckedMbStagePayload<K>,
+  ack: (ok: boolean) => void,
+) => void;
+
+function emitMbStageWithAck<K extends AckedMbStageEvent>(
+  event: K,
+  payload: AckedMbStagePayload<K>,
+  timeoutMs = 8000,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = globalThis.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(false);
+    }, timeoutMs);
+
+    const socket = getSocket();
+    const emit = socket.emit.bind(socket) as AckedMbStageEmitter;
+    emit(event, payload, (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      globalThis.clearTimeout(timer);
+      resolve(ok);
+    });
+  });
+}
 
 export interface ModuleBPageProps {
   /**
@@ -107,6 +151,7 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
   const [files, setFiles] = useState<MultiFileEditorFile[]>([]);
   const [finalSubmitting, setFinalSubmitting] = useState(false);
   const [finalSubmitError, setFinalSubmitError] = useState<string | null>(null);
+  const [stageSubmitError, setStageSubmitError] = useState<string | null>(null);
 
   // Hydrate `files` once content lands · empty until then · stages render
   // loading/error UX before this fires.
@@ -179,9 +224,17 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
   // ─────────────────── Stage transitions ───────────────────
 
   const handlePlanningSubmit = useCallback(
-    (p: V5MBPlanning) => {
+    async (p: V5MBPlanning) => {
       setPlanning(p);
-      getSocket().emit('v5:mb:planning:submit', { sessionId, planning: p });
+      setStageSubmitError(null);
+      const persisted = await emitMbStageWithAck('v5:mb:planning:submit', {
+        sessionId,
+        planning: p,
+      });
+      if (!persisted) {
+        setStageSubmitError('提交未保存成功,请重试。');
+        return;
+      }
       tracker.track('mb_planning_submit', { skipped: p.skipped ?? false });
       setStage('execution');
     },
@@ -193,13 +246,18 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
   }, []);
 
   const handleStandardsSubmit = useCallback(
-    (s: V5MBStandards) => {
+    async (s: V5MBStandards) => {
       setStandards(s);
-      getSocket().emit('v5:mb:standards:submit', {
+      setStageSubmitError(null);
+      const persisted = await emitMbStageWithAck('v5:mb:standards:submit', {
         sessionId,
         rulesContent: s.rulesContent,
         ...(s.agentContent !== undefined ? { agentContent: s.agentContent } : {}),
       });
+      if (!persisted) {
+        setStageSubmitError('提交未保存成功,请重试。');
+        return;
+      }
       tracker.track('mb_standards_submit', {
         rulesLen: s.rulesContent.length,
         hasAgent: s.agentContent !== undefined,
@@ -219,10 +277,7 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
       const { planning: p, standards: s, files: f, latestPassRate: pr } = finalRefs.current;
       setFinalSubmitting(true);
       setFinalSubmitError(null);
-      getSocket().emit('v5:mb:audit:submit', {
-        sessionId,
-        violations: audit.violations,
-      });
+      setStageSubmitError(null);
       tracker.track('mb_audit_submit', {
         markedCount: audit.violations.filter((v) => v.markedAsViolation).length,
         totalCount: audit.violations.length,
@@ -307,6 +362,11 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
           {stageBadge}
         </span>
       </header>
+      {stageSubmitError && (
+        <div style={styles.errorBanner} data-testid="mb-stage-submit-error">
+          {stageSubmitError}
+        </div>
+      )}
 
       {stage === 'planning' && (
         <MB1PlanningPanel
@@ -486,6 +546,14 @@ const styles: Record<string, React.CSSProperties> = {
   },
   gateCard: { padding: spacing.xl, textAlign: 'center' },
   gateText: { fontSize: fontSizes.sm, color: colors.subtext0, margin: 0 },
+  errorBanner: {
+    color: colors.red,
+    fontSize: fontSizes.sm,
+    padding: spacing.sm,
+    backgroundColor: `${colors.red}14`,
+    border: `1px solid ${colors.red}55`,
+    borderRadius: radii.md,
+  },
   submitError: {
     color: colors.red,
     fontSize: fontSizes.sm,

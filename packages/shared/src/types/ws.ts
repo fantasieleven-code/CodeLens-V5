@@ -199,14 +199,14 @@ export interface ClientToServerEvents {
   // metadata persists only the V5ModuleCAnswer fields.
   'v5:modulec:answer': (data: V5ModuleCAnswerPayload, ack: (ok: boolean) => void) => void;
   // v5: MB Cursor mode — shapes mirror packages/server/src/socket/mb-handlers.ts
-  // exactly. mb-handlers uses `safe()` which emits `{event}:error` on failure
-  // instead of acks, so client emits are fire-and-forget (no ack parameter).
+  // exactly. Stage transition submits use acks so the client cannot advance
+  // while a previous metadata slice is still in flight.
   'v5:mb:chat_generate': (data: V5MBChatGeneratePayload) => void;
   'v5:mb:completion_request': (data: V5MBCompletionRequestPayload) => void;
   'v5:mb:file_change': (data: V5MBFileChangePayload) => void;
   'v5:mb:run_test': (data: V5MBRunTestPayload) => void;
-  'v5:mb:planning:submit': (data: V5MBPlanningSubmitPayload) => void;
-  'v5:mb:standards:submit': (data: V5MBStandardsSubmitPayload) => void;
+  'v5:mb:planning:submit': (data: V5MBPlanningSubmitPayload, ack: (ok: boolean) => void) => void;
+  'v5:mb:standards:submit': (data: V5MBStandardsSubmitPayload, ack: (ok: boolean) => void) => void;
   'v5:mb:audit:submit': (data: V5MBAuditSubmitPayload) => void;
   /** Round 2 Part 3 调整 4 (v5-design-clarifications.md L550-588). */
   'v5:mb:visibility_change': (data: V5MBVisibilityChangePayload) => void;

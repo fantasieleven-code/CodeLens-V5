@@ -98,6 +98,18 @@ function dispatch(ee: EventEmitter, event: string, payload: unknown): Promise<vo
   return Promise.resolve(last(payload));
 }
 
+function dispatchWithAck(
+  ee: EventEmitter,
+  event: string,
+  payload: unknown,
+  ack: (ok: boolean) => void,
+): Promise<void> {
+  const listeners = ee.listeners(event);
+  if (listeners.length === 0) throw new Error(`No listener for ${event}`);
+  const last = listeners.at(-1) as (p: unknown, a: (ok: boolean) => void) => Promise<void> | void;
+  return Promise.resolve(last(payload, ack));
+}
+
 async function flush(): Promise<void> {
   for (let i = 0; i < 3; i++) await Promise.resolve();
 }
@@ -131,10 +143,11 @@ describe('planning / standards / audit submit', () => {
   it('planning:submit persists + emits MODULE_SUBMITTED', async () => {
     const { socket, ee } = makeSocket();
     registerMBHandlers({} as never, socket);
-    await dispatch(ee, 'v5:mb:planning:submit', {
+    const ack = vi.fn();
+    await dispatchWithAck(ee, 'v5:mb:planning:submit', {
       sessionId: 's1',
       planning: { decomposition: 'a', dependencies: 'b', fallbackStrategy: 'c' },
-    });
+    }, ack);
     expect(mocks.persistPlanning).toHaveBeenCalledWith('s1', {
       decomposition: 'a',
       dependencies: 'b',
@@ -144,20 +157,23 @@ describe('planning / standards / audit submit', () => {
       sessionId: 's1',
       module: 'mb.planning',
     });
+    expect(ack).toHaveBeenCalledWith(true);
   });
 
   it('standards:submit drops agentContent when undefined', async () => {
     const { socket, ee } = makeSocket();
     registerMBHandlers({} as never, socket);
-    await dispatch(ee, 'v5:mb:standards:submit', {
+    const ack = vi.fn();
+    await dispatchWithAck(ee, 'v5:mb:standards:submit', {
       sessionId: 's1',
       rulesContent: 'rules',
-    });
+    }, ack);
     expect(mocks.persistStandards).toHaveBeenCalledWith('s1', { rulesContent: 'rules' });
     expect(mocks.eventBusEmit).toHaveBeenCalledWith(V5Event.MODULE_SUBMITTED, {
       sessionId: 's1',
       module: 'mb.standards',
     });
+    expect(ack).toHaveBeenCalledWith(true);
   });
 
   it('audit:submit forwards violations + emits MODULE_SUBMITTED', async () => {
@@ -354,19 +370,6 @@ describe('file_change / visibility_change', () => {
 });
 
 describe('v5:mb:submit (Task 23 — Cluster B closer + Pattern H v2.2 defense)', () => {
-  function dispatchWithAck(
-    ee: EventEmitter,
-    event: string,
-    payload: unknown,
-    ack: (ok: boolean) => void,
-  ): Promise<void> {
-    const last = ee.listeners(event).at(-1) as (
-      p: unknown,
-      a: (ok: boolean) => void,
-    ) => Promise<void> | void;
-    return Promise.resolve(last(payload, ack));
-  }
-
   function makeSubmission() {
     return {
       planning: { decomposition: 'd', dependencies: 'dep', fallbackStrategy: 'f' },
@@ -443,15 +446,17 @@ describe('error safety', () => {
     mocks.persistPlanning.mockRejectedValueOnce(new Error('db down'));
     const { socket, emit, ee } = makeSocket();
     registerMBHandlers({} as never, socket);
+    const ack = vi.fn();
 
     await expect(
-      dispatch(ee, 'v5:mb:planning:submit', {
+      dispatchWithAck(ee, 'v5:mb:planning:submit', {
         sessionId: 's1',
         planning: { decomposition: '', dependencies: '', fallbackStrategy: '' },
-      }),
+      }, ack),
     ).resolves.toBeUndefined();
 
     expect(emit).toHaveBeenCalledWith('v5:mb:planning:submit:error', { error: 'db down' });
+    expect(ack).toHaveBeenCalledWith(false);
   });
 });
 

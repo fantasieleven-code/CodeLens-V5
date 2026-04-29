@@ -53,6 +53,9 @@ Module C now has the same real socket + HTTP retry shape as the other
 submission pages; `v5:modulec:answer` and final `session:end` both carry
 `sessionId` explicitly because there is still no socket-level session
 middleware.
+Module B stage transitions are ack-gated for planning and standards so late
+stage-slice writes cannot overtake the final `v5:mb:submit` write and clobber
+`metadata.mb.finalFiles` / final audit data.
 Historical `v5:modulec:start` and `v5:modulec:complete` design placeholders
 are intentionally not part of the current shared socket contract: grep shows no
 client emits and no server handlers, and final completion is owned by

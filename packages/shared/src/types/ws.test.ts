@@ -44,10 +44,10 @@ describe('ws.ts v5:mb:* payload shapes', () => {
       [V5MBRunTestPayload]
     >();
     expectTypeOf<ClientToServerEvents['v5:mb:planning:submit']>().parameters.toEqualTypeOf<
-      [V5MBPlanningSubmitPayload]
+      [V5MBPlanningSubmitPayload, (ok: boolean) => void]
     >();
     expectTypeOf<ClientToServerEvents['v5:mb:standards:submit']>().parameters.toEqualTypeOf<
-      [V5MBStandardsSubmitPayload]
+      [V5MBStandardsSubmitPayload, (ok: boolean) => void]
     >();
     expectTypeOf<ClientToServerEvents['v5:mb:audit:submit']>().parameters.toEqualTypeOf<
       [V5MBAuditSubmitPayload]

@@ -3,8 +3,8 @@
  *
  * Covers the orchestrator's contract:
  *   - Stage 1 → 2 → 3 → 4 → complete progression
- *   - 5 socket emits (planning:submit, file_change, standards:submit,
- *     audit:submit, visibility_change)
+ *   - socket emits (planning:submit, file_change, standards:submit,
+ *     final submit, visibility_change)
  *   - test_result listener folds passRate into final submission
  *   - visibility listener only active during Stage 2
  *   - groundTruth-safe violationExamples flow into the audit panel
@@ -171,7 +171,7 @@ describe('ModuleBPage · Stage 1 (planning)', () => {
     expect(screen.getByTestId('mb-planning-root')).toBeInTheDocument();
   });
 
-  it('planning submit emits v5:mb:planning:submit and advances to Stage 2', () => {
+  it('planning submit emits v5:mb:planning:submit and advances to Stage 2 after ack', async () => {
     render(<ModuleBPage module={FIXTURE} />);
     fireEvent.change(screen.getByTestId('mb-planning-decomposition'), {
       target: { value: '1. parse\n2. filter' },
@@ -187,12 +187,13 @@ describe('ModuleBPage · Stage 1 (planning)', () => {
           skipped: false,
         }),
       }),
+      expect.any(Function),
     );
-    expect(screen.getByTestId('mb-stage-label')).toHaveTextContent('Stage 2');
+    await waitFor(() => expect(screen.getByTestId('mb-stage-label')).toHaveTextContent('Stage 2'));
     expect(screen.getByTestId('mb-execution-wrap')).toBeInTheDocument();
   });
 
-  it('skipping planning still advances to Stage 2 with skipped=true', () => {
+  it('skipping planning still advances to Stage 2 with skipped=true', async () => {
     render(<ModuleBPage module={FIXTURE} />);
     fireEvent.click(screen.getByTestId('mb-planning-skip'));
     fireEvent.click(screen.getByTestId('mb-planning-skip-confirm'));
@@ -200,7 +201,23 @@ describe('ModuleBPage · Stage 1 (planning)', () => {
       ([ev]) => ev === 'v5:mb:planning:submit',
     );
     expect(call?.[1].planning.skipped).toBe(true);
-    expect(screen.getByTestId('mb-stage-label')).toHaveTextContent('Stage 2');
+    expect(call?.[2]).toEqual(expect.any(Function));
+    await waitFor(() => expect(screen.getByTestId('mb-stage-label')).toHaveTextContent('Stage 2'));
+  });
+
+  it('planning ack=false keeps the candidate on Stage 1', async () => {
+    mockSocket.emit.mockImplementationOnce((...args: unknown[]) => {
+      const ack = args.at(-1);
+      if (typeof ack === 'function') ack(false);
+    });
+    render(<ModuleBPage module={FIXTURE} />);
+    fireEvent.change(screen.getByTestId('mb-planning-decomposition'), {
+      target: { value: 'plan' },
+    });
+    fireEvent.click(screen.getByTestId('mb-planning-submit'));
+
+    await waitFor(() => expect(screen.getByTestId('mb-stage-submit-error')).toBeInTheDocument());
+    expect(screen.getByTestId('mb-stage-label')).toHaveTextContent('Stage 1');
   });
 });
 
@@ -211,6 +228,7 @@ async function advanceToExecution() {
     target: { value: 'plan' },
   });
   fireEvent.click(screen.getByTestId('mb-planning-submit'));
+  await waitFor(() => expect(screen.getByTestId('mb-execution-wrap')).toBeInTheDocument());
 }
 
 describe('ModuleBPage · Stage 2 (execution)', () => {
@@ -260,6 +278,7 @@ describe('ModuleBPage · Stage 2 (execution)', () => {
       target: { value: '- 纯函数' },
     });
     fireEvent.click(screen.getByTestId('mb-standards-submit'));
+    await waitFor(() => expect(screen.getByTestId('mb-audit-root')).toBeInTheDocument());
     // mark all violations compliant so submit is allowed
     const exampleCount = FIXTURE.violationExamples.length;
     for (let i = 0; i < exampleCount; i++) {
@@ -338,6 +357,7 @@ describe('ModuleBPage · Stage 3 (standards)', () => {
       target: { value: 'plan' },
     });
     fireEvent.click(screen.getByTestId('mb-planning-submit'));
+    await waitFor(() => expect(screen.getByTestId('mb-execution-wrap')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('mb-execution-finish'));
   }
 
@@ -355,8 +375,9 @@ describe('ModuleBPage · Stage 3 (standards)', () => {
         sessionId: 'sess-test',
         rulesContent: '- 不准修改入参\n- 列表推导优先',
       }),
+      expect.any(Function),
     );
-    expect(screen.getByTestId('mb-stage-label')).toHaveTextContent('Stage 4');
+    await waitFor(() => expect(screen.getByTestId('mb-stage-label')).toHaveTextContent('Stage 4'));
     expect(screen.getByTestId('mb-audit-root')).toBeInTheDocument();
   });
 
@@ -367,6 +388,7 @@ describe('ModuleBPage · Stage 3 (standards)', () => {
       target: { value: '- rule one\n- rule two\n- rule three' },
     });
     fireEvent.click(screen.getByTestId('mb-standards-submit'));
+    await waitFor(() => expect(screen.getByTestId('mb-audit-root')).toBeInTheDocument());
     // The rule <select> only renders once a card is marked as violation.
     fireEvent.change(screen.getByTestId('mb-violation-toggle-0'), {
       target: { value: 'violation' },
@@ -387,14 +409,16 @@ describe('ModuleBPage · Stage 4 (audit) + complete', () => {
       target: { value: 'plan' },
     });
     fireEvent.click(screen.getByTestId('mb-planning-submit'));
+    await waitFor(() => expect(screen.getByTestId('mb-execution-wrap')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('mb-execution-finish'));
     fireEvent.change(screen.getByTestId('mb-standards-rules'), {
       target: { value: '- 纯函数\n- 不修改入参' },
     });
     fireEvent.click(screen.getByTestId('mb-standards-submit'));
+    await waitFor(() => expect(screen.getByTestId('mb-audit-root')).toBeInTheDocument());
   }
 
-  it('emits v5:mb:audit:submit and shows the complete card', async () => {
+  it('persists the final v5:mb:submit and shows the complete card', async () => {
     render(<ModuleBPage module={FIXTURE} />);
     await advanceToAudit();
     for (let i = 0; i < FIXTURE.violationExamples.length; i++) {
@@ -405,11 +429,14 @@ describe('ModuleBPage · Stage 4 (audit) + complete', () => {
     fireEvent.click(screen.getByTestId('mb-audit-submit'));
 
     expect(mockSocket.emit).toHaveBeenCalledWith(
-      'v5:mb:audit:submit',
+      'v5:mb:submit',
       expect.objectContaining({
         sessionId: 'sess-test',
-        violations: expect.any(Array),
+        submission: expect.objectContaining({
+          audit: expect.objectContaining({ violations: expect.any(Array) }),
+        }),
       }),
+      expect.any(Function),
     );
     await waitFor(() => expect(screen.getByTestId('mb-complete')).toBeInTheDocument());
     expect(screen.getByTestId('mb-stage-label')).toHaveTextContent('已完成');
