@@ -7,12 +7,10 @@
  * keeps the framework independently verifiable before each signal batch
  * lands.
  *
- * Round 3 Part 2 raised the V5.0 signal catalog from 43 → 47
- * (40 pure-rule + 3 MD LLM-whitelist + 4 新增 sAiClaim / sPrinciple /
- * sBelief / sDecisionLatency). Task A1 brought it to 48 by adding
- * sCalibration (SE · metacognition · partialComposite consumer via the
- * orchestrator two-pass seam). `EXPECTED_SIGNAL_COUNT` is the contract
- * CI must satisfy:
+ * Current catalog: 48 signals = 45 pure-rule + 3 MD LLM-whitelist. Task A1
+ * added the 48th (`sCalibration` · SE · metacognition · partialComposite
+ * consumer via the orchestrator two-pass seam). `EXPECTED_SIGNAL_COUNT` is the
+ * contract CI must satisfy:
  *   assert(signalRegistry.getSignalCount() === EXPECTED_SIGNAL_COUNT).
  */
 

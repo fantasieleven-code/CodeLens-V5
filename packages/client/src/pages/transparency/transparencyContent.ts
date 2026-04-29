@@ -5,9 +5,8 @@
  * the bilingual-inline zh+en β pattern established by consentContent.ts,
  * profileContent.ts, and selfViewContent.ts. Per A15 Phase 1 ratify D2,
  * signal-count literal is "48 · 45 pure-rule + 3 LLM whitelist" — the
- * post-A14a framing. Older surfaces (TransparencyStatement.tsx "43",
- * CLAUDE.md "43") are captured as V5.0.5 housekeeping for a content-only
- * unify PR (cross-task-shared-extension-backlog.md).
+ * post-A14a framing. The report trailer copy was reconciled in the
+ * signal-count content-only pass, so public page + report trailer now agree.
  *
  * Copy tone follows TransparencyStatement.tsx:
  *   · "设计目标 / 持续校准", not "validated / proven"
