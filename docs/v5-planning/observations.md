@@ -2424,3 +2424,72 @@ A1 stop-report 行为是 §E rule 真生效证据 · 不是 absorb · 累计 sub
 跟 brief #20 closure 3 silent absorb 反差更明显。§E 断路器在 sub-cycle 内 100% 生效。
 
 Commits ref · obs#170 A1 expansion · `b625fec` (A1 spec disable)
+
+#### Sub-cycle commit Z · Max expectation post-page-fix recalibration
+
+Z decision implemented after W2 audit and three-view ratify. This is not a
+"widen band to hide a bug" change; it is a recalibration from the page-bug
+distribution to the corrected UI-path distribution.
+
+**1. Calibration provenance**
+
+Current repo blame shows Max `compositeRange: [14,24]` came from `aa67369`
+(Task 17b Phase 3). That band was calibrated while the MA R2 e2e path did
+not submit a real canonical defect id, so Max's `sHiddenBugFound` stayed at
+miss-level in the UI path. Max's fixture-side `unknown` marker originated in
+`ef850a5`; `9c62f72` only padded the comment text for UI thresholds.
+
+**2. Post-fix true distribution**
+
+Commit `0b399b6` fixed Module A R2 page lookup. In B3, the driver clicks line
+4; the page resolves line 4 to critical `d1`; Max submits
+`commentType: 'nit'` and the shallow comment `这个不好看,感觉有点问题`.
+The scoring engine therefore fires `MISCLASSIFIED_PENALTY=0.5` in
+`sHiddenBugFound`, yielding a real B3 composite around 26.47, about +2.47
+over the old upper band.
+
+**3. Design narrative confirmation**
+
+This preserves the Max design narrative. `max-c-grade.ts` says Max is
+surface / wrong / minimal and that every signal should be near zero; Task A1
+expectations also define Max as the Dunning-Kruger anchor. A critical bug
+marked as cosmetic is exactly that archetype. "Near zero" means D-tier
+Dunning-Kruger distribution, not absolute-zero scoring after a real UI path
+starts resolving the canonical defect id.
+
+**4. Non-bug confirmation**
+
+Real V5.0 candidate scoring behavior is already correct after `0b399b6`.
+Z does not touch production scoring, driver behavior, or fixture data. It
+only changes the Golden Path expectation band from `[14,24]` to `[14,28]`
+and adds an inline comment in `expectations.ts` so future blame readers can
+reconstruct the evidence chain.
+
+**Gate discipline**
+
+`verify:e2e-scoring` is still only a pre-B3 smoke gate. On 2026-04-29 it
+passed 4/4 with Max 23.54 under the direct fixture path, which proves only
+that server-side replay is not drifting. B3 Playwright remains the ship gate
+#5 proof because it exercises UI lookup, persistence, Prisma, and admin
+report rendering.
+
+**Final gate result**
+
+Post-Z gates on 2026-04-29:
+- `npm --prefix packages/server run verify:e2e-scoring` · 4/4 pass · Max
+  23.54 in `[14,28]` under direct fixture replay.
+- `npm run test:golden-path` · clean webServer rerun 5/5 pass in 2.5m
+  (Liam / Steve / Emma / Max + smoke).
+
+Two B3 infrastructure failures were stop-reported and root-caused before the
+final clean rerun:
+1. Admin login invalid credentials · B3 spec read root `process.env` while
+   `seed-admin.ts` reads `packages/server/.env`. Fix: B3 spec loads
+   `packages/server/.env` before constructing `ADMIN_CREDS`; CI env still wins.
+2. Step 3 exam locator timeout with `listExamInstances failed: 500` · traced
+   to stale Playwright webServer reuse after interrupting the prior failed run.
+   Fresh `NODE_ENV=test` HTTP probe returned 200; clean server-pair rerun
+   passed.
+
+Brief #20 ship gate #5 is now closed by true B3 evidence, not by server-side
+fixture replay.

@@ -23,6 +23,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
+import { config as loadDotenv } from 'dotenv';
 import type {
   CapabilityLabel,
   CapabilityProfileId,
@@ -52,6 +53,11 @@ import {
 import { CANONICAL_EXAM_ID } from '../packages/server/src/data/canonical-v5-exam-data.js';
 
 // ────────────────────────── Admin credentials ──────────────────────────
+
+// Brief #20 sub-cycle · local B3 credential-source drift. `seed-admin.ts`
+// reads packages/server/.env via dotenv, while Playwright runs from repo root.
+// Load the same file for local runs; CI-provided env vars still win.
+loadDotenv({ path: 'packages/server/.env' });
 
 const ADMIN_CREDS = {
   email: process.env.ADMIN_EMAIL || 'admin@codelens.dev',

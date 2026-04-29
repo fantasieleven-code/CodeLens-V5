@@ -111,7 +111,13 @@ export const FIXTURE_EXPECTATIONS: Record<'liam' | 'steve' | 'emma' | 'max', Fix
   },
   max: {
     grades: ['D'],
-    compositeRange: [14, 24],
+    // Brief #20 sub-cycle: [14,24] came from aa67369 while MA R2 page
+    // submitted fabricated cand-N misses, so Max sHiddenBugFound was 0 in e2e.
+    // After 0b399b6, B3 clicks line 4 and resolves critical d1; Max's 'nit'
+    // comment fires MISCLASSIFIED_PENALTY=0.5, adding about +2.47 composite.
+    // Re-baseline treats that as Dunning-Kruger signal, not a production fix.
+    // Keep Max D-grade near-zero narrative, but not absolute-zero scoring.
+    compositeRange: [14, 28],
     sCalibrationRange: [0.0, 0.1],
     capabilityLabels: {
       independent_delivery: '待发展',
