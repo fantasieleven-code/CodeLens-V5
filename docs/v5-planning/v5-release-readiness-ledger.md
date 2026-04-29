@@ -6,7 +6,7 @@ Last updated: 2026-04-29
 
 | Gate                        | Status                              | Evidence                                                                                                  | Scope truth                                                                                                                           |
 | --------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Main CI                     | ✅ green                            | main run `25110323628` at `f4ab1aa`                                                                       | lint/typecheck, unit tests, build, e2e smoke/golden config, Docker build + Trivy                                                      |
+| Main CI                     | ✅ green                            | main run `25113660824` at `0d3b63f`                                                                       | lint/typecheck, unit tests, build, e2e smoke/golden config, Docker build + Trivy                                                      |
 | Docker/Trivy                | ✅ green                            | PR #101 → #102 → #103                                                                                     | Real Dockerfile + runtime npm removal; not a scan downgrade                                                                           |
 | Golden Path B3              | ✅ green before Cold Start addition | `npm run test:golden-path` 5/5 on 2026-04-29                                                              | 4 calibrated fixtures + smoke; proves grade/composite/report surface                                                                  |
 | Hydrator Cold Start unit    | ✅ green                            | `npm --prefix packages/server test -- cold-start-validation.test.ts` 4/4                                  | Synthetic metadata + mocked LLM; hydrator seam, not full production                                                                   |
@@ -67,6 +67,20 @@ Fix:
 - Update page tests so ack success advances after persistence and ack failure
   blocks advance. See observation #187.
 
+The next hardening pass found two narrower follow-up truths:
+
+- Admin report payloads still read the legacy `metadata.submissions.*` envelope
+  even after scoring hydration had moved to top-level namespaces. The report
+  endpoint now returns `ScoringHydratorService.hydrateAndScore().submissions`,
+  so report sections and scoring share one hydrated source of truth. See
+  observation #188.
+- Module B planning/standards stage submits still advanced fire-and-forget.
+  Because MB persistence writes `metadata.mb` through read-modify-write JSON
+  updates, a late stage-slice write could land after final `v5:mb:submit` and
+  clobber `finalFiles` or final audit data. Planning and standards are now
+  ack-gated before stage advance, and the client no longer emits redundant
+  `v5:mb:audit:submit` during final submit. See observation #189.
+
 ## Remaining Truths
 
 - The first Cold Start attempt exposed Monaco cold-load fragility once, then
@@ -83,3 +97,6 @@ Fix:
   Brief #20 sub-cycle closed; it was never a release artifact.
 - `docs/v5-planning/v5-signal-production-coverage.md` is historical in places;
   the current release truth is this ledger plus passing Cold Start evidence.
+- GitHub Actions currently warns that Node.js 20 actions are deprecated and
+  will move to Node.js 24 defaults in 2026. This is a CI-maintenance follow-up,
+  not a V5.0 gate failure.
