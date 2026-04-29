@@ -13,6 +13,29 @@ const { mockPrisma } = vi.hoisted(() => ({
   },
 }));
 
+type PromptRow = {
+  id: string;
+  name: string;
+  version: number;
+  content: string;
+  isActive: boolean;
+  metadata: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PromptFindUniqueArgs = {
+  where: { name_version: { name: string; version: number } };
+};
+
+type PromptFindFirstArgs = {
+  where: { name: string; isActive?: boolean };
+};
+
+type PromptCreateArgs = {
+  data: Omit<PromptRow, 'id' | 'createdAt' | 'updatedAt'>;
+};
+
 vi.mock('../../config/db.js', () => ({ prisma: mockPrisma }));
 vi.mock('../../lib/logger.js', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -427,23 +450,20 @@ describe('Integration flow: seeded key → get returns placeholder', () => {
     resetMocks();
 
     // In-memory table. Single active row per key (after seed).
-    const table = new Map<
-      string,
-      { id: string; name: string; version: number; content: string; isActive: boolean; metadata: unknown; createdAt: Date; updatedAt: Date }
-    >();
+    const table = new Map<string, PromptRow>();
     const rowKey = (name: string, version: number) => `${name}::${version}`;
 
-    mockPrisma.promptVersion.findUnique.mockImplementation(async ({ where }: any) => {
+    mockPrisma.promptVersion.findUnique.mockImplementation(async ({ where }: PromptFindUniqueArgs) => {
       const { name, version } = where.name_version;
       return table.get(rowKey(name, version)) ?? null;
     });
-    mockPrisma.promptVersion.findFirst.mockImplementation(async ({ where }: any) => {
+    mockPrisma.promptVersion.findFirst.mockImplementation(async ({ where }: PromptFindFirstArgs) => {
       const rows = Array.from(table.values())
         .filter((r) => r.name === where.name && (where.isActive === undefined || r.isActive === where.isActive))
         .sort((a, b) => b.version - a.version);
       return rows[0] ?? null;
     });
-    mockPrisma.promptVersion.create.mockImplementation(async ({ data }: any) => {
+    mockPrisma.promptVersion.create.mockImplementation(async ({ data }: PromptCreateArgs) => {
       const row = {
         id: `id-${data.name}-${data.version}`,
         name: data.name,

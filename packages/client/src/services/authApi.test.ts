@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { postLogin, LoginError } from './authApi.js';
 
 const ORIGINAL_FETCH = globalThis.fetch;

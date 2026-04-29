@@ -23,7 +23,6 @@
 
 import {
   V5Dimension,
-  type P0ModuleSpecific,
   type SignalDefinition,
   type SignalEvidence,
   type SignalInput,

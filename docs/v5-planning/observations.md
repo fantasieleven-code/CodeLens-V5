@@ -3247,3 +3247,31 @@ Three-view ratify:
 - CCL: contained cleanup with no runtime imports touched. The patch closes the
   last client production-source excludes while preserving all tests/specs
   outside the production build graph.
+
+### #185 · Lint baseline reached zero warnings after V4 residue cleanup
+
+**Type**:lint hygiene / baseline hardening
+**Date**:2026-04-29
+**Status**:closed by zero-lint-warning cleanup patch
+
+After #183 and #184 removed the dead client source excluded from typecheck, the
+repo still had 11 lint warnings: two unused client imports, one unused server
+type import, five `any` casts in `errorHandler.ts`, and three `any` mock
+arguments in `prompt-registry.service.test.ts`.
+
+Fix pattern:
+
+- Remove unused imports directly.
+- Replace `errorHandler.ts` `any` casts with narrow local Prisma/Zod-like
+  structural types.
+- Replace prompt-registry test mock `any` parameters with local mock argument
+  types that match the fields the test consumes.
+
+Three-view ratify:
+
+- Karpathy: zero-warning lint is a stronger baseline than a memorized warning
+  list. The fixes are local and do not change runtime behavior.
+- Gemini: rejects broad lint suppressions. The warning sites had clear local
+  types, so suppression would hide useful signal.
+- CCL: small patch with high future value: CI lint output becomes actionable
+  again because new warnings are no longer buried in known noise.
