@@ -439,6 +439,12 @@ describe('ModuleBPage · Stage 4 (audit) + complete', () => {
       expect.any(Function),
     );
     await waitFor(() => expect(screen.getByTestId('mb-complete')).toBeInTheDocument());
+    const emittedEvents = mockSocket.emit.mock.calls.map(([event]) => event);
+    const finalSubmitIndex = emittedEvents.indexOf('v5:mb:submit');
+    const behaviorBatchIndex = emittedEvents.indexOf('behavior:batch');
+    expect(finalSubmitIndex).toBeGreaterThanOrEqual(0);
+    expect(behaviorBatchIndex).toBeGreaterThanOrEqual(0);
+    expect(finalSubmitIndex).toBeLessThan(behaviorBatchIndex);
     expect(screen.getByTestId('mb-stage-label')).toHaveTextContent('已完成');
   });
 

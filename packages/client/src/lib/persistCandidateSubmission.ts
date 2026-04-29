@@ -70,30 +70,13 @@ export async function persistCandidateSubmission<K extends SubmitAckEvent>({
   http,
   timeoutMs = 8000,
 }: PersistCandidateSubmissionOptions<K>): Promise<boolean> {
-  const attempts: Array<Promise<boolean>> = [emitWithAck(event, payload, timeoutMs)];
-  if (http) attempts.push(postJson(http.url, http.body));
+  const socketOk = await emitWithAck(event, payload, timeoutMs);
+  if (socketOk) return true;
+  if (!http) return false;
 
-  return new Promise((resolve) => {
-    let pending = attempts.length;
-    let resolved = false;
-
-    const finish = (ok: boolean) => {
-      if (resolved) return;
-      if (ok) {
-        resolved = true;
-        resolve(true);
-        return;
-      }
-
-      pending -= 1;
-      if (pending === 0) {
-        resolved = true;
-        resolve(false);
-      }
-    };
-
-    attempts.forEach((attempt) => {
-      attempt.then(finish).catch(() => finish(false));
-    });
-  });
+  try {
+    return await postJson(http.url, http.body);
+  } catch {
+    return false;
+  }
 }

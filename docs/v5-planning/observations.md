@@ -3501,3 +3501,42 @@ Three-view ratify:
   runtime migration, so failures can be attributed cleanly.
 - CCL: one workflow file plus ledger update; GitHub Actions execution is the
   correct proof surface for this patch.
+
+### #192 · MB final submit and telemetry flush must not write metadata concurrently
+
+**Type**:production data integrity / MB metadata ordering / Cold Start root cause
+**Date**:2026-04-29
+**Status**:closed by sequential persistence fallback + post-persist telemetry flush
+
+Main CI run `25118324031` failed Cold Start after the CI ledger docs PR with
+exactly two null signals: `sPrecisionFix` and `sRuleEnforcement`. The logs also
+showed `v5:mb:run_test` sandbox-image errors, but those do not explain these
+two signals: both read MB final-state data (`finalFiles` and final audit), not
+test pass-rate data.
+
+Root cause: ModuleBPage still flushed `behavior:batch` immediately before the
+canonical final `v5:mb:submit`, and `persistCandidateSubmission` raced socket
+ack and HTTP fallback in parallel. That left multiple metadata writers in
+flight. Because server-side MB persistence uses JSON read-modify-write updates,
+a late telemetry append or fallback write could land after the final submit and
+clobber the final-state slice, reproducing the null `finalFiles` / audit
+symptom.
+
+Fix pattern:
+
+- Make socket submit the primary persistence path.
+- Call HTTP only after socket ack failure or timeout; fallback is no longer a
+  parallel writer.
+- Move `tracker.flush()` until after final `v5:mb:submit` persistence succeeds.
+- Add a client unit test proving HTTP is not called after socket ack success.
+- Add ModuleBPage coverage proving final submit is emitted before
+  `behavior:batch`.
+
+Three-view ratify:
+
+- Karpathy: final submission is the authority for MB final-state data.
+  Telemetry is append-only context and must not race the authoritative write.
+- Gemini: rejects rerunning Cold Start, widening signal handling, or ignoring
+  sandbox log noise. The failing signals identify a final-state metadata race.
+- CCL: small client-side ordering patch with targeted tests. It changes no
+  scoring formulas, signal thresholds, or server data contracts.

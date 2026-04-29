@@ -300,7 +300,6 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
       };
 
       setSubmission('mb', submission);
-      tracker.flush();
 
       const persisted = await persistCandidateSubmission({
         event: 'v5:mb:submit',
@@ -315,6 +314,7 @@ export const ModuleBPage: React.FC<ModuleBPageProps> = ({
         return;
       }
 
+      tracker.flush();
       onSubmit?.(submission);
       setStage('complete');
       setFinalSubmitting(false);
