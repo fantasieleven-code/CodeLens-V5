@@ -3007,3 +3007,35 @@ Three-view ratify:
   current user-facing source still advertises 43.
 - CCL: tiny patch with focused copy tests and registry-count assertion; no
   release risk.
+
+### #178 · Module C voice start endpoint drift was runtime, not just docs
+
+**Type**:endpoint drift / voice-mode runtime bug / pre-ship polish
+**Date**:2026-04-29
+**Status**:closed by Module C voice endpoint patch
+
+Pre-ship polish audit started as a doc sweep for voice endpoint comments, but
+grep found a live runtime drift: `ModuleCPage` passed
+`startEndpoint: '/api/voice/v4/start'` into `useVoiceRTC`, while the server only
+mounts `POST /api/voice/v5/start` (`voiceRouter.post('/v5/start', ...)`). The
+golden-path suite uses text fallback and therefore did not cover voice start.
+
+Fix pattern:
+
+- Change Module C to call `/api/voice/v5/start`.
+- Change `useVoiceRTC`'s default start endpoint to the same V5 route, so future
+  callers cannot silently fall back to a nonexistent generic `/api/voice/start`.
+- Correct `voice.ts` header docs to list actual token/start/stop/status paths.
+- Correct the stale MC voice-chat production-coverage URL from
+  `/api/moduleC/voice-chat` to `/api/v5/mc/voice-chat`.
+- Add focused tests for both the page-level endpoint prop and hook default
+  fetch order (`/api/voice/v5/start` before `/api/voice/token`).
+
+Three-view ratify:
+
+- Karpathy: one-line runtime fix plus doc cleanup; no route alias or backward
+  compatibility shim for an endpoint that never existed in this V5 server.
+- Gemini: rejects the doc-only half-fix. The stale comment was a symptom; the
+  shipped page was still pointing at the wrong path.
+- CCL: contained patch. Voice start is not in golden-path text fallback, so
+  focused hook/page tests are the right regression guard.

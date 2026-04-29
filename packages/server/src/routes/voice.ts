@@ -15,10 +15,10 @@
  *   - Reuses shared rtc-token.service and voice-chat.service.
  *
  * Endpoints:
- *   POST /api/voice/v5/token   — RTC join token (reused as-is from V4).
+ *   POST /api/voice/token      — RTC join token (reused as-is from V4).
  *   POST /api/voice/v5/start   — Start Emma for a V5 session.
- *   POST /api/voice/v5/stop    — Stop + cleanup.
- *   GET  /api/voice/v5/status  — Availability probe.
+ *   POST /api/voice/stop       — Stop + cleanup.
+ *   GET  /api/voice/status     — Availability probe.
  */
 
 import { Router } from 'express';

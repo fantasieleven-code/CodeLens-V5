@@ -130,7 +130,7 @@ export const ModuleCPage: React.FC = () => {
   // Voice RTC hook — gated on preflight
   useVoiceRTC({
     enabled: Boolean(token && sessionId && preflightPassed),
-    startEndpoint: '/api/voice/v4/start',
+    startEndpoint: '/api/voice/v5/start',
   });
 
   const voiceStoreState = useVoiceStore((s) => s.state);

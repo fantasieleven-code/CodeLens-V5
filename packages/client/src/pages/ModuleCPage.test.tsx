@@ -18,9 +18,14 @@ vi.mock('@volcengine/rtc', () => ({
 }));
 
 const socketEmit = vi.hoisted(() => vi.fn());
+const useVoiceRTCMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../lib/socket.js', () => ({
   getSocket: () => ({ emit: socketEmit, on: vi.fn(), off: vi.fn() }),
+}));
+
+vi.mock('../hooks/useVoiceRTC.js', () => ({
+  useVoiceRTC: useVoiceRTCMock,
 }));
 
 vi.mock('../hooks/useModuleContent.js', () => ({
@@ -45,6 +50,8 @@ import { useSessionStore } from '../stores/session.store.js';
 describe('ModuleCPage', () => {
   beforeEach(() => {
     socketEmit.mockReset();
+    useVoiceRTCMock.mockReset();
+    useVoiceRTCMock.mockReturnValue({ startVoice: vi.fn(), stopVoice: vi.fn() });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) }));
     useVoiceStore.getState().reset();
     useSessionStore.getState().reset();
@@ -64,6 +71,15 @@ describe('ModuleCPage', () => {
     expect(screen.getByTestId('module-c-page')).toBeInTheDocument();
     expect(screen.getByTestId('modulec-preflight')).toBeInTheDocument();
     expect(screen.getByTestId('modulec-preflight-headphones')).toBeInTheDocument();
+  });
+
+  it('boots voice mode through the V5 schema-gated start endpoint', () => {
+    render(<ModuleCPage />);
+
+    expect(useVoiceRTCMock).toHaveBeenCalledWith({
+      enabled: false,
+      startEndpoint: '/api/voice/v5/start',
+    });
   });
 
   it('submits text rounds over v5:modulec:answer with sessionId and probeStrategy', async () => {
