@@ -27,6 +27,8 @@ jobs:
         run: npx tsc --noEmit -p packages/server/tsconfig.json
       - name: TypeScript check (client)
         run: npx tsc --noEmit -p packages/client/tsconfig.json
+      - name: TypeScript check (e2e)
+        run: npx tsc --noEmit -p e2e/tsconfig.json
 
   test:
     runs-on: ubuntu-latest

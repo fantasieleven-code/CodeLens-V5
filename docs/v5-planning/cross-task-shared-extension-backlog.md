@@ -628,7 +628,7 @@ Pre-brief planning-side **3-thing scan** (15-30 sec per brief · saves 20-30 min
 
 **Action**: add to planning-side checklist in `backend-agent-kickoff.md` + brief template 前置 discipline section。
 
-### Rule #12 e2e/ CI scope systematic fix (high priority · B2+B3 precedent)
+### Rule #12 e2e/ CI scope systematic fix (high priority · B2+B3 precedent) — DONE 2026-04-30
 
 **Evidence · 5 typecheck drifts caught via ad-hoc Layer 2** (B2 4 + B3 1 · cumulative W-B runway):
 - B2 · V5MBPlanning shape (decomposition/dependencies/fallbackStrategy not single text)
@@ -638,10 +638,17 @@ Pre-brief planning-side **3-thing scan** (15-30 sec per brief · saves 20-30 min
 - B3 · GoldenPathDriverFixture.grade narrow-literal vs V5Grade canonical
 
 **Systematic fix** (V5.0.5 scope · single brief · CI workflow touch · Steve review gate):
-- Add `e2e/tsconfig.json` extending `tsconfig.base.json` · include `e2e/**/*.ts`
-- Add CI step `npx tsc --noEmit -p e2e/tsconfig.json` in `lint-and-typecheck` job
-- Verify existing e2e/ files pass (smoke · driver · helpers · testids · spec · 2 configs)
-- Lint scope extension · `eslint e2e --ext .ts` (optional · V5.0.5 scope decision)
+- ~~Add `e2e/tsconfig.json` extending `tsconfig.base.json` · include `e2e/**/*.ts`~~
+- ~~Add CI step `npx tsc --noEmit -p e2e/tsconfig.json` in `lint-and-typecheck` job~~
+- ~~Verify existing e2e/ files pass (smoke · driver · helpers · testids · spec · 2 configs)~~
+- Lint scope extension · `eslint e2e --ext .ts` (optional · still deferred)
+
+Closure note: the new gate immediately caught `mb-telemetry-smoke.spec.ts`
+using browser Vite URL literal `/src/lib/socket.ts` as a dynamic import module
+specifier. Runtime behavior was valid, but TypeScript could not resolve it as a
+local module. The fix preserved the browser URL and moved it into a string
+variable so `tsc` stops treating it as a resolvable local module path. See
+observation #193.
 
 ### expectations.ts extension (B3 D3 scope gap)
 
