@@ -9,15 +9,9 @@
 
 import { test, expect, type Page } from '@playwright/test';
 import { config as loadDotenv } from 'dotenv';
-import type {
-  V5AdminSessionReport,
-  V5ModuleDSubmission,
-} from '@codelens-v5/shared';
+import type { V5AdminSessionReport, V5ModuleDSubmission } from '@codelens-v5/shared';
 
-import {
-  GoldenPathDriver,
-  type GoldenPathDriverFixture,
-} from './helpers/golden-path-driver.js';
+import { GoldenPathDriver, type GoldenPathDriverFixture } from './helpers/golden-path-driver.js';
 import { liamSGradeFixture } from '../packages/server/src/tests/fixtures/golden-path/liam-s-grade.js';
 import { CANONICAL_EXAM_ID } from '../packages/server/src/data/canonical-v5-exam-data.js';
 
@@ -28,27 +22,18 @@ const ADMIN_CREDS = {
   password: process.env.ADMIN_PASSWORD || 'ci-test-password-1234',
 };
 
-const DEEP_DIVE_MODULES = [
-  'phase0',
-  'moduleA',
-  'mb',
-  'moduleD',
-  'selfAssess',
-  'moduleC',
-] as const;
+const DEEP_DIVE_MODULES = ['phase0', 'moduleA', 'mb', 'moduleD', 'selfAssess', 'moduleC'] as const;
 
 const LIAM_MD_SUBMISSION: V5ModuleDSubmission = {
   subModules: [
     {
       name: 'OrderController',
-      responsibility:
-        '订单入口;参数校验、限流 5k QPS、转发 OrderService,保留 requestId 用于幂等。',
+      responsibility: '订单入口;参数校验、限流 5k QPS、转发 OrderService,保留 requestId 用于幂等。',
       interfaces: ['POST /orders', 'GET /orders/:id'],
     },
     {
       name: 'InventoryService',
-      responsibility:
-        '库存扣减;Redis Lua 原子扣减,失败抛 OversoldError,成功后异步落 MySQL。',
+      responsibility: '库存扣减;Redis Lua 原子扣减,失败抛 OversoldError,成功后异步落 MySQL。',
       interfaces: ['reduce(skuId, qty)', 'compensate(orderId)'],
     },
     {
@@ -58,8 +43,7 @@ const LIAM_MD_SUBMISSION: V5ModuleDSubmission = {
     },
     {
       name: 'SettlementWorker',
-      responsibility:
-        'Kafka consumer 落库与对账,5 分钟窗口修复 Redis/MySQL diff 并告警。',
+      responsibility: 'Kafka consumer 落库与对账,5 分钟窗口修复 Redis/MySQL diff 并告警。',
       interfaces: ['consume(event)', 'reconcile(window)'],
     },
   ],
@@ -70,11 +54,12 @@ const LIAM_MD_SUBMISSION: V5ModuleDSubmission = {
   dataFlowDescription:
     'Client -> OrderController -> InventoryService.reduce(Redis Lua) -> OrderPersistence.create -> SettlementWorker async reconcile; failure path invokes compensator and on-call alert.',
   constraintsSelected: [
-    '性能(吞吐 / 延迟)',
-    '一致性(强 / 最终)',
-    '可用性(SLO / 容灾)',
-    '演进性(可重构 / 可灰度)',
-    '可观测(指标 / 日志 / 追踪)',
+    'performance · P99 < 50ms + sharding 平衡',
+    'consistency · cross-shard 事务 + 对账',
+    'availability · sentinel + 多副本 + RTO',
+    'observability · per-shard metrics + Grafana',
+    'cost · Redis cluster + MySQL slice 容量规划',
+    'maintainability · shard 扩缩容 ops 流程',
   ],
   tradeoffText:
     '推荐 Redis 预扣 + MySQL 最终扣减 + Kafka 对账。纯 Redis 延迟低但一致性弱,纯 MySQL 一致性强但锁冲突无法承载 100k QPS。组合方案用 Redis Lua 扛峰值,requestId 保证幂等,MySQL 与对账任务保证最终真实性,以复杂度换性能和一致性。',
@@ -85,10 +70,7 @@ const LIAM_MD_SUBMISSION: V5ModuleDSubmission = {
   ],
 };
 
-async function fetchAdminReport(
-  page: Page,
-  sessionId: string,
-): Promise<V5AdminSessionReport> {
+async function fetchAdminReport(page: Page, sessionId: string): Promise<V5AdminSessionReport> {
   return page.evaluate(async (sid) => {
     const raw = localStorage.getItem('codelens_admin_auth');
     if (!raw) throw new Error('admin auth snapshot missing');
@@ -151,8 +133,12 @@ test.describe('Cold Start Validation · deep_dive all modules', () => {
     const reportRoot = page.locator('[data-testid="admin-session-detail-report"]');
     await reportRoot.waitFor({ state: 'visible', timeout: 30_000 });
 
-    await expect(page.locator('[data-testid="admin-session-detail-report-incomplete"]')).toHaveCount(0);
-    await expect(page.locator('[data-testid="admin-session-detail-report-pending"]')).toHaveCount(0);
+    await expect(
+      page.locator('[data-testid="admin-session-detail-report-incomplete"]'),
+    ).toHaveCount(0);
+    await expect(page.locator('[data-testid="admin-session-detail-report-pending"]')).toHaveCount(
+      0,
+    );
     await expect(reportRoot.getByText(/待评估|N\/A/)).toHaveCount(0);
     await expect(page.locator('[data-testid="signal-na-row"]')).toHaveCount(0);
   });

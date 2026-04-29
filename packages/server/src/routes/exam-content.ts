@@ -17,10 +17,9 @@
  * the session metadata, candidate sees it via `GET /api/v5/session/:id`).
  * No further gate — same pattern as the D17 session endpoint.
  *
- * Per-module scope · only `mb` is implemented in Brief #15. Other module
- * types return 501 (Not Implemented) with a clear message · subsequent
- * briefs (P0 / MA / MC / MD / SE Layer 2 swaps) will register their own
- * branches when those swaps land.
+ * Layer 2 canonical content parity · all six V5 modules now route through
+ * candidate-safe projections. Never return raw ExamModule.moduleSpecific for
+ * modules with groundTruth fields (P0 / MA / MB / MD).
  */
 
 import { Router } from 'express';
@@ -76,24 +75,38 @@ export async function getExamModuleContent(
       );
     }
 
-    if (normalized !== 'mb') {
-      res.status(501).json({
-        error: `Module '${normalized}' Layer 2 swap not yet implemented · Brief #15 covers 'mb' only`,
-        code: 'NOT_IMPLEMENTED',
-      });
-      return;
-    }
-
-    const data = await examDataService.getMBDataCandidateSafe(examInstanceId);
+    const data = await getCandidateModuleContent(examInstanceId, normalized);
     if (!data) {
       throw new NotFoundError(
-        `MB module not found for examInstance '${examInstanceId}'`,
+        `Module '${normalized}' not found for examInstance '${examInstanceId}'`,
       );
     }
 
     res.status(200).json(data);
   } catch (err) {
     next(err);
+  }
+}
+
+function getCandidateModuleContent(
+  examInstanceId: string,
+  normalizedModuleType: string,
+): Promise<unknown> {
+  switch (normalizedModuleType) {
+    case 'p0':
+      return examDataService.getP0DataCandidateSafe(examInstanceId);
+    case 'ma':
+      return examDataService.getMADataCandidateSafe(examInstanceId);
+    case 'mb':
+      return examDataService.getMBDataCandidateSafe(examInstanceId);
+    case 'mc':
+      return examDataService.getMCDataCandidateSafe(examInstanceId);
+    case 'md':
+      return examDataService.getMDDataCandidateSafe(examInstanceId);
+    case 'se':
+      return examDataService.getSEDataCandidateSafe(examInstanceId);
+    default:
+      return Promise.resolve(null);
   }
 }
 
@@ -157,11 +170,7 @@ function clamp01(n: number): number {
   return Math.max(0, Math.min(1, n));
 }
 
-export async function submitPhase0(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
+export async function submitPhase0(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { sessionId } = req.params;
     const submission = req.body?.submission as V5Phase0Submission | undefined;
@@ -199,11 +208,7 @@ export async function submitModuleA(
   }
 }
 
-export async function submitMb(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
+export async function submitMb(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { sessionId } = req.params;
     const submission = req.body?.submission as V5MBSubmission | undefined;
@@ -263,8 +268,7 @@ export async function submitSelfAssess(
     // candidate-side UI actually collected a non-empty array.
     const submission: V5SelfAssessSubmission = {
       confidence: clamp01(selfConfidence / 100),
-      reasoning:
-        typeof selfIdentifiedRisk === 'string' ? selfIdentifiedRisk : '',
+      reasoning: typeof selfIdentifiedRisk === 'string' ? selfIdentifiedRisk : '',
       ...(Array.isArray(reviewedDecisions) &&
       reviewedDecisions.every((s: unknown) => typeof s === 'string')
         ? { reviewedDecisions: reviewedDecisions as string[] }
@@ -336,10 +340,7 @@ export async function submitMbEditorBehavior(
           typeof (ev as { timestamp?: unknown }).timestamp === 'number' &&
           typeof (ev as { hidden?: unknown }).hidden === 'boolean'
         ) {
-          await appendVisibilityEvent(
-            sessionId,
-            ev as { timestamp: number; hidden: boolean },
-          );
+          await appendVisibilityEvent(sessionId, ev as { timestamp: number; hidden: boolean });
         }
       }
     }
@@ -372,9 +373,7 @@ export async function submitMbTestResult(
     const { sessionId } = req.params;
     const { passRate, duration, timestamp } = req.body ?? {};
     if (typeof passRate !== 'number' || typeof duration !== 'number') {
-      throw new ValidationError(
-        'passRate (number) and duration (number) body fields required',
-      );
+      throw new ValidationError('passRate (number) and duration (number) body fields required');
     }
     await ensureSessionOrThrow(sessionId);
     await persistFinalTestRun(sessionId, {
@@ -404,7 +403,11 @@ export async function submitModuleCRound(
       throw new ValidationError(`Invalid roundIdx '${roundIdx}' · expected non-negative integer`);
     }
     const { answer, question, probeStrategy } = req.body ?? {};
-    if (typeof answer !== 'string' || typeof question !== 'string' || typeof probeStrategy !== 'string') {
+    if (
+      typeof answer !== 'string' ||
+      typeof question !== 'string' ||
+      typeof probeStrategy !== 'string'
+    ) {
       throw new ValidationError(
         'answer (string), question (string), probeStrategy (string) body fields required',
       );
@@ -423,10 +426,7 @@ export async function submitModuleCRound(
 
 export const examContentRouter: Router = Router();
 
-examContentRouter.get(
-  '/:examInstanceId/module/:moduleType',
-  getExamModuleContent,
-);
+examContentRouter.get('/:examInstanceId/module/:moduleType', getExamModuleContent);
 
 examContentRouter.post('/:sessionId/complete', completeExamSession);
 examContentRouter.post('/:sessionId/phase0/submit', submitPhase0);

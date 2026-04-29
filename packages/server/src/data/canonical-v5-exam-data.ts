@@ -111,12 +111,7 @@ export const canonicalP0ModuleSpecific: P0ModuleSpecific = {
   codeReadingQuestions: {
     l1: {
       question: '这段代码的核心职责是什么?',
-      options: [
-        'Redis 互斥锁防止同 SKU 并发下单',
-        '记录日志',
-        '发送邮件',
-        '计算价格',
-      ],
+      options: ['Redis 互斥锁防止同 SKU 并发下单', '记录日志', '发送邮件', '计算价格'],
       correctIndex: 0,
     },
     l2: { question: '关键设计决策是什么?' },
@@ -147,8 +142,7 @@ export const canonicalP0ModuleSpecific: P0ModuleSpecific = {
   },
   aiClaimDetection: {
     code: 'redis.set(lockKey, uuid, "NX", "EX", 30)\n/* no MULTI, no WATCH */',
-    aiExplanation:
-      '这段代码使用了 Redis WATCH/MULTI 实现乐观锁,SET 设置 TTL 为 30s',
+    aiExplanation: '这段代码使用了 Redis WATCH/MULTI 实现乐观锁,SET 设置 TTL 为 30s',
     claimedFeatures: ['WATCH', 'MULTI', 'SET NX', 'TTL'],
     actualFeatures: ['SET', 'NX', 'TTL', 'EX'],
     deceptivePoint: {
@@ -191,47 +185,61 @@ export const canonicalMAModuleSpecific: MAModuleSpecific = {
     },
   ],
   counterArguments: {
-    A: [
-      'Redis 宕机后库存如何恢复?',
-      '如果 MySQL 落库失败,前端看到扣减但订单没生成怎么办?',
-    ],
+    A: ['Redis 宕机后库存如何恢复?', '如果 MySQL 落库失败,前端看到扣减但订单没生成怎么办?'],
     B: ['500 QPS 根本扛不住秒杀场景', '锁等待会让 P99 延迟飙到秒级'],
     C: ['用户下单后多久能看到结果?体验差', 'MQ 消息丢失如何补偿'],
   },
   defects: [
     {
       defectId: 'd1',
-      line: 12,
-      content: 'redis.decr 未检查返回值',
+      line: 4,
+      content: 'SET NX 缺 EX 参数 — 进程崩溃后锁永久驻留',
       severity: 'critical',
-      category: 'correctness',
+      category: 'concurrency',
     },
     {
       defectId: 'd2',
-      line: 25,
-      content: 'MySQL 写入无重试',
-      severity: 'major',
-      category: 'reliability',
+      line: 9,
+      content: 'GET 和 DECRBY 分两步非原子,并发下 check-then-act 间窗漏 → 超卖',
+      severity: 'critical',
+      category: 'concurrency',
     },
     {
       defectId: 'd3',
-      line: 40,
-      content: '缺少日志',
-      severity: 'minor',
-      category: 'observability',
+      line: 21,
+      content: 'redis.del 未比对 owner,可能误删其他进程持有的锁',
+      severity: 'major',
+      category: 'concurrency',
     },
   ],
   decoys: [
-    { line: 8, content: 'const key = lockKey; // 看起来像 bug 但不是' },
-    { line: 33, content: 'return null; // 故意误导' },
+    { line: 17, content: 'console.log 调试语句 (nit 级,非关键问题)' },
+    { line: 15, content: 'db.orderLog.create 没写注释 (nit 级,无实质 bug)' },
   ],
   codeForReview: [
-    '// line 12',
-    'redis.decr("stock:" + skuId);',
-    '// line 25',
-    'await mysql.insert(order);',
-    '// line 40',
-    '// ...',
+    'async function reserveInventory(sku: string, qty: number, userId: string) {',
+    '  const lockKey = `lock:${sku}`;',
+    '  // 1. 获取分布式锁',
+    "  const locked = await redis.set(lockKey, userId, 'NX');",
+    "  if (!locked) return { ok: false, reason: 'LOCKED' };",
+    '',
+    '  try {',
+    '    // 2. 读取当前库存',
+    '    const stock = parseInt(await redis.get(`stock:${sku}`)) || 0;',
+    '    if (stock < qty) {',
+    "      return { ok: false, reason: 'OUT_OF_STOCK' };",
+    '    }',
+    '',
+    '    // 3. 扣减库存 + 记录预占',
+    '    await redis.decrby(`stock:${sku}`, qty);',
+    "    await db.orderLog.create({ userId, sku, qty, status: 'RESERVED' });",
+    '',
+    "    console.log('reserved', userId, sku, qty);",
+    '    return { ok: true };',
+    '  } finally {',
+    '    await redis.del(lockKey);',
+    '  }',
+    '}',
   ].join('\n'),
   failureScenario: {
     successCode: [
@@ -246,6 +254,15 @@ export const canonicalMAModuleSpecific: MAModuleSpecific = {
     ],
     rootCause:
       '失败版本缺少 Redis decr 返回值检查,高并发下会超卖;同时 MySQL 写入失败不会回滚 Redis,导致库存永久错误。',
+  },
+  migrationScenario: {
+    newBusinessContext:
+      '双 11 抢红包场景 — 活动整点开放 2 分钟,预生成红包池共 50,000 个(金额随机 1-50 元),预估 500,000 用户同时点击"抢"。要求每个红包只能被一个用户领到,抢成功必须在 2 秒内返回金额。',
+    relatedDimension: '高并发下的互斥分配与原子扣减',
+    differingDimension:
+      '规模差 25× · 延迟预算更松 · 容错要求更宽(单个红包丢失可补发,订单库存不可错)',
+    promptText:
+      '在这个"抢红包"的新场景下,你在 R1 为"秒杀下单"选的方案还成立吗?请说明底层原则、需要调整的参数或实现细节。',
   },
 };
 
@@ -296,8 +313,7 @@ export const canonicalMBModuleSpecific: MBModuleSpecific = {
     tests: [
       {
         path: 'tests/inventory.test.ts',
-        content:
-          'describe("InventoryRepository", () => { it.skip("atomic decrement") });',
+        content: 'describe("InventoryRepository", () => { it.skip("atomic decrement") });',
         purpose: 'atomic decrement test',
       },
     ],
@@ -317,8 +333,7 @@ export const canonicalMBModuleSpecific: MBModuleSpecific = {
       code: 'redis.decr(key); // no bound check',
       isViolation: true,
       violationType: 'correctness',
-      explanation:
-        'decrement 没有边界检查,可能导致超卖 bug — 错误处理缺失,违反 validate 约束',
+      explanation: 'decrement 没有边界检查,可能导致超卖 bug — 错误处理缺失,违反 validate 约束',
     },
     {
       exampleIndex: 1,
@@ -331,8 +346,7 @@ export const canonicalMBModuleSpecific: MBModuleSpecific = {
       code: '// skipped retry on DB error',
       isViolation: true,
       violationType: 'error_handling',
-      explanation:
-        '数据库错误处理缺失,应当重试或抛出 error — error handling + retry + timeout',
+      explanation: '数据库错误处理缺失,应当重试或抛出 error — error handling + retry + timeout',
     },
   ],
 };
@@ -377,18 +391,15 @@ export const canonicalMDModuleSpecific: MDModuleSpecific = {
     },
     {
       name: 'Hot SKU Cache Layer',
-      responsibility:
-        'Top SKU local in-memory + Redis proxy · 防穿透集中式 Redis',
+      responsibility: 'Top SKU local in-memory + Redis proxy · 防穿透集中式 Redis',
     },
     {
       name: 'Async Settlement Worker',
-      responsibility:
-        'Kafka consumer · 5 分钟窗口异步落库 + 对账 job · diff 修复',
+      responsibility: 'Kafka consumer · 5 分钟窗口异步落库 + 对账 job · diff 修复',
     },
     {
       name: 'Idempotency Layer',
-      responsibility:
-        'RequestLog 跨 shard · requestId 全局唯一 · 防重试漏单',
+      responsibility: 'RequestLog 跨 shard · requestId 全局唯一 · 防重试漏单',
     },
     {
       name: 'Distributed Lock Service',
@@ -417,8 +428,7 @@ export const canonicalMDModuleSpecific: MDModuleSpecific = {
     },
     {
       trigger: '候选人方案稳定后',
-      challenge:
-        '突发 1M QPS 抢限量商品 · 整体架构降级路径 · 用户体验保下限的策略是什么?',
+      challenge: '突发 1M QPS 抢限量商品 · 整体架构降级路径 · 用户体验保下限的策略是什么?',
     },
   ],
 };

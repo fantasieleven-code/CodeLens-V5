@@ -49,6 +49,7 @@ import { getSocket } from '../lib/socket.js';
 import { useModuleStore } from '../stores/module.store.js';
 import { useSessionStore } from '../stores/session.store.js';
 import { ModuleShell } from '../components/ModuleShell.js';
+import { useModuleContent } from '../hooks/useModuleContent.js';
 import { MD_MOCK_FIXTURE, type MDMockModule } from './moduleD/mock.js';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../lib/tokens.js';
 
@@ -72,17 +73,20 @@ export interface ModuleDPageProps {
 }
 
 export const ModuleDPage: React.FC<ModuleDPageProps> = ({
-  module: moduleContent = MD_MOCK_FIXTURE,
+  module: moduleProp,
   onSubmit,
   bare = false,
 }) => {
   const advance = useModuleStore((s) => s.advance);
   const setSubmission = useSessionStore((s) => s.setModuleSubmissionLocal);
   const sessionId = useSessionStore((s) => s.sessionId);
+  const examInstanceId = useSessionStore((s) => s.examInstanceId);
+  const fetchState = useModuleContent(moduleProp || !examInstanceId ? null : examInstanceId, 'md');
+  const moduleContent =
+    moduleProp ??
+    (fetchState.status === 'loaded' ? fetchState.data : !examInstanceId ? MD_MOCK_FIXTURE : null);
 
-  const [subModules, setSubModules] = useState<SubModuleDraft[]>([
-    { ...EMPTY_SUBMODULE },
-  ]);
+  const [subModules, setSubModules] = useState<SubModuleDraft[]>([{ ...EMPTY_SUBMODULE }]);
   const [interfaceDefinitionsText, setInterfaceDefinitionsText] = useState('');
   const [dataFlowDescription, setDataFlowDescription] = useState('');
   const [constraintsSelected, setConstraintsSelected] = useState<string[]>([]);
@@ -91,14 +95,9 @@ export const ModuleDPage: React.FC<ModuleDPageProps> = ({
 
   // ─────────────────── handlers ───────────────────
 
-  const updateSubModule = useCallback(
-    (idx: number, patch: Partial<SubModuleDraft>) => {
-      setSubModules((prev) =>
-        prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)),
-      );
-    },
-    [],
-  );
+  const updateSubModule = useCallback((idx: number, patch: Partial<SubModuleDraft>) => {
+    setSubModules((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+  }, []);
 
   const addSubModule = useCallback(() => {
     setSubModules((prev) => [...prev, { ...EMPTY_SUBMODULE }]);
@@ -119,9 +118,7 @@ export const ModuleDPage: React.FC<ModuleDPageProps> = ({
   }, []);
 
   const updatePrompt = useCallback((idx: number, value: string) => {
-    setAiOrchestrationPrompts((prev) =>
-      prev.map((p, i) => (i === idx ? value : p)),
-    );
+    setAiOrchestrationPrompts((prev) => prev.map((p, i) => (i === idx ? value : p)));
   }, []);
 
   const addPrompt = useCallback(() => {
@@ -138,26 +135,19 @@ export const ModuleDPage: React.FC<ModuleDPageProps> = ({
   // ─────────────────── derived ───────────────────
 
   const submoduleValid = useMemo(
-    () =>
-      subModules.some(
-        (s) => s.name.trim().length > 0 && s.responsibility.trim().length > 0,
-      ),
+    () => subModules.some((s) => s.name.trim().length > 0 && s.responsibility.trim().length > 0),
     [subModules],
   );
 
   const canSubmit =
-    submoduleValid &&
-    dataFlowDescription.trim().length > 0 &&
-    tradeoffText.trim().length > 0;
+    submoduleValid && dataFlowDescription.trim().length > 0 && tradeoffText.trim().length > 0;
 
   const handleSubmit = useCallback(() => {
-    if (!canSubmit) return;
+    if (!canSubmit || !moduleContent) return;
 
     const submission: V5ModuleDSubmission = {
       subModules: subModules
-        .filter(
-          (s) => s.name.trim().length > 0 && s.responsibility.trim().length > 0,
-        )
+        .filter((s) => s.name.trim().length > 0 && s.responsibility.trim().length > 0)
         .map((s) => {
           const interfaces = s.interfacesText
             .split('\n')
@@ -209,6 +199,20 @@ export const ModuleDPage: React.FC<ModuleDPageProps> = ({
     sessionId,
     advance,
   ]);
+
+  if (!moduleContent) {
+    const inner =
+      fetchState.status === 'error' ? (
+        <div style={styles.container} data-testid="md-content-error">
+          <p style={styles.bodyText}>{fetchState.message}</p>
+        </div>
+      ) : (
+        <div style={styles.container} data-testid="md-content-loading">
+          <p style={styles.bodyText}>正在加载 Module D 内容…</p>
+        </div>
+      );
+    return bare ? inner : <ModuleShell>{inner}</ModuleShell>;
+  }
 
   // ─────────────────── render ───────────────────
 
@@ -291,11 +295,7 @@ const DesignTaskDisplay: React.FC<{ designTask: MDMockModule['designTask'] }> = 
     <h3 style={styles.h3}>非功能性要求</h3>
     <ul style={styles.ul}>
       {designTask.nonFunctionalRequirements.map((nfr, i) => (
-        <li
-          key={i}
-          style={styles.li}
-          data-testid={`md-design-task-nfr-${i}`}
-        >
+        <li key={i} style={styles.li} data-testid={`md-design-task-nfr-${i}`}>
           {nfr}
         </li>
       ))}
@@ -319,7 +319,10 @@ const SubModulesSection: React.FC<SubModulesSectionProps> = ({
   onRemove,
 }) => (
   <section style={styles.card}>
-    <SectionHeader title="子模块拆解" hint="按职责切分,每个模块一段名字 + 职责描述。如有跨模块接口可一并写出(每行一个)。" />
+    <SectionHeader
+      title="子模块拆解"
+      hint="按职责切分,每个模块一段名字 + 职责描述。如有跨模块接口可一并写出(每行一个)。"
+    />
     <div style={styles.submoduleGrid}>
       {subModules.map((sm, i) => (
         <article key={i} style={styles.submoduleCard} data-testid={`md-submodule-card-${i}`}>
@@ -371,12 +374,7 @@ const SubModulesSection: React.FC<SubModulesSectionProps> = ({
       ))}
     </div>
     <div style={styles.actionRow}>
-      <button
-        type="button"
-        onClick={onAdd}
-        style={styles.btnGhost}
-        data-testid="md-add-submodule"
-      >
+      <button type="button" onClick={onAdd} style={styles.btnGhost} data-testid="md-add-submodule">
         + 添加子模块
       </button>
     </div>
@@ -443,10 +441,7 @@ const ConstraintsSection: React.FC<ConstraintsSectionProps> = ({
   onToggle,
 }) => (
   <section style={styles.card}>
-    <SectionHeader
-      title="关键约束"
-      hint="选出你为这个设计明确考虑过的约束类别(多选)。"
-    />
+    <SectionHeader title="关键约束" hint="选出你为这个设计明确考虑过的约束类别(多选)。" />
     <div style={styles.constraintsGrid} data-testid="md-constraints-selected">
       {categories.map((cat) => {
         const active = selected.includes(cat);

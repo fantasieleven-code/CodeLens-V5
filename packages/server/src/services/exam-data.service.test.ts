@@ -1,7 +1,18 @@
 import type { PrismaClient } from '@prisma/client';
-import type { MBModuleSpecific } from '@codelens-v5/shared';
+import type {
+  MAModuleSpecific,
+  MBModuleSpecific,
+  MDModuleSpecific,
+  P0ModuleSpecific,
+} from '@codelens-v5/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ExamDataService, stripMBToCandidateView } from './exam-data.service.js';
+import {
+  ExamDataService,
+  stripMAToCandidateView,
+  stripMBToCandidateView,
+  stripMDToCandidateView,
+  stripP0ToCandidateView,
+} from './exam-data.service.js';
 
 type FindUniqueMock = ReturnType<typeof vi.fn>;
 
@@ -128,5 +139,74 @@ describe('stripMBToCandidateView · groundTruth invariant', () => {
     expect(json).not.toContain('harnessReference');
     expect(view.scaffold).not.toHaveProperty('tests');
     expect(view.scaffold.files[0].language).toBe('typescript');
+  });
+});
+
+describe('candidate-safe module projections · groundTruth invariants', () => {
+  it('strips P0 correct answers and AI-claim answer key', () => {
+    const full: P0ModuleSpecific = {
+      systemCode: 'code',
+      codeReadingQuestions: {
+        l1: { question: 'q', options: ['a'], correctIndex: 0 },
+        l2: { question: 'q2' },
+        l3: { question: 'q3' },
+      },
+      aiOutputJudgment: [{ codeA: 'a', codeB: 'b', context: 'ctx', groundTruth: 'A' }],
+      decision: { scenario: 's', options: [{ id: 'A', label: 'A', description: 'd' }] },
+      aiClaimDetection: {
+        code: 'c',
+        aiExplanation: 'e',
+        claimedFeatures: ['x'],
+        actualFeatures: ['y'],
+        deceptivePoint: { claimedFeature: 'x', realityGap: 'gap' },
+      },
+    };
+    const json = JSON.stringify(stripP0ToCandidateView(full));
+    expect(json).not.toContain('correctIndex');
+    expect(json).not.toContain('groundTruth');
+    expect(json).not.toContain('actualFeatures');
+    expect(json).not.toContain('deceptivePoint');
+  });
+
+  it('strips MA defect answer key and diagnosis rubric', () => {
+    const full: MAModuleSpecific = {
+      requirement: 'r',
+      schemes: [
+        { id: 'A', name: 'n', description: 'd', pros: [], cons: [], performance: 'p', cost: 'c' },
+      ],
+      counterArguments: { A: [] },
+      defects: [{ defectId: 'd1', line: 4, content: 'bug', severity: 'critical', category: 'c' }],
+      decoys: [{ line: 5, content: 'decoy' }],
+      codeForReview: 'code',
+      failureScenario: {
+        successCode: 'ok',
+        failedCode: 'bad',
+        diffPoints: [{ line: 1, description: 'secret' }],
+        rootCause: 'secret root',
+      },
+      migrationScenario: {
+        newBusinessContext: 'n',
+        relatedDimension: 'r',
+        differingDimension: 'd',
+        promptText: 'p',
+      },
+    };
+    const json = JSON.stringify(stripMAToCandidateView(full));
+    expect(json).not.toContain('defectId');
+    expect(json).not.toContain('decoy');
+    expect(json).not.toContain('rootCause');
+    expect(json).not.toContain('diffPoints');
+  });
+
+  it('strips MD expectedSubModules', () => {
+    const full: MDModuleSpecific = {
+      designTask: { description: 'd', businessContext: 'b', nonFunctionalRequirements: ['n'] },
+      expectedSubModules: [{ name: 'secret', responsibility: 'answer' }],
+      constraintCategories: ['c'],
+      designChallenges: [{ trigger: 't', challenge: 'c' }],
+    };
+    const json = JSON.stringify(stripMDToCandidateView(full));
+    expect(json).not.toContain('expectedSubModules');
+    expect(json).not.toContain('secret');
   });
 });

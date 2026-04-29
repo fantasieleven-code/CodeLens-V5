@@ -1,6 +1,7 @@
 # V5 Module Pipeline Audit
 
 Date: 2026-04-29
+Last implementation update: PR candidate `feat/layer2-module-content-parity`
 
 Purpose: separate the release truth into three independent layers:
 
@@ -14,23 +15,23 @@ canonical DB module content.
 
 ## Executive Status
 
-| Layer | Status | Evidence | Remaining issue |
-|------|--------|----------|-----------------|
-| Submission persistence | Green for V5.0 gate | Cold Start Playwright: P0/MA/MB/MD/SE/MC complete; 48/48 signal results; 0 null | Current reliability path is HTTP fallback for final submissions because root `useSocket()` remains V5.0.1 cleanup |
-| Scoring hydration | Green | `ScoringHydratorService` reads top-level namespaces only and Admin report renders 0 `N/A` / `待评估` | No V4 `metadata.submissions.*` fallback by design |
-| Canonical content delivery | Partial | MB has `GET /api/v5/exam/:examInstanceId/module/mb`; hydrator reads all six module specs from DB | P0/MA/MC/MD/SE candidate pages still use local/static module content or local prompt constants; endpoint returns 501 for non-MB modules |
-| MB telemetry fidelity | Gate-green but nuanced | Real socket `behavior:batch` ingest exists; Cold Start uses e2e HTTP bypass for fixture-shaped editorBehavior | Production live telemetry smoke should remain a V5.0.1 quality target after root socket wiring |
+| Layer                      | Status                           | Evidence                                                                                                       | Remaining issue                                                                                                   |
+| -------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Submission persistence     | Green for V5.0 gate              | Cold Start Playwright: P0/MA/MB/MD/SE/MC complete; 48/48 signal results; 0 null                                | Current reliability path is HTTP fallback for final submissions because root `useSocket()` remains V5.0.1 cleanup |
+| Scoring hydration          | Green                            | `ScoringHydratorService` reads top-level namespaces only and Admin report renders 0 `N/A` / `待评估`           | No V4 `metadata.submissions.*` fallback by design                                                                 |
+| Canonical content delivery | Green after Layer 2 parity patch | `GET /api/v5/exam/:examInstanceId/module/:moduleType` now returns candidate-safe content for P0/MA/MB/MC/MD/SE | Existing deployed DBs must re-run `db:seed:canonical` so canonical ExamModule rows pick up MA/MD content updates  |
+| MB telemetry fidelity      | Gate-green but nuanced           | Real socket `behavior:batch` ingest exists; Cold Start uses e2e HTTP bypass for fixture-shaped editorBehavior  | Production live telemetry smoke should remain a V5.0.1 quality target after root socket wiring                    |
 
 ## Module Matrix
 
-| Module | UI source today | Submit trigger | Guaranteed persist path | Metadata namespace | Hydrator read | Signals |
-|--------|-----------------|----------------|--------------------------|-------------------|---------------|---------|
-| Phase 0 | `P0_MOCK_FIXTURE` default in `Phase0Page` | Submit button builds `V5Phase0Submission` | Socket `phase0:submit` plus HTTP `POST /api/v5/exam/:sessionId/phase0/submit` | `metadata.phase0` | `readNamespace(meta, 'phase0')` | 5 P0 |
-| Module A | `MA_MOCK_FIXTURE` default in `ModuleAPage` | Final R4 submit builds one `V5ModuleASubmission` | Socket `moduleA:submit` plus HTTP `POST /api/v5/exam/:sessionId/modulea/submit` | `metadata.moduleA` | `readNamespace(meta, 'moduleA')` | 10 MA |
-| Module B | DB-backed candidate-safe MB content via `useModuleContent(examInstanceId, 'mb')` | Stage 4 audit submit builds `V5MBSubmission` | Socket `v5:mb:submit` plus HTTP `POST /api/v5/exam/:sessionId/mb/submit`; telemetry via `behavior:batch` / MB socket handlers | `metadata.mb` | `readMbNamespace(meta)` | 23 MB |
-| Module D | `MD_MOCK_FIXTURE` default in `ModuleDPage` | Submit button builds `V5ModuleDSubmission` | Socket `moduleD:submit` plus HTTP `POST /api/v5/exam/:sessionId/moduled/submit` | `metadata.moduleD` | `readNamespace(meta, 'moduleD')` | 4 MD |
-| SelfAssess | Local page state + `DecisionSummary` from local store | Submit button builds `V5SelfAssessSubmission` | Socket `self-assess:submit` plus HTTP `POST /api/v5/exam/:sessionId/selfassess/submit` | `metadata.selfAssess` | `readNamespace(meta, 'selfAssess')` | 2 SE |
-| Module C | Local prompt constants + voice/text fallback UI | Each text round posts an answer; final button marks session complete | Socket `v5:modulec:answer` kept, but HTTP `POST /api/v5/exam/:sessionId/modulec/round/:roundIdx` is the guaranteed write; final `POST /complete` ends session | `metadata.moduleC` array | `readModuleCNamespace(meta)` | 4 MC |
+| Module     | UI source today                                                                                                                   | Submit trigger                                                                                                          | Guaranteed persist path                                                                                                                                       | Metadata namespace       | Hydrator read                       | Signals |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ----------------------------------- | ------- |
+| Phase 0    | DB-backed candidate-safe P0 content via `useModuleContent(examInstanceId, 'p0')`; local fixture only for tests/preview/no session | Submit button builds `V5Phase0Submission`                                                                               | Socket `phase0:submit` plus HTTP `POST /api/v5/exam/:sessionId/phase0/submit`                                                                                 | `metadata.phase0`        | `readNamespace(meta, 'phase0')`     | 5 P0    |
+| Module A   | DB-backed candidate-safe MA content via `useModuleContent(examInstanceId, 'ma')`; local fixture only for tests/preview/no session | Final R4 submit builds one `V5ModuleASubmission`; frontend submits reviewed `line`, server maps to canonical `defectId` | Socket `moduleA:submit` plus HTTP `POST /api/v5/exam/:sessionId/modulea/submit`                                                                               | `metadata.moduleA`       | `readNamespace(meta, 'moduleA')`    | 10 MA   |
+| Module B   | DB-backed candidate-safe MB content via `useModuleContent(examInstanceId, 'mb')`                                                  | Stage 4 audit submit builds `V5MBSubmission`                                                                            | Socket `v5:mb:submit` plus HTTP `POST /api/v5/exam/:sessionId/mb/submit`; telemetry via `behavior:batch` / MB socket handlers                                 | `metadata.mb`            | `readMbNamespace(meta)`             | 23 MB   |
+| Module D   | DB-backed candidate-safe MD content via `useModuleContent(examInstanceId, 'md')`; local fixture only for tests/preview/no session | Submit button builds `V5ModuleDSubmission`                                                                              | Socket `moduleD:submit` plus HTTP `POST /api/v5/exam/:sessionId/moduled/submit`                                                                               | `metadata.moduleD`       | `readNamespace(meta, 'moduleD')`    | 4 MD    |
+| SelfAssess | Local page state + `DecisionSummary` from local store                                                                             | Submit button builds `V5SelfAssessSubmission`                                                                           | Socket `self-assess:submit` plus HTTP `POST /api/v5/exam/:sessionId/selfassess/submit`                                                                        | `metadata.selfAssess`    | `readNamespace(meta, 'selfAssess')` | 2 SE    |
+| Module C   | DB-backed probe strategies via `useModuleContent(examInstanceId, 'mc')`; constants only fallback while content loads/no session   | Each text round posts an answer; final button marks session complete                                                    | Socket `v5:modulec:answer` kept, but HTTP `POST /api/v5/exam/:sessionId/modulec/round/:roundIdx` is the guaranteed write; final `POST /complete` ends session | `metadata.moduleC` array | `readModuleCNamespace(meta)`        | 4 MC    |
 
 Signal distribution: P0 5, MA 10, MB 23, MD 4, SE 2, MC 4 = 48 total.
 
@@ -55,7 +56,8 @@ which HTTP fallbacks remain as explicit retry/fallback surfaces.
 
 ## Layer 2 · Canonical Content Delivery
 
-This is the main product-quality gap found by the audit.
+This was the main product-quality gap found by the audit and is now closed by
+the Layer 2 parity patch.
 
 `packages/server/src/routes/exam-content.ts` exposes:
 
@@ -63,33 +65,37 @@ This is the main product-quality gap found by the audit.
 GET /api/v5/exam/:examInstanceId/module/:moduleType
 ```
 
-but only `mb` is implemented. All other valid module types currently return
-501 with a clear message that Brief #15 covered MB only.
+and now implements all six valid module types.
 
 Current state:
 
-- MB candidate content is canonical and candidate-safe: DB `MBModuleSpecific`
-  is stripped through `stripMBToCandidateView`.
+- P0/MA/MB/MD candidate content is canonical and candidate-safe through server
+  strip functions. GroundTruth fields are not returned.
 - The hydrator reads all six module specs from DB for scoring:
   P0, MA, MB, MD, SE, MC.
-- Candidate pages for P0, MA, MD still default to local mock fixtures.
-- Module C uses local prompt constants for text fallback rounds.
-- SelfAssess has no heavy module-specific content, but its page still depends
-  on local store summary rather than a dedicated canonical content branch.
+- Candidate pages for P0, MA, MB, MD, and MC fetch by `examInstanceId` in real
+  sessions and keep local fixtures/constants only for tests/preview/no-session
+  fallback.
+- SelfAssess has no heavy module-specific prompt content; the SE endpoint still
+  returns its template for parity.
 
-Root cause: the sprint closed production submission gaps first, because those
+Original root cause: the sprint closed production submission gaps first, because those
 blocked signal non-null production scoring. The Layer 2 content swap was only
-completed for MB. That leaves a possible divergence class:
+completed for MB. That left a possible divergence class:
 
 ```text
 candidate sees local/static page content
 hydrator scores against DB canonical examData
 ```
 
-Cold Start can still pass in this state because the fixture answers and local
-page content are aligned enough to produce non-null signals. It does not prove
-that every future exam instance can safely vary P0/MA/MD/MC content without UI
-and scoring drift.
+The parity patch closes that class for current V5 modules by making the real
+candidate route consume the same DB module rows the hydrator scores against.
+Cold Start caught two data-alignment debts during the patch:
+
+- Existing local DB canonical MA rows still had old 6-line review code until
+  `db:seed:canonical` upserted the new line-aligned shape.
+- Cold Start MD fixture constraint labels still matched the old mock content;
+  it now uses DB canonical MD labels.
 
 ## Layer 3 · Hydration And Report
 
@@ -140,7 +146,7 @@ populate at least the MB behavior slices used by the 23 MB signals.
 The current project problem is no longer "signals cannot score." That was the
 Cluster A/B/C/D sprint and Cold Start work, now closed for V5.0 gate purposes.
 
-The current root issue is split ownership between two pipeline layers:
+The root issue found in this pass was split ownership between two pipeline layers:
 
 - Submission ownership was repaired module by module with socket plus HTTP
   fallback and top-level metadata namespaces.
@@ -148,27 +154,24 @@ The current root issue is split ownership between two pipeline layers:
   candidate-facing DB content endpoint, while scoring already assumes all six
   module specs are canonical DB data.
 
-This is the next elegant-delivery target: promote P0/MA/MD/MC content delivery
-to the same standard MB already has, with candidate-safe projections and tests
-that assert "UI content source == hydrator examData source" for each module.
+The parity patch promotes P0/MA/MD/MC content delivery to the same standard MB
+already had. The most important design correction is Module A: the frontend no
+longer needs `defects[]` to resolve answer keys. It submits the reviewed line,
+and server persistence maps that line to canonical `examData.MA.defects[].defectId`.
 
 ## Recommended Next Target
 
-Task name candidate: `Layer 2 canonical module content parity`.
+Task completed candidate: `Layer 2 canonical module content parity`.
 
 Scope:
 
-1. Add candidate-safe projections for P0, MA, MD, and MC where needed.
-2. Extend `GET /api/v5/exam/:examInstanceId/module/:moduleType` beyond MB.
-3. Swap P0/MA/MD/MC pages from default local fixtures to `useModuleContent`
-   in real candidate routes while preserving fixture props for tests/storybook.
-4. Add integration tests that create an exam instance and assert candidate-safe
-   module content shape for every participating module.
-5. Add one Playwright guard that fails if a real candidate route falls back to
-   local mock content when `examInstanceId` is present.
+1. Candidate-safe projections for P0, MA, MB, MD; SE/MC safe as-is.
+2. `GET /api/v5/exam/:examInstanceId/module/:moduleType` supports all six modules.
+3. P0/MA/MD/MC pages consume `useModuleContent` in real sessions.
+4. MA submits line numbers and server-side persist maps line to canonical defectId.
+5. Cold Start + full Golden Path passed after canonical seed refresh.
 
 Non-goal:
 
-- Do not remove HTTP submission fallbacks in the same task. Socket-root cleanup
-  is a separate transport reliability task.
-
+- HTTP submission fallbacks were not removed. Socket-root cleanup remains a
+  separate transport reliability task.

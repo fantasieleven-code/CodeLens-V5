@@ -6,6 +6,11 @@ import type * as ExamDataServiceModule from '../services/exam-data.service.js';
 import type * as SessionServiceModule from '../services/session.service.js';
 
 const getMBDataCandidateSafe = vi.hoisted(() => vi.fn());
+const getP0DataCandidateSafe = vi.hoisted(() => vi.fn());
+const getMADataCandidateSafe = vi.hoisted(() => vi.fn());
+const getMDDataCandidateSafe = vi.hoisted(() => vi.fn());
+const getSEDataCandidateSafe = vi.hoisted(() => vi.fn());
+const getMCDataCandidateSafe = vi.hoisted(() => vi.fn());
 const endSession = vi.hoisted(() => vi.fn());
 const getSession = vi.hoisted(() => vi.fn());
 const persistPhase0Submission = vi.hoisted(() => vi.fn());
@@ -41,7 +46,14 @@ vi.mock('../services/exam-data.service.js', async (importOriginal) => {
   const actual = await importOriginal<typeof ExamDataServiceModule>();
   return {
     ...actual,
-    examDataService: { getMBDataCandidateSafe },
+    examDataService: {
+      getP0DataCandidateSafe,
+      getMADataCandidateSafe,
+      getMBDataCandidateSafe,
+      getMDDataCandidateSafe,
+      getSEDataCandidateSafe,
+      getMCDataCandidateSafe,
+    },
   };
 });
 
@@ -99,10 +111,7 @@ import {
 } from './exam-content.js';
 import { SessionNotFoundError } from '../services/session.service.js';
 
-function makeReq(
-  params: Record<string, string>,
-  body: Record<string, unknown> = {},
-): Request {
+function makeReq(params: Record<string, string>, body: Record<string, unknown> = {}): Request {
   return { params, query: {}, body } as unknown as Request;
 }
 
@@ -131,6 +140,11 @@ const FAKE_CANDIDATE_VIEW = {
 
 beforeEach(() => {
   getMBDataCandidateSafe.mockReset();
+  getP0DataCandidateSafe.mockReset();
+  getMADataCandidateSafe.mockReset();
+  getMDDataCandidateSafe.mockReset();
+  getSEDataCandidateSafe.mockReset();
+  getMCDataCandidateSafe.mockReset();
   endSession.mockReset();
   getSession.mockReset();
   persistPhase0Submission.mockReset();
@@ -193,16 +207,44 @@ describe('GET /api/v5/exam/:examInstanceId/module/:moduleType', () => {
     expect(getMBDataCandidateSafe).not.toHaveBeenCalled();
   });
 
-  it('returns 501 NOT_IMPLEMENTED for valid-but-unimplemented moduleType', async () => {
+  it('routes all valid module types through candidate-safe service methods', async () => {
+    getP0DataCandidateSafe.mockResolvedValue({ module: 'p0' });
+    getMADataCandidateSafe.mockResolvedValue({ module: 'ma' });
+    getMDDataCandidateSafe.mockResolvedValue({ module: 'md' });
+    getSEDataCandidateSafe.mockResolvedValue({ module: 'se' });
+    getMCDataCandidateSafe.mockResolvedValue({ module: 'mc' });
+
+    for (const moduleType of ['p0', 'ma', 'md', 'se', 'mc'] as const) {
+      const req = makeReq({ examInstanceId: 'e-1', moduleType });
+      const { res, status, json } = makeRes();
+      const { fn, calls } = makeNext();
+
+      await getExamModuleContent(req, res, fn);
+
+      expect(calls).toHaveLength(0);
+      expect(status).toHaveBeenCalledWith(200);
+      expect(json.mock.calls[0][0]).toEqual({ module: moduleType });
+    }
+
+    expect(getP0DataCandidateSafe).toHaveBeenCalledWith('e-1');
+    expect(getMADataCandidateSafe).toHaveBeenCalledWith('e-1');
+    expect(getMDDataCandidateSafe).toHaveBeenCalledWith('e-1');
+    expect(getSEDataCandidateSafe).toHaveBeenCalledWith('e-1');
+    expect(getMCDataCandidateSafe).toHaveBeenCalledWith('e-1');
+  });
+
+  it('returns 404 NOT_FOUND when service returns null for any valid moduleType', async () => {
+    getP0DataCandidateSafe.mockResolvedValue(null);
     const req = makeReq({ examInstanceId: 'e-1', moduleType: 'p0' });
-    const { res, status, json } = makeRes();
+    const { res } = makeRes();
     const { fn, calls } = makeNext();
 
     await getExamModuleContent(req, res, fn);
 
-    expect(calls).toHaveLength(0);
-    expect(status).toHaveBeenCalledWith(501);
-    expect(json.mock.calls[0][0]).toMatchObject({ code: 'NOT_IMPLEMENTED' });
+    expect(calls).toHaveLength(1);
+    const err = calls[0] as { statusCode: number; code: string };
+    expect(err.statusCode).toBe(404);
+    expect(err.code).toBe('NOT_FOUND');
     expect(getMBDataCandidateSafe).not.toHaveBeenCalled();
   });
 });
@@ -256,7 +298,9 @@ describe('POST /api/v5/exam/:sessionId/phase0/submit', () => {
   it('returns 200 + invokes persistPhase0Submission on happy path', async () => {
     getSession.mockResolvedValue(FAKE_SESSION);
     persistPhase0Submission.mockResolvedValue(undefined);
-    const submission = { codeReading: { l1Answer: 'x', l2Answer: 'y', l3Answer: 'z', confidence: 0.5 } };
+    const submission = {
+      codeReading: { l1Answer: 'x', l2Answer: 'y', l3Answer: 'z', confidence: 0.5 },
+    };
     const req = makeReq({ sessionId: 'sess-1' }, { submission });
     const { res, status, json } = makeRes();
     const { fn, calls } = makeNext();
@@ -463,10 +507,7 @@ describe('POST /api/v5/exam/:sessionId/selfassess/submit', () => {
 
   it('forwards 404 when session does not exist', async () => {
     getSession.mockResolvedValue(null);
-    const req = makeReq(
-      { sessionId: 'missing' },
-      { selfConfidence: 50, responseTimeMs: 1000 },
-    );
+    const req = makeReq({ sessionId: 'missing' }, { selfConfidence: 50, responseTimeMs: 1000 });
     const { res } = makeRes();
     const { fn, calls } = makeNext();
 
@@ -481,10 +522,7 @@ describe('POST /api/v5/exam/:sessionId/selfassess/submit', () => {
     getSession.mockResolvedValue(FAKE_SESSION);
     const boom = new Error('prisma exploded');
     persistSelfAssess.mockRejectedValue(boom);
-    const req = makeReq(
-      { sessionId: 'sess-1' },
-      { selfConfidence: 50, responseTimeMs: 1000 },
-    );
+    const req = makeReq({ sessionId: 'sess-1' }, { selfConfidence: 50, responseTimeMs: 1000 });
     const { res } = makeRes();
     const { fn, calls } = makeNext();
 
@@ -604,7 +642,9 @@ describe('POST /api/v5/exam/:sessionId/selfassess/submit · reviewedDecisions ex
 describe('POST /api/v5/exam/:sessionId/mb/editor-behavior', () => {
   it('dispatches each non-empty slice to its append* function', async () => {
     getSession.mockResolvedValue(FAKE_SESSION);
-    const aiCompletionEvents = [{ lineNumber: 1, accepted: true, completionLength: 1, timestamp: 1 }];
+    const aiCompletionEvents = [
+      { lineNumber: 1, accepted: true, completionLength: 1, timestamp: 1 },
+    ];
     const chatEvents = [{ timestamp: 2, prompt: 'p', response: 'r' }];
     const documentVisibilityEvents = [{ timestamp: 3, hidden: true }];
     const testRuns = [{ timestamp: 4, passRate: 0.9, duration: 2_000 }];

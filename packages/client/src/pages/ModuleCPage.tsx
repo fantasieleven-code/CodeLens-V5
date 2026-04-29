@@ -7,7 +7,7 @@
  * Voice state driven by voice:status events from the server webhook.
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { V5ModuleCAnswer } from '@codelens-v5/shared';
 import { getSocket } from '../lib/socket.js';
 import { useSessionStore } from '../stores/session.store.js';
@@ -15,6 +15,7 @@ import { useModuleStore } from '../stores/module.store.js';
 import { useVoiceStore, type VoiceState as StoreVoiceState } from '../stores/voice.store.js';
 import { useVoiceRTC } from '../hooks/useVoiceRTC.js';
 import { useBehaviorTracker } from '../hooks/useBehaviorTracker.js';
+import { useModuleContent } from '../hooks/useModuleContent.js';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../lib/tokens.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────
@@ -111,8 +112,15 @@ function ensureKeyframes() {
 export const ModuleCPage: React.FC = () => {
   const token = useSessionStore((s) => s.token);
   const sessionId = useSessionStore((s) => s.sessionId);
+  const examInstanceId = useSessionStore((s) => s.examInstanceId);
   const advance = useModuleStore((s) => s.advance);
   const behavior = useBehaviorTracker(sessionId ?? 'modulec-pending', 'moduleC');
+  const fetchState = useModuleContent(examInstanceId, 'mc');
+  const moduleContent = fetchState.status === 'loaded' ? fetchState.data : null;
+  const probePrompts = useMemo(() => {
+    if (!moduleContent) return PROBE_PROMPTS;
+    return PROBE_STRATEGIES.map((strategy) => moduleContent.probeStrategies[strategy]);
+  }, [moduleContent]);
 
   // Preflight gate — user must confirm headphones + mic test before RTC starts.
   // This prevents the "Tencent Meeting screen share" echo loop where Emma's own
@@ -145,7 +153,9 @@ export const ModuleCPage: React.FC = () => {
   const prevSubtitleCountRef = useRef(0);
 
   const status: MCStatus = mapVoiceState(voiceStoreState);
-  const isVoiceConnected = !['idle', 'error', 'degraded', 'requesting_mic', 'connecting'].includes(voiceStoreState);
+  const isVoiceConnected = !['idle', 'error', 'degraded', 'requesting_mic', 'connecting'].includes(
+    voiceStoreState,
+  );
 
   // ── Behavior tracking refs ───────────────────────────────────────────────
   // Per-round: emmaFinishedAt (when the AI prompt is shown / TTS ends),
@@ -266,13 +276,17 @@ export const ModuleCPage: React.FC = () => {
   }, [voiceStoreState]);
 
   // Inject CSS keyframes
-  useEffect(() => { ensureKeyframes(); }, []);
+  useEffect(() => {
+    ensureKeyframes();
+  }, []);
 
   // Timer
   useEffect(() => {
     if (finished) return;
     timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [finished]);
 
   // Convert subtitle events → chat messages
@@ -310,7 +324,7 @@ export const ModuleCPage: React.FC = () => {
     if (textSubmitting || textAnswer.trim().length < 10) return;
     setTextSubmitting(true);
     const socket = getSocket();
-    const prompt = PROBE_PROMPTS[currentRound];
+    const prompt = probePrompts[currentRound] ?? PROBE_PROMPTS[currentRound];
     const submittedAnswer = textAnswer.trim();
     const payload: V5ModuleCAnswer = {
       round: currentRound + 1,
@@ -342,7 +356,12 @@ export const ModuleCPage: React.FC = () => {
     setMessages((prev) => [
       ...prev,
       { id: `text-q-${currentRound}`, role: 'ai', content: prompt, timestamp: Date.now() },
-      { id: `text-a-${currentRound}`, role: 'user', content: submittedAnswer, timestamp: Date.now() },
+      {
+        id: `text-a-${currentRound}`,
+        role: 'user',
+        content: submittedAnswer,
+        timestamp: Date.now(),
+      },
     ]);
     if (currentRound + 1 >= TOTAL_ROUNDS) {
       setFinished(true);
@@ -350,7 +369,7 @@ export const ModuleCPage: React.FC = () => {
       setCurrentRound((r) => r + 1);
     }
     setTextSubmitting(false);
-  }, [textAnswer, textSubmitting, currentRound, flushRoundBehavior, sessionId]);
+  }, [textAnswer, textSubmitting, currentRound, flushRoundBehavior, sessionId, probePrompts]);
 
   const skipRound = useCallback(() => {
     flushRoundBehavior(currentRound, { textModeUsed: mode === 'text' });
@@ -417,10 +436,13 @@ export const ModuleCPage: React.FC = () => {
           <div style={S.doneCard} data-testid="modulec-done">
             <div style={S.doneIcon}>&#10003;</div>
             <div style={S.doneTitle}>追问环节完成</div>
-            <p style={S.doneBody}>
-              所有回答已提交。系统会结合前面各模块的决策一起生成最终报告。
-            </p>
-            <button type="button" style={S.primaryBtn} onClick={finishAndAdvance} data-testid="modulec-finish">
+            <p style={S.doneBody}>所有回答已提交。系统会结合前面各模块的决策一起生成最终报告。</p>
+            <button
+              type="button"
+              style={S.primaryBtn}
+              onClick={finishAndAdvance}
+              data-testid="modulec-finish"
+            >
               结束面试
             </button>
           </div>
@@ -443,7 +465,8 @@ export const ModuleCPage: React.FC = () => {
 
   // ─── Main UI ────────────────────────────────────────────────────────────
 
-  const voiceStatusState = mode === 'text' ? 'text_fallback' : isVoiceConnected ? 'connected' : voiceStoreState;
+  const voiceStatusState =
+    mode === 'text' ? 'text_fallback' : isVoiceConnected ? 'connected' : voiceStoreState;
 
   return (
     <div style={S.page} data-testid="module-c-page">
@@ -492,11 +515,17 @@ export const ModuleCPage: React.FC = () => {
               <MicButton status={status} />
               <StatusLabel status={status} />
               <div style={S.timerRow}>
-                <span style={S.timer}>{formatTime(elapsed)} / {formatTime(ROUND_TIME_LIMIT)}</span>
+                <span style={S.timer}>
+                  {formatTime(elapsed)} / {formatTime(ROUND_TIME_LIMIT)}
+                </span>
               </div>
               <div style={S.actionRow}>
-                <button type="button" style={S.outlineBtn} onClick={skipRound}>Skip round</button>
-                <button type="button" style={S.outlineBtn} onClick={endInterview}>End interview</button>
+                <button type="button" style={S.outlineBtn} onClick={skipRound}>
+                  Skip round
+                </button>
+                <button type="button" style={S.outlineBtn} onClick={endInterview}>
+                  End interview
+                </button>
               </div>
             </div>
           </>
@@ -594,7 +623,9 @@ const MicPreflight: React.FC<MicPreflightProps> = ({ onPass }) => {
 
       // Set up analyser for live level meter. If AudioContext isn't available
       // (e.g. JSDOM), we still count mic as "granted" — we just skip the meter.
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return;
 
       const ctx = new AudioCtx();
@@ -609,7 +640,7 @@ const MicPreflight: React.FC<MicPreflightProps> = ({ onPass }) => {
         analyser.getByteFrequencyData(buf);
         let sum = 0;
         for (let i = 0; i < buf.length; i++) sum += buf[i];
-        const normalized = Math.min(1, (sum / buf.length) / 128);
+        const normalized = Math.min(1, sum / buf.length / 128);
         setLevel(normalized);
         if (normalized > 0.12) setPeakSeen(true);
         rafRef.current = requestAnimationFrame(loop);
@@ -636,9 +667,7 @@ const MicPreflight: React.FC<MicPreflightProps> = ({ onPass }) => {
       <div style={S.preflightHeader}>
         <div style={S.preflightBadge}>Module C · 语音面试准备</div>
         <h1 style={S.preflightTitle}>开始前的 3 个检查</h1>
-        <p style={S.preflightSub}>
-          为了让 AI 面试官准确识别你的回答，请在开始前完成下面的检查。
-        </p>
+        <p style={S.preflightSub}>为了让 AI 面试官准确识别你的回答，请在开始前完成下面的检查。</p>
       </div>
 
       <div style={S.preflightSection}>
@@ -651,7 +680,9 @@ const MicPreflight: React.FC<MicPreflightProps> = ({ onPass }) => {
             style={S.checkbox}
           />
           <div>
-            <div style={S.checkLabel}>我已佩戴耳机 <span style={S.required}>(必选)</span></div>
+            <div style={S.checkLabel}>
+              我已佩戴耳机 <span style={S.required}>(必选)</span>
+            </div>
             <div style={S.checkHint}>
               不戴耳机时，扬声器的 AI 声音会被麦克风二次采集，导致 AI 误以为你在说话、跳过问题。
             </div>
@@ -691,7 +722,9 @@ const MicPreflight: React.FC<MicPreflightProps> = ({ onPass }) => {
         <div style={S.checkLabel}>麦克风测试</div>
         {micState === 'idle' && (
           <>
-            <div style={S.checkHint}>点击下方按钮授权麦克风，然后试着说一句话，确认电平条有反应。</div>
+            <div style={S.checkHint}>
+              点击下方按钮授权麦克风，然后试着说一句话，确认电平条有反应。
+            </div>
             <button
               type="button"
               onClick={requestMic}
@@ -706,9 +739,7 @@ const MicPreflight: React.FC<MicPreflightProps> = ({ onPass }) => {
         {micState === 'granted' && (
           <>
             <div style={S.checkHint}>
-              {peakSeen
-                ? '✓ 麦克风工作正常，随时可以开始。'
-                : '试着说一句话，观察下方电平。'}
+              {peakSeen ? '✓ 麦克风工作正常，随时可以开始。' : '试着说一句话，观察下方电平。'}
             </div>
             <div style={S.levelMeter} data-testid="modulec-preflight-level">
               {Array.from({ length: MIC_LEVEL_BARS }, (_, i) => (
@@ -717,7 +748,11 @@ const MicPreflight: React.FC<MicPreflightProps> = ({ onPass }) => {
                   style={{
                     ...S.levelBar,
                     backgroundColor:
-                      i < activeBars ? (i >= MIC_LEVEL_BARS - 3 ? '#E38F8F' : ACCENT) : colors.surface1,
+                      i < activeBars
+                        ? i >= MIC_LEVEL_BARS - 3
+                          ? '#E38F8F'
+                          : ACCENT
+                        : colors.surface1,
                     opacity: i < activeBars ? 1 : 0.35,
                   }}
                 />
@@ -727,7 +762,8 @@ const MicPreflight: React.FC<MicPreflightProps> = ({ onPass }) => {
         )}
         {micState === 'denied' && (
           <div style={S.errorBox}>
-            麦克风授权失败：{micError || '未知错误'}。请检查浏览器地址栏的麦克风图标，或切换到文字模式。
+            麦克风授权失败：{micError || '未知错误'}
+            。请检查浏览器地址栏的麦克风图标，或切换到文字模式。
           </div>
         )}
       </div>
@@ -762,7 +798,8 @@ const ProgressPips: React.FC<{ current: number; total: number }> = ({ current, t
         key={i}
         style={{
           ...S.pip,
-          backgroundColor: i < current ? colors.mauve : i === current ? colors.mauve : colors.surface1,
+          backgroundColor:
+            i < current ? colors.mauve : i === current ? colors.mauve : colors.surface1,
           opacity: i <= current ? 1 : 0.4,
           flex: i === current ? 2 : 1,
         }}
@@ -771,11 +808,11 @@ const ProgressPips: React.FC<{ current: number; total: number }> = ({ current, t
   </div>
 );
 
-const ModeTabs: React.FC<{ active: TabMode; onSwitch: (m: TabMode) => void; voiceAvailable: boolean }> = ({
-  active,
-  onSwitch,
-  voiceAvailable,
-}) => (
+const ModeTabs: React.FC<{
+  active: TabMode;
+  onSwitch: (m: TabMode) => void;
+  voiceAvailable: boolean;
+}> = ({ active, onSwitch, voiceAvailable }) => (
   <div style={S.tabRow}>
     <button
       type="button"
@@ -799,7 +836,13 @@ const ModeTabs: React.FC<{ active: TabMode; onSwitch: (m: TabMode) => void; voic
 const ChatBubble: React.FC<{ msg: ChatMessage }> = ({ msg }) => {
   const isAI = msg.role === 'ai';
   return (
-    <div style={{ ...S.bubbleWrap, alignItems: isAI ? 'flex-start' : 'flex-end', animation: 'mc-fade-in 0.3s ease' }}>
+    <div
+      style={{
+        ...S.bubbleWrap,
+        alignItems: isAI ? 'flex-start' : 'flex-end',
+        animation: 'mc-fade-in 0.3s ease',
+      }}
+    >
       <div style={S.bubbleLabel}>{isAI ? 'AI interviewer' : 'You (transcribed)'}</div>
       <div style={isAI ? S.bubbleAI : S.bubbleUser}>{msg.content}</div>
     </div>
@@ -858,7 +901,16 @@ const MicButton: React.FC<{ status: MCStatus }> = ({ status }) => {
           cursor: isDisabled ? 'not-allowed' : 'pointer',
         }}
       >
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={isActive ? '#fff' : colors.overlay1} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={isActive ? '#fff' : colors.overlay1}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <rect x="9" y="2" width="6" height="12" rx="3" />
           <path d="M5 10a7 7 0 0 0 14 0" />
           <line x1="12" y1="19" x2="12" y2="22" />
@@ -920,7 +972,11 @@ const TextFallback: React.FC<{
           style={{ ...S.primaryBtn, ...(canSubmit ? {} : S.btnDisabled) }}
           data-testid="modulec-submit"
         >
-          {submitting ? 'Submitting...' : round + 1 >= TOTAL_ROUNDS ? 'Submit final round' : 'Next round'}
+          {submitting
+            ? 'Submitting...'
+            : round + 1 >= TOTAL_ROUNDS
+              ? 'Submit final round'
+              : 'Next round'}
         </button>
       </div>
       {answers.length > 0 && (
@@ -929,7 +985,9 @@ const TextFallback: React.FC<{
           <ol style={S.historyList}>
             {answers.map((a, i) => (
               <li key={i} style={S.historyItem}>
-                <div style={S.historyRound}>R{i + 1} · {ROUND_LABELS[i]}</div>
+                <div style={S.historyRound}>
+                  R{i + 1} · {ROUND_LABELS[i]}
+                </div>
                 <div style={S.historyBody}>{a}</div>
               </li>
             ))}
@@ -1408,7 +1466,12 @@ const S: Record<string, React.CSSProperties> = {
     border: `1px solid ${colors.surface0}`,
   },
   historyRound: { fontSize: fontSizes.xs, color: colors.overlay1, marginBottom: spacing.xs },
-  historyBody: { fontSize: fontSizes.sm, color: colors.subtext0, lineHeight: 1.5, whiteSpace: 'pre-wrap' as const },
+  historyBody: {
+    fontSize: fontSizes.sm,
+    color: colors.subtext0,
+    lineHeight: 1.5,
+    whiteSpace: 'pre-wrap' as const,
+  },
 
   // Done
   doneCard: {

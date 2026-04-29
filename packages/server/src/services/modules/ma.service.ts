@@ -34,6 +34,7 @@ import type { V5ModuleASubmission } from '@codelens-v5/shared';
 
 import { prisma } from '../../config/db.js';
 import { logger } from '../../lib/logger.js';
+import { examDataService } from '../exam-data.service.js';
 
 async function readSessionMeta(sessionId: string): Promise<Record<string, unknown> | null> {
   const session = await prisma.session.findUnique({
@@ -54,6 +55,7 @@ export async function persistModuleASubmission(
   const meta = await readSessionMeta(sessionId);
   if (!meta) return;
 
+  const normalizedSubmission = await normalizeRound2DefectIds(meta, submission);
   const { round1, round2, round3, round4 } = submission;
   const persistable: V5ModuleASubmission = {
     round1: {
@@ -63,7 +65,7 @@ export async function persistModuleASubmission(
       challengeResponse: round1.challengeResponse,
     },
     round2: {
-      markedDefects: round2.markedDefects,
+      markedDefects: normalizedSubmission.round2.markedDefects,
       ...(round2.inputBehavior !== undefined ? { inputBehavior: round2.inputBehavior } : {}),
     },
     round3: {
@@ -87,4 +89,30 @@ export async function persistModuleASubmission(
       metadata: { ...meta, moduleA: nextModuleA } as unknown as Prisma.InputJsonValue,
     },
   });
+}
+
+async function normalizeRound2DefectIds(
+  meta: Record<string, unknown>,
+  submission: V5ModuleASubmission,
+): Promise<V5ModuleASubmission> {
+  const examInstanceId = typeof meta.examInstanceId === 'string' ? meta.examInstanceId : undefined;
+  if (!examInstanceId) return submission;
+  const maExam = await examDataService.getMAData(examInstanceId);
+  if (!maExam) return submission;
+  const byLine = new Map(maExam.defects.map((d) => [d.line, d.defectId]));
+  const markedDefects = submission.round2.markedDefects.map((m) => {
+    if (typeof m.line !== 'number') return m;
+    const canonical = byLine.get(m.line);
+    return {
+      ...m,
+      defectId: canonical ?? `line-${m.line}`,
+    };
+  });
+  return {
+    ...submission,
+    round2: {
+      ...submission.round2,
+      markedDefects,
+    },
+  };
 }

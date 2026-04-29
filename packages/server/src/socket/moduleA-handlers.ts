@@ -48,6 +48,7 @@ const round1Schema = z.object({
 
 const markedDefectSchema = z.object({
   defectId: z.string(),
+  line: z.number().optional(),
   commentType: z.enum(['bug', 'suggestion', 'question', 'nit']),
   comment: z.string(),
   fixSuggestion: z.string().optional(),

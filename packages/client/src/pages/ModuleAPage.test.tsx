@@ -19,7 +19,8 @@ import { useSessionStore } from '../stores/session.store.js';
 
 const ORDER = ['phase0', 'moduleA', 'mb', 'selfAssess', 'moduleC'] as const;
 
-const R1_REASONING = '选 C 方案 — 20k QPS 下锁竞争(A)和 CAS 重试风暴(B)都顶不住,令牌桶把串行化从 lock 转到 LPOP 上,天然扩展。';
+const R1_REASONING =
+  '选 C 方案 — 20k QPS 下锁竞争(A)和 CAS 重试风暴(B)都顶不住,令牌桶把串行化从 lock 转到 LPOP 上,天然扩展。';
 const R1_SCENARIO = '秒杀峰值 20k QPS 打同一 SKU,单 Redis 实例,p99 < 300ms。';
 const R1_TRADEOFF = '吞吐极限 vs 运维复杂度;LPOP 串行 vs 令牌回收复杂度。';
 const R1_DECISION = '选 C;给定 20k QPS + p99 硬指标,A/B 都撑不住。';
@@ -319,6 +320,7 @@ describe('<ModuleAPage />', () => {
       // for the V5.0 ship-blocking lookup bug.
       expect(s?.round2.markedDefects[0]).toEqual({
         defectId: 'd1',
+        line: 4,
         commentType: 'bug',
         comment: R2_COMMENT,
         fixSuggestion: R2_FIX,
@@ -434,9 +436,7 @@ describe('<ModuleAPage />', () => {
       expect(MA_MOCK_FIXTURE.schemes).toHaveLength(3);
       expect(MA_MOCK_FIXTURE.defects).toHaveLength(3);
       expect(MA_MOCK_FIXTURE.decoys).toHaveLength(2);
-      expect(MA_MOCK_FIXTURE.migrationScenario.newBusinessContext.length).toBeGreaterThan(
-        100,
-      );
+      expect(MA_MOCK_FIXTURE.migrationScenario.newBusinessContext.length).toBeGreaterThan(100);
       // Prompt text references the R1 choice template.
       expect(MA_MOCK_FIXTURE.migrationScenario.promptText.length).toBeGreaterThan(80);
     });

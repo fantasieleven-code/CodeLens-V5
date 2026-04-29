@@ -30,6 +30,7 @@ import { getSocket } from '../lib/socket.js';
 import { useModuleStore } from '../stores/module.store.js';
 import { useSessionStore } from '../stores/session.store.js';
 import { ModuleShell } from '../components/ModuleShell.js';
+import { useModuleContent } from '../hooks/useModuleContent.js';
 import {
   StructuredReasoningForm,
   type StructuredReasoning,
@@ -68,13 +69,18 @@ export interface ModuleAPageProps {
 // ────────────────────────────── component ──────────────────────────────
 
 export const ModuleAPage: React.FC<ModuleAPageProps> = ({
-  module: moduleContent = MA_MOCK_FIXTURE,
+  module: moduleProp,
   onSubmit,
   bare = false,
 }) => {
   const advance = useModuleStore((s) => s.advance);
   const setSubmission = useSessionStore((s) => s.setModuleSubmissionLocal);
   const sessionId = useSessionStore((s) => s.sessionId);
+  const examInstanceId = useSessionStore((s) => s.examInstanceId);
+  const fetchState = useModuleContent(moduleProp || !examInstanceId ? null : examInstanceId, 'ma');
+  const moduleContent =
+    moduleProp ??
+    (fetchState.status === 'loaded' ? fetchState.data : !examInstanceId ? MA_MOCK_FIXTURE : null);
 
   // --- Round 1 state
   const [r1Scheme, setR1Scheme] = useState<'A' | 'B' | 'C' | null>(null);
@@ -110,17 +116,11 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
   const [r4StartedAt] = useState(() => Date.now());
 
   // --- current-round progression
-  const currentRound: RoundId = !r1Done
-    ? 'R1'
-    : !r2Done
-      ? 'R2'
-      : !r3Done
-        ? 'R3'
-        : 'R4';
+  const currentRound: RoundId = !r1Done ? 'R1' : !r2Done ? 'R2' : !r3Done ? 'R3' : 'R4';
 
   // Counter-arguments shown in R1 challenge step depend on the scheme picked.
   const challengeText = useMemo(() => {
-    if (!r1Scheme) return '';
+    if (!r1Scheme || !moduleContent) return '';
     const bullets = moduleContent.counterArguments[r1Scheme] ?? [];
     return bullets.map((b, i) => `${i + 1}. ${b}`).join('\n');
   }, [r1Scheme, moduleContent]);
@@ -133,10 +133,8 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
     r1Structured.tradeoff.trim().length >= 20 &&
     r1Structured.decision.trim().length >= 20 &&
     r1Structured.verification.trim().length >= 20;
-  const r1ChallengeDone =
-    r1ChallengeResponse.trim().length >= R1_CHALLENGE_MIN;
-  const canSubmitR1 =
-    r1SchemeDone && r1ReasoningDone && r1StructuredDone && r1ChallengeDone;
+  const r1ChallengeDone = r1ChallengeResponse.trim().length >= R1_CHALLENGE_MIN;
+  const canSubmitR1 = r1SchemeDone && r1ReasoningDone && r1StructuredDone && r1ChallengeDone;
 
   // --- R2 predicates
   const canSubmitR2 = r2Reviews.length >= 1;
@@ -174,7 +172,7 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
   // ─────────────────── final submit (after R4) ───────────────────
 
   const handleFinalSubmit = useCallback(() => {
-    if (!canSubmitR4 || !r1Scheme || !r3Correct) return;
+    if (!canSubmitR4 || !r1Scheme || !r3Correct || !moduleContent) return;
 
     const submission: V5ModuleASubmission = {
       round1: {
@@ -188,14 +186,16 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
         // previously fabricated `cand-N`, which never matched scoring's
         // `examData.MA.defects[].defectId` and zeroed sHiddenBugFound /
         // sReviewPrioritization / sCodeReviewQuality for every candidate
-        // (real + e2e). `cand-${idx + 1}` retained as fallback when the
-        // user reviews a non-defect line — kept distinct so scoring
-        // marks-but-fails (false positive) rather than treating as
-        // canonical defect.
-        markedDefects: r2Reviews.map((r, idx) => ({
+        // (real + e2e). Candidate-safe module content no longer exposes the
+        // defect answer key, so the HTTP/socket persist layer maps `line` to
+        // canonical defectId from DB examData. Mock-prop tests still resolve
+        // locally to retain the original regression guard.
+        markedDefects: r2Reviews.map((r) => ({
           defectId:
-            moduleContent.defects.find((d) => d.line === r.line)?.defectId ??
-            `cand-${idx + 1}`,
+            (
+              moduleContent as { defects?: Array<{ line: number; defectId: string }> }
+            ).defects?.find((d) => d.line === r.line)?.defectId ?? `line-${r.line}`,
+          line: r.line,
           commentType: r.commentType,
           comment: r.comment,
           fixSuggestion: r.fixSuggestion || undefined,
@@ -246,6 +246,20 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
     sessionId,
     advance,
   ]);
+
+  if (!moduleContent) {
+    const inner =
+      fetchState.status === 'error' ? (
+        <div style={styles.container} data-testid="moduleA-content-error">
+          <p style={styles.bodyText}>{fetchState.message}</p>
+        </div>
+      ) : (
+        <div style={styles.container} data-testid="moduleA-content-loading">
+          <p style={styles.bodyText}>正在加载 Module A 内容…</p>
+        </div>
+      );
+    return bare ? inner : <ModuleShell>{inner}</ModuleShell>;
+  }
 
   // ─────────────────── render ───────────────────
 
@@ -307,7 +321,7 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
         <Round4Section
           r1Scheme={r1Scheme}
           r1Reasoning={r1Reasoning}
-          migrationScenario={moduleContent.migrationScenario}
+          migrationScenario={moduleContent.migrationScenario ?? MA_MOCK_FIXTURE.migrationScenario}
           response={r4Response}
           onResponse={setR4Response}
           canSubmit={canSubmitR4}
@@ -406,22 +420,32 @@ const Round1Section: React.FC<Round1SectionProps> = ({
               backgroundColor: scheme === s.id ? `${colors.blue}18` : colors.surface0,
             }}
           >
-            <div style={styles.schemeTitle}>方案 {s.id} · {s.name}</div>
+            <div style={styles.schemeTitle}>
+              方案 {s.id} · {s.name}
+            </div>
             <div style={styles.schemeDesc}>{s.description}</div>
             <div style={styles.kv}>
               <strong>优点:</strong>
               <ul style={styles.ul}>
-                {s.pros.map((p, i) => <li key={i}>{p}</li>)}
+                {s.pros.map((p, i) => (
+                  <li key={i}>{p}</li>
+                ))}
               </ul>
             </div>
             <div style={styles.kv}>
               <strong>代价:</strong>
               <ul style={styles.ul}>
-                {s.cons.map((c, i) => <li key={i}>{c}</li>)}
+                {s.cons.map((c, i) => (
+                  <li key={i}>{c}</li>
+                ))}
               </ul>
             </div>
-            <div style={styles.kv}><strong>性能:</strong> {s.performance}</div>
-            <div style={styles.kv}><strong>成本:</strong> {s.cost}</div>
+            <div style={styles.kv}>
+              <strong>性能:</strong> {s.performance}
+            </div>
+            <div style={styles.kv}>
+              <strong>成本:</strong> {s.cost}
+            </div>
           </button>
         ))}
       </div>
@@ -547,9 +571,7 @@ const Round2Section: React.FC<Round2SectionProps> = ({
                 data-testid={`ma-r2-review-line-${line}`}
                 style={{
                   ...styles.lineNumberBtn,
-                  backgroundColor: reviewed
-                    ? `${colors.yellow}33`
-                    : 'transparent',
+                  backgroundColor: reviewed ? `${colors.yellow}33` : 'transparent',
                   color: reviewed ? colors.yellow : colors.overlay1,
                 }}
               >
@@ -567,9 +589,7 @@ const Round2Section: React.FC<Round2SectionProps> = ({
           <label style={styles.label}>类型</label>
           <select
             value={draft.commentType}
-            onChange={(e) =>
-              onDraftChange({ ...draft, commentType: e.target.value as ReviewType })
-            }
+            onChange={(e) => onDraftChange({ ...draft, commentType: e.target.value as ReviewType })}
             data-testid="ma-r2-review-type"
             style={styles.select}
           >
@@ -595,11 +615,7 @@ const Round2Section: React.FC<Round2SectionProps> = ({
             data-testid="ma-r2-review-fix"
           />
           <div style={styles.actionRow}>
-            <button
-              type="button"
-              onClick={onCancelReview}
-              style={styles.btnGhost}
-            >
+            <button type="button" onClick={onCancelReview} style={styles.btnGhost}>
               取消
             </button>
             <button
@@ -694,7 +710,8 @@ const Round3Section: React.FC<Round3SectionProps> = ({
     <section style={styles.card} data-testid="moduleA-r3">
       <SectionTitle pill="Round 3" title="版本对比诊断 · 哪个是线上版本" />
       <p style={styles.bodyText}>
-        线上故障后,团队回滚时发现两个分支上都有 reserveInventory 的实现。请判断哪个是"修好的正确版本",并分析差异与根因。
+        线上故障后,团队回滚时发现两个分支上都有 reserveInventory
+        的实现。请判断哪个是"修好的正确版本",并分析差异与根因。
       </p>
 
       <div style={styles.diffPane}>
@@ -723,8 +740,7 @@ const Round3Section: React.FC<Round3SectionProps> = ({
           style={{
             ...styles.choiceBtn,
             borderColor: correct === 'success' ? colors.blue : colors.surface1,
-            backgroundColor:
-              correct === 'success' ? `${colors.blue}18` : colors.surface0,
+            backgroundColor: correct === 'success' ? `${colors.blue}18` : colors.surface0,
           }}
         >
           Success
@@ -738,8 +754,7 @@ const Round3Section: React.FC<Round3SectionProps> = ({
           style={{
             ...styles.choiceBtn,
             borderColor: correct === 'failed' ? colors.blue : colors.surface1,
-            backgroundColor:
-              correct === 'failed' ? `${colors.blue}18` : colors.surface0,
+            backgroundColor: correct === 'failed' ? `${colors.blue}18` : colors.surface0,
           }}
         >
           Failed
@@ -816,8 +831,7 @@ const Round4Section: React.FC<Round4SectionProps> = ({
   canSubmit,
   onSubmit,
 }) => {
-  const r1Snippet =
-    r1Reasoning.length > 140 ? r1Reasoning.slice(0, 140) + '…' : r1Reasoning;
+  const r1Snippet = r1Reasoning.length > 140 ? r1Reasoning.slice(0, 140) + '…' : r1Reasoning;
   return (
     <section style={styles.card} data-testid="moduleA-r4">
       <SectionTitle pill="Round 4" title="迁移验证 · 红包抢购场景" />

@@ -61,6 +61,25 @@ export interface P0ModuleSpecific {
   };
 }
 
+export interface P0CandidateView {
+  systemCode: string;
+  codeReadingQuestions: {
+    l1: { question: string; options: string[] };
+    l2: { question: string };
+    l3: { question: string };
+  };
+  aiOutputJudgment: Array<{
+    codeA: string;
+    codeB: string;
+    context: string;
+  }>;
+  decision: P0ModuleSpecific['decision'];
+  aiClaimDetection: {
+    code: string;
+    aiExplanation: string;
+  };
+}
+
 // ───────────────────────────── MA ─────────────────────────────
 
 export interface MASchemeOption {
@@ -105,6 +124,26 @@ export interface MAModuleSpecific {
   codeForReview: string;
   /** R3 对比诊断用。 */
   failureScenario: MAFailureScenario;
+  /**
+   * R4 迁移验证场景. Originally carried as a client-local mock extension;
+   * Layer 2 canonical content parity promotes it into the DB-backed module
+   * spec so UI content and scoring examData share the same source.
+   */
+  migrationScenario?: {
+    newBusinessContext: string;
+    relatedDimension: string;
+    differingDimension: string;
+    promptText: string;
+  };
+}
+
+export interface MACandidateView {
+  requirement: string;
+  schemes: MASchemeOption[];
+  counterArguments: Record<string, string[]>;
+  codeForReview: string;
+  failureScenario: Pick<MAFailureScenario, 'successCode' | 'failedCode'>;
+  migrationScenario?: MAModuleSpecific['migrationScenario'];
 }
 
 // ───────────────────────────── MB ─────────────────────────────
@@ -229,11 +268,19 @@ export interface MDModuleSpecific {
   designChallenges: MDDesignChallenge[];
 }
 
+export interface MDCandidateView {
+  designTask: MDModuleSpecific['designTask'];
+  constraintCategories: string[];
+  designChallenges: MDDesignChallenge[];
+}
+
 // ───────────────────────────── SE ─────────────────────────────
 
 export interface SEModuleSpecific {
   decisionSummaryTemplate: string;
 }
+
+export type SECandidateView = SEModuleSpecific;
 
 // ───────────────────────────── MC ─────────────────────────────
 
@@ -245,6 +292,17 @@ export interface MCModuleSpecific {
     escalation: string;
     transfer: string;
   };
+}
+
+export type MCCandidateView = MCModuleSpecific;
+
+export interface CandidateModuleViewByType {
+  P0: P0CandidateView;
+  MA: MACandidateView;
+  MB: MBCandidateView;
+  MD: MDCandidateView;
+  SE: SECandidateView;
+  MC: MCCandidateView;
 }
 
 // ───────────────────────────── Aggregate ─────────────────────────────
