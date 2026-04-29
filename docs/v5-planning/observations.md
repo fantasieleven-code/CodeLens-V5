@@ -3039,3 +3039,34 @@ Three-view ratify:
   shipped page was still pointing at the wrong path.
 - CCL: contained patch. Voice start is not in golden-path text fallback, so
   focused hook/page tests are the right regression guard.
+
+### #179 · Last server typecheck exclude was a dead V4 job-model stub
+
+**Type**:technical debt / typecheck scope / V4-copy cleanup
+**Date**:2026-04-29
+**Status**:closed by job-models typecheck cleanup patch
+
+Issue #10 had one remaining server `tsconfig` exclude:
+`src/config/job-models/index.ts`. The backlog framed it as waiting for Task 10
+`exam-generator.service`, but a fresh grep showed the real state was stricter:
+the file had no live imports, imported a nonexistent service type, and pointed
+at five YAML files that do not exist in the repo. Keeping it excluded would
+preserve an untestable V4 copy artifact.
+
+Fix pattern:
+
+- Delete the dead `config/job-models/index.ts` stub instead of fabricating a
+  placeholder `JobModel` type.
+- Remove the final server `tsconfig` exclude, so production server typecheck
+  covers all non-test source again.
+- Update `TYPECHECK_EXCLUDES.md` to mark the table empty and clarify that
+  future generator work must add real source data plus tests in its own scope.
+
+Three-view ratify:
+
+- Karpathy: dependency direction matters; config should not import a type from a
+  future service, and a data loader with no data should not survive as dead code.
+- Gemini: rejects the tempting "make it compile" patch. That would hide the
+  missing YAML/runtime problem behind a nicer type.
+- CCL: small cleanup with a strong release gate impact: no remaining server
+  source is silently outside `tsc`.

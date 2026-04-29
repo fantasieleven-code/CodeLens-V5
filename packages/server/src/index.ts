@@ -3,8 +3,6 @@
  *
  * Admin + Auth mounted Task 15b.
  *
- * Routes intentionally NOT registered — still in docs/v5-planning/TYPECHECK_EXCLUDES.md:
- *   - config/job-models/* (Task 6, not a route — noted for completeness)
  */
 
 import 'dotenv/config';
