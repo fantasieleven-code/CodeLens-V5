@@ -30,6 +30,7 @@ import { getSocket } from '../lib/socket.js';
 import { useModuleStore } from '../stores/module.store.js';
 import { useSessionStore } from '../stores/session.store.js';
 import { ModuleShell } from '../components/ModuleShell.js';
+import { useModuleContent } from '../hooks/useModuleContent.js';
 import { P0_MOCK_FIXTURE, type P0MockModule } from './phase0/mock.js';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../lib/tokens.js';
 
@@ -66,13 +67,18 @@ export interface Phase0PageProps {
 }
 
 export const Phase0Page: React.FC<Phase0PageProps> = ({
-  module: moduleContent = P0_MOCK_FIXTURE,
+  module: moduleProp,
   onSubmit,
   bare = false,
 }) => {
   const advance = useModuleStore((s) => s.advance);
   const setSubmission = useSessionStore((s) => s.setModuleSubmissionLocal);
   const sessionId = useSessionStore((s) => s.sessionId);
+  const examInstanceId = useSessionStore((s) => s.examInstanceId);
+  const fetchState = useModuleContent(moduleProp || !examInstanceId ? null : examInstanceId, 'p0');
+  const moduleContent =
+    moduleProp ??
+    (fetchState.status === 'loaded' ? fetchState.data : !examInstanceId ? P0_MOCK_FIXTURE : null);
 
   const [l1Answer, setL1Answer] = useState<number | null>(null);
   const [l2Answer, setL2Answer] = useState('');
@@ -96,23 +102,20 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
   const decisionDone = decisionDone_(decision);
   const aiClaimDone = aiClaim.response.trim().length > 0;
 
-  const canSubmit =
-    l1Done && l2Done && l3Done && j1Done && j2Done && decisionDone && aiClaimDone;
+  const canSubmit = l1Done && l2Done && l3Done && j1Done && j2Done && decisionDone && aiClaimDone;
 
-  const updateJudgment = useCallback(
-    (idx: 0 | 1, patch: Partial<JudgmentState>) => {
-      setJudgments((prev) => {
-        const next = [...prev] as [JudgmentState, JudgmentState];
-        next[idx] = { ...next[idx], ...patch };
-        return next;
-      });
-    },
-    [],
-  );
+  const updateJudgment = useCallback((idx: 0 | 1, patch: Partial<JudgmentState>) => {
+    setJudgments((prev) => {
+      const next = [...prev] as [JudgmentState, JudgmentState];
+      next[idx] = { ...next[idx], ...patch };
+      return next;
+    });
+  }, []);
 
   const handleSubmit = useCallback(() => {
     if (!canSubmit || l1Answer === null || !decision.choice) return;
 
+    if (!moduleContent) return;
     const l1Text = moduleContent.codeReadingQuestions.l1.options[l1Answer] ?? '';
 
     const submission: V5Phase0Submission = {
@@ -173,6 +176,20 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
     advance,
   ]);
 
+  if (!moduleContent) {
+    const inner =
+      fetchState.status === 'error' ? (
+        <div style={styles.container} data-testid="phase0-content-error">
+          <p style={styles.bodyText}>{fetchState.message}</p>
+        </div>
+      ) : (
+        <div style={styles.container} data-testid="phase0-content-loading">
+          <p style={styles.bodyText}>正在加载 Phase 0 内容…</p>
+        </div>
+      );
+    return bare ? inner : <ModuleShell>{inner}</ModuleShell>;
+  }
+
   const body = (
     <div style={styles.container} data-testid="phase0-container">
       <TaskHeader />
@@ -202,9 +219,7 @@ export const Phase0Page: React.FC<Phase0PageProps> = ({
         />
       )}
 
-      {l3Done && (
-        <ConfidenceSection value={confidencePct} onChange={setConfidencePct} />
-      )}
+      {l3Done && <ConfidenceSection value={confidencePct} onChange={setConfidencePct} />}
 
       {l3Done && (
         <>
@@ -295,8 +310,8 @@ const TaskHeader: React.FC = () => (
     <span style={styles.modulePill}>Phase 0 · 基线诊断</span>
     <h1 style={styles.taskTitle}>阅读以下代码并回答问题</h1>
     <p style={styles.taskBody}>
-      三层递进的代码理解(L1 → L2 → L3) + 2 题 AI 输出判断 + 1 题决策场景 + 1 题
-      AI 声明验证。依次展开,必填后显示下一题。
+      三层递进的代码理解(L1 → L2 → L3) + 2 题 AI 输出判断 + 1 题决策场景 + 1 题 AI
+      声明验证。依次展开,必填后显示下一题。
     </p>
   </section>
 );
@@ -442,16 +457,8 @@ const AiJudgmentSection: React.FC<{
       <p style={styles.sectionSubtitle}>{context}</p>
 
       <div style={styles.judgmentGrid}>
-        <CodeBlock
-          testId={`phase0-ai-judgment-${idx}-code-a`}
-          label="版本 A"
-          code={codeA}
-        />
-        <CodeBlock
-          testId={`phase0-ai-judgment-${idx}-code-b`}
-          label="版本 B"
-          code={codeB}
-        />
+        <CodeBlock testId={`phase0-ai-judgment-${idx}-code-a`} label="版本 A" code={codeA} />
+        <CodeBlock testId={`phase0-ai-judgment-${idx}-code-b`} label="版本 B" code={codeB} />
       </div>
 
       <div style={styles.choiceRow} data-testid={choiceTestId} role="radiogroup">
@@ -542,9 +549,8 @@ const AiClaimSection: React.FC<{
   <section style={styles.card}>
     <h2 style={styles.sectionTitle}>AI 声明验证</h2>
     <p style={styles.sectionSubtitle}>
-      下面是 AI 生成的代码,以及 AI 自己写的解释。请审查 AI 的解释是否和代码一致 ——
-      若有不一致,描述<strong> AI 解释的具体哪里有问题(标明具体位置 / 行号 /
-      函数名 / feature)</strong>。
+      下面是 AI 生成的代码,以及 AI 自己写的解释。请审查 AI 的解释是否和代码一致 —— 若有不一致,描述
+      <strong> AI 解释的具体哪里有问题(标明具体位置 / 行号 / 函数名 / feature)</strong>。
     </p>
 
     <div style={styles.aiClaimRow}>

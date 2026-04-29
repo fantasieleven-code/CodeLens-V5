@@ -63,6 +63,12 @@ export interface V5ModuleASubmission {
   round2: {
     markedDefects: Array<{
       defectId: string;
+      /**
+       * Candidate-facing UI submits the reviewed line number. Server-side
+       * persistence maps this to canonical examData.MA.defects[].defectId so
+       * the frontend does not need the answer key.
+       */
+      line?: number;
       commentType: 'bug' | 'suggestion' | 'question' | 'nit';
       comment: string;
       fixSuggestion?: string;

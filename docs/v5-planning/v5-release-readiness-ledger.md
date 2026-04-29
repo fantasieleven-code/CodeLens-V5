@@ -4,13 +4,13 @@ Last updated: 2026-04-29
 
 ## Current Gate Matrix
 
-| Gate | Status | Evidence | Scope truth |
-|------|--------|----------|-------------|
-| Main CI | ✅ green | main run `25088716892` at `edaae5d` | lint/typecheck, unit tests, build, e2e smoke/golden config, Docker build + Trivy |
-| Docker/Trivy | ✅ green | PR #101 → #102 → #103 | Real Dockerfile + runtime npm removal; not a scan downgrade |
-| Golden Path B3 | ✅ green before Cold Start addition | `npm run test:golden-path` 5/5 on 2026-04-29 | 4 calibrated fixtures + smoke; proves grade/composite/report surface |
-| Hydrator Cold Start unit | ✅ green | `npm --prefix packages/server test -- cold-start-validation.test.ts` 4/4 | Synthetic metadata + mocked LLM; hydrator seam, not full production |
-| Final Cold Start Playwright | ✅ green | `npx playwright test --config=e2e/playwright.golden-path.config.ts e2e/cold-start-validation.spec.ts` 1/1 | Real new `deep_dive` session through P0/MA/MB/MD/SE/MC, Admin API asserts 48/48 signal results, 0 null, report DOM 0 `N/A` / `待评估` |
+| Gate                        | Status                              | Evidence                                                                                                  | Scope truth                                                                                                                           |
+| --------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Main CI                     | ✅ green                            | main run `25088716892` at `edaae5d`                                                                       | lint/typecheck, unit tests, build, e2e smoke/golden config, Docker build + Trivy                                                      |
+| Docker/Trivy                | ✅ green                            | PR #101 → #102 → #103                                                                                     | Real Dockerfile + runtime npm removal; not a scan downgrade                                                                           |
+| Golden Path B3              | ✅ green before Cold Start addition | `npm run test:golden-path` 5/5 on 2026-04-29                                                              | 4 calibrated fixtures + smoke; proves grade/composite/report surface                                                                  |
+| Hydrator Cold Start unit    | ✅ green                            | `npm --prefix packages/server test -- cold-start-validation.test.ts` 4/4                                  | Synthetic metadata + mocked LLM; hydrator seam, not full production                                                                   |
+| Final Cold Start Playwright | ✅ green                            | `npx playwright test --config=e2e/playwright.golden-path.config.ts e2e/cold-start-validation.spec.ts` 1/1 | Real new `deep_dive` session through P0/MA/MB/MD/SE/MC, Admin API asserts 48/48 signal results, 0 null, report DOM 0 `N/A` / `待评估` |
 
 ## Root Cause Closed In This Pass
 
@@ -43,10 +43,11 @@ Fix:
 - The first Cold Start attempt exposed Monaco cold-load fragility once, then
   passed through MB on the rerun. This did not block the production gate after
   the MD fix, but it remains a V5.0.5 reliability candidate if it recurs.
-- Module submission persistence and scoring hydration are green, but canonical
-  module content delivery is still partial. `GET /api/v5/exam/:examInstanceId/module/:moduleType`
-  is implemented only for MB; P0/MA/MD/MC/SE still require Layer 2 content
-  parity work. See `docs/v5-planning/v5-module-pipeline-audit.md`.
+- Module submission persistence, scoring hydration, and canonical module
+  content delivery are green after the Layer 2 parity patch. Existing deployed
+  DBs must re-run `npm --prefix packages/server run db:seed:canonical` to
+  upsert the updated MA/MD canonical content. See
+  `docs/v5-planning/v5-module-pipeline-audit.md`.
 - Existing untracked `.env.bak-*` files are local backup artifacts and must not
   be committed. `packages/server/src/scripts/audit-liam-signal-gap.ts` remains
   a local forensic script unless deliberately promoted or deleted.

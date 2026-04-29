@@ -10,6 +10,7 @@
 import type { PrismaClient } from '@prisma/client';
 import type {
   BusinessScenario,
+  CandidateModuleViewByType,
   MAModuleSpecific,
   MBCandidateView,
   MBModuleSpecific,
@@ -50,6 +51,65 @@ export function stripMBToCandidateView(data: MBModuleSpecific): MBCandidateView 
   };
 }
 
+export function stripP0ToCandidateView(data: P0ModuleSpecific): CandidateModuleViewByType['P0'] {
+  return {
+    systemCode: data.systemCode,
+    codeReadingQuestions: {
+      l1: {
+        question: data.codeReadingQuestions.l1.question,
+        options: [...data.codeReadingQuestions.l1.options],
+      },
+      l2: { question: data.codeReadingQuestions.l2.question },
+      l3: { question: data.codeReadingQuestions.l3.question },
+    },
+    aiOutputJudgment: data.aiOutputJudgment.map((j) => ({
+      codeA: j.codeA,
+      codeB: j.codeB,
+      context: j.context,
+    })),
+    decision: {
+      scenario: data.decision.scenario,
+      options: data.decision.options.map((o) => ({ ...o })),
+    },
+    aiClaimDetection: {
+      code: data.aiClaimDetection.code,
+      aiExplanation: data.aiClaimDetection.aiExplanation,
+    },
+  };
+}
+
+export function stripMAToCandidateView(data: MAModuleSpecific): CandidateModuleViewByType['MA'] {
+  return {
+    requirement: data.requirement,
+    schemes: data.schemes.map((s) => ({
+      ...s,
+      pros: [...s.pros],
+      cons: [...s.cons],
+    })),
+    counterArguments: Object.fromEntries(
+      Object.entries(data.counterArguments).map(([k, v]) => [k, [...v]]),
+    ),
+    codeForReview: data.codeForReview,
+    failureScenario: {
+      successCode: data.failureScenario.successCode,
+      failedCode: data.failureScenario.failedCode,
+    },
+    ...(data.migrationScenario ? { migrationScenario: { ...data.migrationScenario } } : {}),
+  };
+}
+
+export function stripMDToCandidateView(data: MDModuleSpecific): CandidateModuleViewByType['MD'] {
+  return {
+    designTask: {
+      description: data.designTask.description,
+      businessContext: data.designTask.businessContext,
+      nonFunctionalRequirements: [...data.designTask.nonFunctionalRequirements],
+    },
+    constraintCategories: [...data.constraintCategories],
+    designChallenges: data.designChallenges.map((c) => ({ ...c })),
+  };
+}
+
 function languageFromPath(path: string): string {
   const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
   switch (ext) {
@@ -86,8 +146,22 @@ export class ExamDataService {
     return this.getModuleData('P0', examInstanceId);
   }
 
+  async getP0DataCandidateSafe(
+    examInstanceId: string,
+  ): Promise<CandidateModuleViewByType['P0'] | null> {
+    const data = await this.getP0Data(examInstanceId);
+    return data ? stripP0ToCandidateView(data) : null;
+  }
+
   getMAData(examInstanceId: string): Promise<MAModuleSpecific | null> {
     return this.getModuleData('MA', examInstanceId);
+  }
+
+  async getMADataCandidateSafe(
+    examInstanceId: string,
+  ): Promise<CandidateModuleViewByType['MA'] | null> {
+    const data = await this.getMAData(examInstanceId);
+    return data ? stripMAToCandidateView(data) : null;
   }
 
   getMBData(examInstanceId: string): Promise<MBModuleSpecific | null> {
@@ -104,12 +178,27 @@ export class ExamDataService {
     return this.getModuleData('MD', examInstanceId);
   }
 
+  async getMDDataCandidateSafe(
+    examInstanceId: string,
+  ): Promise<CandidateModuleViewByType['MD'] | null> {
+    const data = await this.getMDData(examInstanceId);
+    return data ? stripMDToCandidateView(data) : null;
+  }
+
   getSEData(examInstanceId: string): Promise<SEModuleSpecific | null> {
     return this.getModuleData('SE', examInstanceId);
   }
 
+  getSEDataCandidateSafe(examInstanceId: string): Promise<CandidateModuleViewByType['SE'] | null> {
+    return this.getSEData(examInstanceId);
+  }
+
   getMCData(examInstanceId: string): Promise<MCModuleSpecific | null> {
     return this.getModuleData('MC', examInstanceId);
+  }
+
+  getMCDataCandidateSafe(examInstanceId: string): Promise<CandidateModuleViewByType['MC'] | null> {
+    return this.getMCData(examInstanceId);
   }
 
   private async getModuleData<T extends V5ModuleType>(

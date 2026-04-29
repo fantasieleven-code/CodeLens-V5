@@ -6,23 +6,36 @@
  */
 
 import { useEffect, useState } from 'react';
-import type { MBCandidateView } from '@codelens-v5/shared';
+import type { CandidateModuleViewByType } from '@codelens-v5/shared';
 
-export type ModuleContentState =
+export type CandidateModuleType = 'p0' | 'ma' | 'mb' | 'mc' | 'md' | 'se';
+
+type CandidateViewFor<T extends CandidateModuleType> = T extends 'p0'
+  ? CandidateModuleViewByType['P0']
+  : T extends 'ma'
+    ? CandidateModuleViewByType['MA']
+    : T extends 'mb'
+      ? CandidateModuleViewByType['MB']
+      : T extends 'mc'
+        ? CandidateModuleViewByType['MC']
+        : T extends 'md'
+          ? CandidateModuleViewByType['MD']
+          : CandidateModuleViewByType['SE'];
+
+export type ModuleContentState<T extends CandidateModuleType = CandidateModuleType> =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'loaded'; data: MBCandidateView }
+  | { status: 'loaded'; data: CandidateViewFor<T> }
   | { status: 'error'; message: string };
 
 /**
  * Fetch the candidate-safe module-content view for the given exam + module.
- * Brief #15 covers `mb` only · other module types route through 501.
  */
-export function useModuleContent(
+export function useModuleContent<T extends CandidateModuleType>(
   examInstanceId: string | null,
-  moduleType: 'mb',
-): ModuleContentState {
-  const [state, setState] = useState<ModuleContentState>({ status: 'idle' });
+  moduleType: T,
+): ModuleContentState<T> {
+  const [state, setState] = useState<ModuleContentState<T>>({ status: 'idle' });
 
   useEffect(() => {
     if (!examInstanceId) return;
@@ -41,7 +54,7 @@ export function useModuleContent(
           setState({ status: 'error', message: `加载失败 (${response.status})` });
           return;
         }
-        const data = (await response.json()) as MBCandidateView;
+        const data = (await response.json()) as CandidateViewFor<T>;
         if (cancelled) return;
         setState({ status: 'loaded', data });
       } catch {
