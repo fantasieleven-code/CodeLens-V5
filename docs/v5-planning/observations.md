@@ -3214,3 +3214,36 @@ Three-view ratify:
 - CCL: small patch with concrete payoff: removes a typecheck exclusion and the
   source of most existing client lint warnings without touching runtime module
   submission behavior.
+
+### #184 · Remaining client typecheck excludes were dead V4 copy residue
+
+**Type**:frontend V4 residue / typecheck exclude cleanup
+**Date**:2026-04-29
+**Status**:closed by client typecheck exclude cleanup patch
+
+After #183 removed the dead root socket hook, the client still had three
+production-source excludes in `packages/client/tsconfig.json`:
+`src/hooks/useErrorHandler.ts`, `src/hooks/admin/**`, and
+`src/lib/anti-cheat.ts`. A fresh grep showed none were live:
+
+- `src/hooks/admin/**` matched no directory.
+- `useErrorHandler.ts` had 0 imports and referenced the removed V3
+  `stores/ai.store`.
+- `anti-cheat.ts` had 0 imports and referenced the removed V3
+  `stores/behavior.store`.
+
+Fix pattern:
+
+- Delete the two dead source files instead of creating compatibility stores.
+- Remove the nonexistent `hooks/admin/**` exclude.
+- Leave the normal test/spec excludes intact.
+
+Three-view ratify:
+
+- Karpathy: restoring full client production-source typecheck is the clean
+  architecture boundary. V5 should not carry excluded source that cannot import.
+- Gemini: rejects placeholder store shims. They would make V4 copies compile
+  while falsely suggesting proctoring/error-bus behavior is active.
+- CCL: contained cleanup with no runtime imports touched. The patch closes the
+  last client production-source excludes while preserving all tests/specs
+  outside the production build graph.
