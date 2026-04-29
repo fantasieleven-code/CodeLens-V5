@@ -315,11 +315,11 @@ describe('<ModuleAPage />', () => {
       expect(s?.round1.challengeResponse).toBe(R1_CHALLENGE_RESPONSE);
 
       expect(s?.round2.markedDefects).toHaveLength(1);
-      // Brief #20 sub-cycle · defectId must resolve to canonical 'd1' (mock
-      // defects[0].line === 4) NOT fabricated 'cand-1' · regression guard
-      // for the V5.0 ship-blocking lookup bug.
+      // Candidate-safe MA content never exposes the canonical defect answer
+      // key. The page submits the reviewed line; server persistence normalizes
+      // line 4 to canonical d1 from DB examData.
       expect(s?.round2.markedDefects[0]).toEqual({
-        defectId: 'd1',
+        defectId: 'line-4',
         line: 4,
         commentType: 'bug',
         comment: R2_COMMENT,

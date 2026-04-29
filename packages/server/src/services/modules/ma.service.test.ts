@@ -18,6 +18,7 @@ import type { V5ModuleASubmission } from '@codelens-v5/shared';
 
 const findUnique = vi.hoisted(() => vi.fn());
 const update = vi.hoisted(() => vi.fn());
+const getMAData = vi.hoisted(() => vi.fn());
 
 vi.mock('../../config/db.js', () => ({
   prisma: {
@@ -28,7 +29,13 @@ vi.mock('../../config/db.js', () => ({
   },
 }));
 
-import { persistModuleASubmission } from './ma.service.js';
+vi.mock('../exam-data.service.js', () => ({
+  examDataService: {
+    getMAData,
+  },
+}));
+
+import { ModuleACanonicalDataError, persistModuleASubmission } from './ma.service.js';
 
 const BASE_SUBMISSION: V5ModuleASubmission = {
   round1: {
@@ -44,7 +51,13 @@ const BASE_SUBMISSION: V5ModuleASubmission = {
   },
   round2: {
     markedDefects: [
-      { defectId: 'cand-1', commentType: 'bug', comment: 'SET NX 缺 EX', fixSuggestion: '加 30s TTL' },
+      {
+        defectId: 'line-4',
+        line: 4,
+        commentType: 'bug',
+        comment: 'SET NX 缺 EX',
+        fixSuggestion: '加 30s TTL',
+      },
     ],
   },
   round3: {
@@ -62,12 +75,15 @@ const BASE_SUBMISSION: V5ModuleASubmission = {
 beforeEach(() => {
   findUnique.mockReset();
   update.mockReset();
+  getMAData.mockReset();
+  getMAData.mockResolvedValue({ defects: [{ line: 4, defectId: 'd1' }] });
 });
 
 describe('persistModuleASubmission', () => {
   it('writes 4 rounds under metadata.moduleA preserving other keys', async () => {
     findUnique.mockResolvedValueOnce({
       metadata: {
+        examInstanceId: 'exam-1',
         moduleC: [{ round: 1 }],
         signalResults: { sChallengeComplete: { value: 0.7 } },
       },
@@ -84,14 +100,21 @@ describe('persistModuleASubmission', () => {
     expect(meta.signalResults).toEqual({ sChallengeComplete: { value: 0.7 } });
     expect(meta.moduleA).toEqual({
       round1: BASE_SUBMISSION.round1,
-      round2: { markedDefects: BASE_SUBMISSION.round2.markedDefects },
+      round2: {
+        markedDefects: [
+          {
+            ...BASE_SUBMISSION.round2.markedDefects[0],
+            defectId: 'd1',
+          },
+        ],
+      },
       round3: BASE_SUBMISSION.round3,
       round4: BASE_SUBMISSION.round4,
     });
   });
 
   it('omits round2.inputBehavior when undefined', async () => {
-    findUnique.mockResolvedValueOnce({ metadata: {} });
+    findUnique.mockResolvedValueOnce({ metadata: { examInstanceId: 'exam-1' } });
     update.mockResolvedValueOnce({});
 
     await persistModuleASubmission('s1', BASE_SUBMISSION);
@@ -102,7 +125,7 @@ describe('persistModuleASubmission', () => {
   });
 
   it('writes round2.inputBehavior when provided', async () => {
-    findUnique.mockResolvedValueOnce({ metadata: {} });
+    findUnique.mockResolvedValueOnce({ metadata: { examInstanceId: 'exam-1' } });
     update.mockResolvedValueOnce({});
 
     await persistModuleASubmission('s1', {
@@ -121,6 +144,7 @@ describe('persistModuleASubmission', () => {
   it('last write wins on subsequent calls', async () => {
     findUnique.mockResolvedValueOnce({
       metadata: {
+        examInstanceId: 'exam-1',
         moduleA: {
           round1: {
             schemeId: 'A',
@@ -148,6 +172,7 @@ describe('persistModuleASubmission', () => {
   it('cross-Task isolation: Task 22/23 mb.* + Task 24 selfAssess + Task 25 phase0.* survive MA write', async () => {
     findUnique.mockResolvedValueOnce({
       metadata: {
+        examInstanceId: 'exam-1',
         mb: {
           editorBehavior: {
             aiCompletionEvents: [
@@ -190,6 +215,47 @@ describe('persistModuleASubmission', () => {
     findUnique.mockResolvedValueOnce(null);
 
     await expect(persistModuleASubmission('missing', BASE_SUBMISSION)).resolves.toBeUndefined();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('normalizes reviewed lines to canonical defectIds from DB examData', async () => {
+    findUnique.mockResolvedValueOnce({ metadata: { examInstanceId: 'exam-1' } });
+    getMAData.mockResolvedValueOnce({ defects: [{ line: 4, defectId: 'd1' }] });
+    update.mockResolvedValueOnce({});
+
+    await persistModuleASubmission('s1', BASE_SUBMISSION);
+
+    const meta = update.mock.calls[0][0].data.metadata as Record<string, unknown>;
+    const ma = meta.moduleA as { round2: V5ModuleASubmission['round2'] };
+    expect(ma.round2.markedDefects[0]).toMatchObject({ line: 4, defectId: 'd1' });
+  });
+
+  it('fails closed when session metadata lacks examInstanceId', async () => {
+    findUnique.mockResolvedValueOnce({ metadata: {} });
+
+    await expect(persistModuleASubmission('s1', BASE_SUBMISSION)).rejects.toBeInstanceOf(
+      ModuleACanonicalDataError,
+    );
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when canonical MA exam data is missing', async () => {
+    findUnique.mockResolvedValueOnce({ metadata: { examInstanceId: 'exam-1' } });
+    getMAData.mockResolvedValueOnce(null);
+
+    await expect(persistModuleASubmission('s1', BASE_SUBMISSION)).rejects.toThrow(
+      'Module A canonical exam data missing',
+    );
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when a reviewed line is not in canonical defects', async () => {
+    findUnique.mockResolvedValueOnce({ metadata: { examInstanceId: 'exam-1' } });
+    getMAData.mockResolvedValueOnce({ defects: [{ line: 9, defectId: 'd2' }] });
+
+    await expect(persistModuleASubmission('s1', BASE_SUBMISSION)).rejects.toThrow(
+      'Module A canonical defect missing for reviewed line=4',
+    );
     expect(update).not.toHaveBeenCalled();
   });
 });

@@ -42,10 +42,16 @@ import type {
 
 const store = vi.hoisted(() => ({
   metadata: {} as Record<string, unknown>,
+  maExam: null as MAModuleSpecific | null,
 }));
 
 vi.mock('../../config/db.js', () => ({
   prisma: {
+    examModule: {
+      findUnique: vi.fn(async () =>
+        store.maExam ? { moduleSpecific: store.maExam } : null,
+      ),
+    },
     session: {
       findUnique: vi.fn(async () => ({ metadata: store.metadata })),
       update: vi.fn(async ({ data }: { data: { metadata: Record<string, unknown> } }) => {
@@ -141,6 +147,13 @@ await mysql.insert(order);`,
     rootCause:
       '失败版本缺少 Redis decr 返回值检查,高并发下会超卖;同时 MySQL 写入失败不会回滚 Redis,导致库存永久错误。',
   },
+  migrationScenario: {
+    newBusinessContext:
+      '双 11 抢红包场景 — 活动整点开放 2 分钟,预生成红包池共 50,000 个(金额随机 1-50 元),预估 500,000 用户同时点击"抢"。',
+    relatedDimension: '高并发下的互斥分配与原子扣减',
+    differingDimension: '规模差 25× · 延迟预算更松 · 容错要求更宽',
+    promptText: '在抢红包的新场景下,你在 R1 为秒杀下单选的方案还成立吗?',
+  },
 };
 
 const LIAM_SUBMISSION: V5ModuleASubmission = {
@@ -163,18 +176,21 @@ const LIAM_SUBMISSION: V5ModuleASubmission = {
     markedDefects: [
       {
         defectId: 'd1',
+        line: 12,
         commentType: 'bug',
         comment: 'redis.decr 返回值未检查,高并发会超卖 — critical',
         fixSuggestion: '检查 result < 0 时回滚 incr',
       },
       {
         defectId: 'd2',
+        line: 25,
         commentType: 'bug',
         comment: 'MySQL insert 无重试,一次失败永久丢单 — 需要 retry + DLQ',
         fixSuggestion: '加 retry 3 次 + 死信队列',
       },
       {
         defectId: 'd3',
+        line: 40,
         commentType: 'suggestion',
         comment: '建议加关键路径日志,方便后续对账',
         fixSuggestion: '加 logger.info 在 decr 前后',
@@ -219,7 +235,8 @@ function dispatchWithAck(
 }
 
 beforeEach(() => {
-  store.metadata = {};
+  store.metadata = { examInstanceId: 'exam-ma-integration' };
+  store.maExam = MA_EXAM;
 });
 
 describe('Pattern H v2.2 — Cluster C-MA pipeline (Task 26)', () => {
@@ -309,6 +326,7 @@ describe('Pattern H v2.2 — Cluster C-MA pipeline (Task 26)', () => {
     // all four sibling namespaces. This is the first test that exercises
     // four-namespace preservation simultaneously.
     store.metadata = {
+      examInstanceId: 'exam-ma-integration',
       mb: {
         editorBehavior: {
           aiCompletionEvents: [
@@ -419,7 +437,7 @@ describe('Pattern H v2.2 — Cluster C-MA pipeline (Task 26)', () => {
       },
       round2: {
         markedDefects: [
-          { defectId: 'd1', commentType: 'nit', comment: 'first nit comment' },
+          { defectId: 'd1', line: 12, commentType: 'nit', comment: 'first nit comment' },
         ],
       },
       round3: {

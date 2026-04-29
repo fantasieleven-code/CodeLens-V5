@@ -182,19 +182,10 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
         challengeResponse: r1ChallengeResponse,
       },
       round2: {
-        // Brief #20 sub-cycle · lookup canonical defectId by line. Page
-        // previously fabricated `cand-N`, which never matched scoring's
-        // `examData.MA.defects[].defectId` and zeroed sHiddenBugFound /
-        // sReviewPrioritization / sCodeReviewQuality for every candidate
-        // (real + e2e). Candidate-safe module content no longer exposes the
-        // defect answer key, so the HTTP/socket persist layer maps `line` to
-        // canonical defectId from DB examData. Mock-prop tests still resolve
-        // locally to retain the original regression guard.
+        // Candidate-safe module content must not expose the defect answer key.
+        // Persist maps reviewed lines to canonical defectIds from DB examData.
         markedDefects: r2Reviews.map((r) => ({
-          defectId:
-            (
-              moduleContent as { defects?: Array<{ line: number; defectId: string }> }
-            ).defects?.find((d) => d.line === r.line)?.defectId ?? `line-${r.line}`,
+          defectId: `line-${r.line}`,
           line: r.line,
           commentType: r.commentType,
           comment: r.comment,
@@ -321,7 +312,7 @@ export const ModuleAPage: React.FC<ModuleAPageProps> = ({
         <Round4Section
           r1Scheme={r1Scheme}
           r1Reasoning={r1Reasoning}
-          migrationScenario={moduleContent.migrationScenario ?? MA_MOCK_FIXTURE.migrationScenario}
+          migrationScenario={moduleContent.migrationScenario}
           response={r4Response}
           onResponse={setR4Response}
           canSubmit={canSubmitR4}
