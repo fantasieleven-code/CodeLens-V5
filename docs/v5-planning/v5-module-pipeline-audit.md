@@ -31,7 +31,7 @@ canonical DB module content.
 | Module B   | DB-backed candidate-safe MB content via `useModuleContent(examInstanceId, 'mb')`                                                  | Stage 4 audit submit builds `V5MBSubmission`                                                                            | Socket `v5:mb:submit` plus HTTP `POST /api/v5/exam/:sessionId/mb/submit`; telemetry via `behavior:batch` / MB socket handlers                                 | `metadata.mb`            | `readMbNamespace(meta)`             | 23 MB   |
 | Module D   | DB-backed candidate-safe MD content via `useModuleContent(examInstanceId, 'md')`; local fixture only for tests/preview/no session | Submit button builds `V5ModuleDSubmission`                                                                              | Socket `moduleD:submit` plus HTTP `POST /api/v5/exam/:sessionId/moduled/submit`                                                                               | `metadata.moduleD`       | `readNamespace(meta, 'moduleD')`    | 4 MD    |
 | SelfAssess | Local page state + `DecisionSummary` from local store                                                                             | Submit button builds `V5SelfAssessSubmission`                                                                           | Socket `self-assess:submit` plus HTTP `POST /api/v5/exam/:sessionId/selfassess/submit`                                                                        | `metadata.selfAssess`    | `readNamespace(meta, 'selfAssess')` | 2 SE    |
-| Module C   | DB-backed probe strategies via `useModuleContent(examInstanceId, 'mc')`; constants only fallback while content loads/no session   | Each text round posts an answer; final button marks session complete                                                    | Socket `v5:modulec:answer` kept, but HTTP `POST /api/v5/exam/:sessionId/modulec/round/:roundIdx` is the guaranteed write; final `POST /complete` ends session | `metadata.moduleC` array | `readModuleCNamespace(meta)`        | 4 MC    |
+| Module C   | DB-backed probe strategies via `useModuleContent(examInstanceId, 'mc')`; constants only fallback while content loads/no session   | Each text round posts an answer; final button marks session complete                                                    | Socket `v5:modulec:answer` plus HTTP `POST /api/v5/exam/:sessionId/modulec/round/:roundIdx`; final `POST /complete` ends session                               | `metadata.moduleC` array | `readModuleCNamespace(meta)`        | 4 MC    |
 
 Signal distribution: P0 5, MA 10, MB 23, MD 4, SE 2, MC 4 = 48 total.
 
@@ -49,6 +49,9 @@ Important scope truth: most module pages still use a belt-and-suspenders
 pattern. They emit the canonical socket event and also fire an HTTP fallback.
 After the socket namespace hardening patch, direct page emits auto-connect to
 the `/interview` namespace and the server registers the V5 handlers there.
+Module C now has the same real socket + HTTP retry shape as the other
+submission pages; `v5:modulec:answer` carries `sessionId` explicitly because
+there is still no socket-level session middleware.
 
 This is not a scoring compromise; it is a transport reliability boundary. The
 remaining cleanup is UX/policy: decide which HTTP fallbacks stay as explicit

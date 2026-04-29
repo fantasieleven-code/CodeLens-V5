@@ -2939,3 +2939,41 @@ Three-view ratify:
   connect to an unwired namespace.
 - CCL: release-safe. HTTP fallbacks remain as retry surfaces, but live socket
   writes are no longer knowingly inert.
+
+### #176 · Module C socket path needed explicit session envelope
+
+**Type**:transport hardening / Pattern B shared contract / MC pipeline
+**Date**:2026-04-29
+**Status**:closed by ModuleC socket answer handler patch
+
+Post-#175 audit found the remaining socket-tail risk: `ModuleCPage` emitted
+`v5:modulec:answer`, `ws.ts` claimed a Task 11 handler, but server grep still
+had no `socket.on('v5:modulec:answer')`. After #175 made `/interview` live,
+this was no longer a harmless dead emit; it became a real missing contract.
+
+Root cause had two layers:
+
+1. Server had no Module C socket registrar.
+2. The existing `V5ModuleCAnswer` event payload had no `sessionId`, while V5
+   sockets still have no session middleware. A server handler could not safely
+   persist without extending the socket envelope.
+
+Fix pattern:
+
+- Add `V5ModuleCAnswerPayload = V5ModuleCAnswer & { sessionId; probeStrategy }`
+  for the socket event only. Persisted metadata remains pure `V5ModuleCAnswer`
+  shape under `metadata.moduleC`.
+- Add `registerModuleCHandlers` on root and `/interview`, validating
+  `sessionId`, round, answer, question, and canonical probe strategy before
+  calling `saveRoundAnswer`.
+- Update `ModuleCPage` text-mode submit to send `sessionId` and the same
+  canonical `probeStrategy` used by the HTTP fallback.
+
+Three-view ratify:
+
+- Karpathy: keeps one service write path (`saveRoundAnswer`) and avoids
+  inventing socket-level auth inside a module patch.
+- Gemini: rejects the tempting but broken "just add handler" fix; without
+  `sessionId` the handler would either silently fail or guess state.
+- CCL: small release-safe patch. HTTP retry stays intact, and focused unit plus
+  live Socket.IO smoke cover the contract.
