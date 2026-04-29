@@ -8,7 +8,7 @@ let socket: TypedSocket | null = null;
 
 function createSocket(autoConnect: boolean): TypedSocket {
   return io('/interview', {
-    // V5 module pages emit directly through getSocket(); no root useSocket()
+    // V5 module pages emit directly through getSocket(); no root socket hook
     // mount is required for final-submit and behavior telemetry writes.
     autoConnect,
     transports: ['websocket'],

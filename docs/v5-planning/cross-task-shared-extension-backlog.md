@@ -586,11 +586,11 @@ Reference · Brief #8 B2 observation #158 Phase 2 Layer 2 typecheck catch · 4 e
 
 Reference · Brief #8 B2 observation #158 Pattern F 10th validation · rule candidate #11 formalize · W-B large-scope standard workflow。
 
-### Dead useSocket.ts deletion(frontend micro-PR · workspace lock)
+### Dead useSocket.ts deletion(frontend micro-PR · workspace lock) — DONE
 
-**状态**: `packages/client/src/hooks/useSocket.ts` 100+ LOC · imports 5 non-existent stores(per Frontend INV-3 W2 W-B discovery)· frontend workspace clone `~/CodeLens-v5-frontend/` out of scope this session。
+**状态**: **DONE 2026-04-29** · `packages/client/src/hooks/useSocket.ts` deleted on main. Follow-up audit confirmed it had 0 live imports, was excluded from client typecheck, and imported stores that no longer exist in V5. V5 candidate pages use direct `/interview` `getSocket()` emits.
 
-**Action** · V5.0.5 frontend micro-PR · delete file + 5 store import references · typecheck verify · separate brief dispatch to frontend window。
+**Action** · closed by client dead root-socket hook deletion PR. Keep V5 module pages on direct `getSocket()` + HTTP fallback/retry where already implemented.
 
 ### Mock config scaffold reconcile(重复 reference · 见 B1 V5.0.5 section · 不重复 entry)
 
@@ -603,7 +603,7 @@ Already captured · `e2e/playwright.mock.config.ts` broken refs(full-interview-f
 **Scope**(single planning-drafted brief · doc-only + small frontend touches · merge pre-ship):
 - **A2 voice.ts header doc vs actual path drift reconcile** · 3 approaches α/β/γ per backlog:495 A2 section · recommend β(header doc align actual mixed-prefix · lowest risk · zero client impact)
 - **A3 mc-voice-chat `/api/v5/mc/*` doc sweep** · grep all `docs/**.md` for stale `/api/moduleC/*` or `/api/voice/v5/*` patterns · unified correct to `/api/v5/mc/*` + `/api/voice/*` actual · v5-signal-production-coverage.md:84 已 surfaced · 其他 unknown
-- **Frontend micro-PR · dead `packages/client/src/hooks/useSocket.ts` deletion** · 100+ LOC · 5 non-existent store imports per Frontend INV-3 · workspace lock · separate frontend brief dispatch to frontend window
+- ~~**Frontend micro-PR · dead `packages/client/src/hooks/useSocket.ts` deletion** · 100+ LOC · 5 non-existent store imports per Frontend INV-3 · workspace lock · separate frontend brief dispatch to frontend window~~ · DONE 2026-04-29
 - **Rule #11 INV-pattern formalize** · add to backend/frontend-agent-kickoff.md planning-side section · brief template §0 optional pre-brief INV dispatch · 3x validated INV-1/INV-2/INV-3
 
 **Priority**: Medium-High · clean pre-ship housekeeping · not V5.0 blocker · consolidates 4 post-W-A/W-B surfaces。
