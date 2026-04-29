@@ -1,7 +1,7 @@
 import type { AIStreamChunk } from './ai.js';
 import type { FileState } from './sandbox.js';
 import type { TimerState, CheckpointTransition } from './session.js';
-import type { V5MBAudit, V5MBPlanning, V5MBSubmission, V5ModuleASubmission, V5ModuleCAnswer, V5ModuleDSubmission, V5Phase0Submission } from './v5-submissions.js';
+import type { V5MBAudit, V5MBPlanning, V5MBSubmission, V5ModuleASubmission, V5ModuleCAnswer, V5ModuleDSubmission, V5Phase0Submission, V5ProbeStrategy } from './v5-submissions.js';
 
 // Client → Server events
 export interface ClientToServerEvents {
@@ -183,9 +183,11 @@ export interface ClientToServerEvents {
     data: { sessionId: string; submission: V5ModuleDSubmission },
     ack: (ok: boolean) => void,
   ) => void;
-  // v5: ModuleC — server handler in Task 11.
+  // v5: ModuleC — multi-event namespace. `answer` carries sessionId because
+  // sockets still have no session middleware; metadata persists only the
+  // V5ModuleCAnswer fields.
   'v5:modulec:start': (data: V5ModuleCStartPayload, ack: (ok: boolean) => void) => void;
-  'v5:modulec:answer': (data: V5ModuleCAnswer, ack: (ok: boolean) => void) => void;
+  'v5:modulec:answer': (data: V5ModuleCAnswerPayload, ack: (ok: boolean) => void) => void;
   'v5:modulec:complete': (data: V5ModuleCCompletePayload, ack: (ok: boolean) => void) => void;
   // v5: MB Cursor mode — shapes mirror packages/server/src/socket/mb-handlers.ts
   // exactly. mb-handlers uses `safe()` which emits `{event}:error` on failure
@@ -282,6 +284,11 @@ export interface V5ModuleCCompletePayload {
   moduleKey: 'moduleC';
   finishedAt: Date;
 }
+
+export type V5ModuleCAnswerPayload = V5ModuleCAnswer & {
+  sessionId: string;
+  probeStrategy: V5ProbeStrategy;
+};
 
 // ─── MB Cursor-mode payloads ───
 //

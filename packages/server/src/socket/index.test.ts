@@ -6,6 +6,7 @@ const registerBehaviorHandlers = vi.hoisted(() => vi.fn());
 const registerSelfAssessHandlers = vi.hoisted(() => vi.fn());
 const registerPhase0Handlers = vi.hoisted(() => vi.fn());
 const registerModuleAHandlers = vi.hoisted(() => vi.fn());
+const registerModuleCHandlers = vi.hoisted(() => vi.fn());
 const registerModuleDHandlers = vi.hoisted(() => vi.fn());
 
 vi.mock('./mb-handlers.js', () => ({ registerMBHandlers }));
@@ -13,6 +14,7 @@ vi.mock('./behavior-handlers.js', () => ({ registerBehaviorHandlers }));
 vi.mock('./self-assess-handlers.js', () => ({ registerSelfAssessHandlers }));
 vi.mock('./phase0-handlers.js', () => ({ registerPhase0Handlers }));
 vi.mock('./moduleA-handlers.js', () => ({ registerModuleAHandlers }));
+vi.mock('./moduleC-handlers.js', () => ({ registerModuleCHandlers }));
 vi.mock('./moduleD-handlers.js', () => ({ registerModuleDHandlers }));
 vi.mock('../lib/logger.js', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -66,6 +68,7 @@ describe('registerSocketHandlers', () => {
     expect(registerSelfAssessHandlers).toHaveBeenCalledWith(io, socket);
     expect(registerPhase0Handlers).toHaveBeenCalledWith(io, socket);
     expect(registerModuleAHandlers).toHaveBeenCalledWith(io, socket);
+    expect(registerModuleCHandlers).toHaveBeenCalledWith(io, socket);
     expect(registerModuleDHandlers).toHaveBeenCalledWith(io, socket);
   });
 });

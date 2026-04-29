@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import type { V5ModuleCAnswer } from '@codelens-v5/shared';
+import type { V5ModuleCAnswerPayload } from '@codelens-v5/shared';
 import { getSocket } from '../lib/socket.js';
 import { useSessionStore } from '../stores/session.store.js';
 import { useModuleStore } from '../stores/module.store.js';
@@ -309,34 +309,27 @@ export const ModuleCPage: React.FC = () => {
     chatEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
   }, [messages, status]);
 
-  // Text mode submit
-  // Brief #17 D35 · fire-and-forget pattern (matches D34 SE alignment +
-  // Phase0Page:139-148 design pattern + 5 other module pages). Server handler
-  // for `v5:modulec:answer` was claimed in source comment but Brief #19
-  // Phase 1 audit Q1 grep verified NO socket.on('v5:modulec:answer')
-  // exists anywhere in server code · text-mode answers were always
-  // silent-dropped. Brief #19 C7 σ HTTP fallback to POST
-  // /api/v5/exam/:sessionId/modulec/round/:roundIdx persists per-round
-  // via the shared mc.service saveRoundAnswer (Brief #19 C1 extraction).
-  // Belt-and-suspenders keeps the socket emit for V5.0.1 when the
-  // server-side socket.on handler is also added.
+  // Text mode submit. Socket is now a live first path; HTTP remains a retry
+  // surface with the same payload fields.
   const submitTextRound = useCallback(() => {
     if (textSubmitting || textAnswer.trim().length < 10) return;
     setTextSubmitting(true);
     const socket = getSocket();
     const prompt = probePrompts[currentRound] ?? PROBE_PROMPTS[currentRound];
     const submittedAnswer = textAnswer.trim();
-    const payload: V5ModuleCAnswer = {
+    const probeStrategy = PROBE_STRATEGIES[currentRound] ?? 'baseline';
+    const payload: V5ModuleCAnswerPayload = {
+      sessionId: sessionId ?? 'modulec-pending',
       round: currentRound + 1,
       question: prompt,
       answer: submittedAnswer,
+      probeStrategy,
     };
     socket.emit('v5:modulec:answer', payload, (_ok: boolean) => {});
     if (sessionId) {
       // Brief #19 C8 Bug #1 fix · per-round canonical probeStrategy
       // (was hardcoded 'text-mode' in C7 · scoring sBeliefUpdateMagnitude
       // expects 'contradiction' on R2 to compute belief delta correctly).
-      const probeStrategy = PROBE_STRATEGIES[currentRound] ?? 'baseline';
       void fetch(`/api/v5/exam/${sessionId}/modulec/round/${currentRound + 1}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -487,7 +480,7 @@ export const ModuleCPage: React.FC = () => {
         <ProgressPips current={currentRound} total={TOTAL_ROUNDS} />
 
         {/* Mode tabs */}
-        <ModeTabs active={mode} onSwitch={setMode} voiceAvailable={isVoiceConnected} />
+        <ModeTabs active={mode} onSwitch={setMode} />
 
         {mode === 'voice' ? (
           <>
@@ -811,8 +804,7 @@ const ProgressPips: React.FC<{ current: number; total: number }> = ({ current, t
 const ModeTabs: React.FC<{
   active: TabMode;
   onSwitch: (m: TabMode) => void;
-  voiceAvailable: boolean;
-}> = ({ active, onSwitch, voiceAvailable }) => (
+}> = ({ active, onSwitch }) => (
   <div style={S.tabRow}>
     <button
       type="button"

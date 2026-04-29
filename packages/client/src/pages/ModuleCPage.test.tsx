@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 // @volcengine/rtc has a heavy runtime; mock it before ModuleCPage imports
 // resolve (ModuleCPage → useVoiceRTC → @volcengine/rtc).
@@ -17,10 +17,25 @@ vi.mock('@volcengine/rtc', () => ({
   StreamIndex: { STREAM_INDEX_MAIN: 'main' },
 }));
 
-// Socket is not used by the preflight screen but the module import chain
-// pulls it in; returning a noop emitter keeps mount side-effect-free.
+const socketEmit = vi.hoisted(() => vi.fn());
+
 vi.mock('../lib/socket.js', () => ({
-  getSocket: () => ({ emit: vi.fn(), on: vi.fn(), off: vi.fn() }),
+  getSocket: () => ({ emit: socketEmit, on: vi.fn(), off: vi.fn() }),
+}));
+
+vi.mock('../hooks/useModuleContent.js', () => ({
+  useModuleContent: () => ({
+    status: 'loaded',
+    data: {
+      probeStrategies: {
+        baseline: 'Baseline prompt',
+        contradiction: 'Contradiction prompt',
+        weakness: 'Weakness prompt',
+        escalation: 'Escalation prompt',
+        transfer: 'Transfer prompt',
+      },
+    },
+  }),
 }));
 
 import { ModuleCPage } from './ModuleCPage.js';
@@ -29,12 +44,19 @@ import { useSessionStore } from '../stores/session.store.js';
 
 describe('ModuleCPage', () => {
   beforeEach(() => {
+    socketEmit.mockReset();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) }));
     useVoiceStore.getState().reset();
     useSessionStore.getState().reset();
+    useSessionStore.setState({ sessionId: 'sess-mc', examInstanceId: 'exam-1' });
     Object.defineProperty(navigator, 'mediaDevices', {
       configurable: true,
       value: { getUserMedia: vi.fn() },
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('renders the mic preflight screen on first mount', () => {
@@ -42,5 +64,39 @@ describe('ModuleCPage', () => {
     expect(screen.getByTestId('module-c-page')).toBeInTheDocument();
     expect(screen.getByTestId('modulec-preflight')).toBeInTheDocument();
     expect(screen.getByTestId('modulec-preflight-headphones')).toBeInTheDocument();
+  });
+
+  it('submits text rounds over v5:modulec:answer with sessionId and probeStrategy', async () => {
+    render(<ModuleCPage />);
+
+    fireEvent.click(screen.getByTestId('modulec-preflight-skip'));
+    fireEvent.click(screen.getByTestId('modulec-mode-text'));
+    fireEvent.change(screen.getByTestId('modulec-answer-input'), {
+      target: { value: 'This is a candidate text answer.' },
+    });
+    fireEvent.click(screen.getByTestId('modulec-submit'));
+
+    await waitFor(() => {
+      expect(socketEmit).toHaveBeenCalledWith(
+        'v5:modulec:answer',
+        {
+          sessionId: 'sess-mc',
+          round: 1,
+          question: 'Baseline prompt',
+          answer: 'This is a candidate text answer.',
+          probeStrategy: 'baseline',
+        },
+        expect.any(Function),
+      );
+    });
+    expect(fetch).toHaveBeenCalledWith('/api/v5/exam/sess-mc/modulec/round/1', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        answer: 'This is a candidate text answer.',
+        question: 'Baseline prompt',
+        probeStrategy: 'baseline',
+      }),
+    });
   });
 });

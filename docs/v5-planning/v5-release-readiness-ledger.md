@@ -44,6 +44,10 @@ Follow-up hardening closed the underlying socket transport mismatch:
   `/interview` Socket.IO namespace.
 - A live Socket.IO smoke connects to `/interview` and proves `moduleA:submit`
   reaches server persistence with ack `true`.
+- Module C's previously documented missing `v5:modulec:answer` handler is now
+  wired on the same namespace; the socket payload carries `sessionId` and
+  persists through `mc.service.saveRoundAnswer`, while HTTP remains the retry
+  surface.
 
 ## Remaining Truths
 

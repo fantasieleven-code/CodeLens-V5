@@ -16,6 +16,7 @@ import { logger } from '../lib/logger.js';
 import { registerBehaviorHandlers } from './behavior-handlers.js';
 import { registerMBHandlers } from './mb-handlers.js';
 import { registerModuleAHandlers } from './moduleA-handlers.js';
+import { registerModuleCHandlers } from './moduleC-handlers.js';
 import { registerModuleDHandlers } from './moduleD-handlers.js';
 import { registerPhase0Handlers } from './phase0-handlers.js';
 import { registerSelfAssessHandlers } from './self-assess-handlers.js';
@@ -38,6 +39,7 @@ function registerNamespaceHandlers(
     registerSelfAssessHandlers(io, socket);
     registerPhase0Handlers(io, socket);
     registerModuleAHandlers(io, socket);
+    registerModuleCHandlers(io, socket);
     registerModuleDHandlers(io, socket);
 
     socket.on('disconnect', (reason) => {
