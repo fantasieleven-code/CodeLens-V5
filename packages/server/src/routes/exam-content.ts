@@ -30,6 +30,7 @@ import { examDataService } from '../services/exam-data.service.js';
 import { sessionService, SessionNotFoundError } from '../services/session.service.js';
 import { persistPhase0Submission } from '../services/modules/p0.service.js';
 import { persistModuleASubmission } from '../services/modules/ma.service.js';
+import { persistModuleDSubmission } from '../services/modules/md.service.js';
 import {
   persistMbSubmission,
   appendAiCompletionEvents,
@@ -53,6 +54,7 @@ import { NotFoundError, ValidationError } from '../middleware/errorHandler.js';
 import type {
   V5Phase0Submission,
   V5ModuleASubmission,
+  V5ModuleDSubmission,
   V5MBSubmission,
   V5SelfAssessSubmission,
 } from '@codelens-v5/shared';
@@ -208,6 +210,27 @@ export async function submitMb(
     if (!submission) throw new ValidationError('submission body field required');
     await ensureSessionOrThrow(sessionId);
     await persistMbSubmission(sessionId, submission);
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    if (err instanceof SessionNotFoundError) {
+      next(new NotFoundError(`Session not found: ${req.params.sessionId}`));
+      return;
+    }
+    next(err);
+  }
+}
+
+export async function submitModuleD(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { sessionId } = req.params;
+    const submission = req.body?.submission as V5ModuleDSubmission | undefined;
+    if (!submission) throw new ValidationError('submission body field required');
+    await ensureSessionOrThrow(sessionId);
+    await persistModuleDSubmission(sessionId, submission);
     res.status(200).json({ ok: true });
   } catch (err) {
     if (err instanceof SessionNotFoundError) {
@@ -409,6 +432,7 @@ examContentRouter.post('/:sessionId/complete', completeExamSession);
 examContentRouter.post('/:sessionId/phase0/submit', submitPhase0);
 examContentRouter.post('/:sessionId/modulea/submit', submitModuleA);
 examContentRouter.post('/:sessionId/mb/submit', submitMb);
+examContentRouter.post('/:sessionId/moduled/submit', submitModuleD);
 examContentRouter.post('/:sessionId/selfassess/submit', submitSelfAssess);
 examContentRouter.post('/:sessionId/modulec/round/:roundIdx', submitModuleCRound);
 examContentRouter.post('/:sessionId/mb/editor-behavior', submitMbEditorBehavior);

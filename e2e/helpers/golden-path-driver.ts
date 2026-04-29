@@ -606,6 +606,12 @@ export class GoldenPathDriver {
       .waitFor({ state: 'visible', timeout: 15_000 });
 
     // Sub-modules.
+    for (let i = 1; i < md.subModules.length; i++) {
+      await this.page.locator(byTestId(MD_TESTIDS.addSubmodule)).click();
+      await this.page
+        .locator(byTestId(MD_TESTIDS.submoduleCard(i)))
+        .waitFor({ state: 'visible', timeout: 5_000 });
+    }
     for (let i = 0; i < md.subModules.length; i++) {
       const sub = md.subModules[i];
       await this.page
@@ -614,6 +620,11 @@ export class GoldenPathDriver {
       await this.page
         .locator(byTestId(MD_TESTIDS.submoduleResponsibility(i)))
         .fill(sub.responsibility);
+      if (sub.interfaces && sub.interfaces.length > 0) {
+        await this.page
+          .locator(byTestId(MD_TESTIDS.submoduleInterfaces(i)))
+          .fill(sub.interfaces.join('\n'));
+      }
     }
 
     // Interface definitions (string[] · joined per-line) + dataflow.
@@ -632,7 +643,7 @@ export class GoldenPathDriver {
     for (const constraint of md.constraintsSelected ?? []) {
       await this.page
         .locator(byTestId(MD_TESTIDS.constraint(constraint)))
-        .check();
+        .click();
     }
 
     // Tradeoff text.
@@ -643,6 +654,12 @@ export class GoldenPathDriver {
     }
 
     // AI orchestration prompts.
+    for (let i = 1; i < (md.aiOrchestrationPrompts ?? []).length; i++) {
+      await this.page.locator(byTestId(MD_TESTIDS.addAiOrchestration)).click();
+      await this.page
+        .locator(byTestId(MD_TESTIDS.aiOrchestration(i)))
+        .waitFor({ state: 'visible', timeout: 5_000 });
+    }
     for (let i = 0; i < (md.aiOrchestrationPrompts ?? []).length; i++) {
       await this.page
         .locator(byTestId(MD_TESTIDS.aiOrchestration(i)))

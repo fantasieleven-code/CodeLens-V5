@@ -188,6 +188,13 @@ export const ModuleDPage: React.FC<ModuleDPageProps> = ({
       { sessionId: sessionId ?? 'moduleD-pending', submission },
       (_ok: boolean) => {},
     );
+    if (sessionId) {
+      void fetch(`/api/v5/exam/${sessionId}/moduled/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submission }),
+      }).catch(() => {});
+    }
     advance();
   }, [
     canSubmit,
