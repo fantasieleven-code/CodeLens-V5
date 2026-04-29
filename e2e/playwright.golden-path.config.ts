@@ -21,7 +21,11 @@ export default defineConfig({
   // 4000 lifecycle (smoke teardown overlapping golden-path spawn) which
   // surfaced as a "无法连接到服务器" network error in the golden-path
   // login step. Hotfix #11 §E E4 root-cause fix.
-  testMatch: ['**/golden-path.spec.ts', '**/smoke.spec.ts'],
+  testMatch: [
+    '**/golden-path.spec.ts',
+    '**/cold-start-validation.spec.ts',
+    '**/smoke.spec.ts',
+  ],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,

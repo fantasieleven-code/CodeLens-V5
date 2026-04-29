@@ -181,12 +181,15 @@ export const MD_TESTIDS = {
   submoduleCard: (i: number) => `md-submodule-card-${i}`,
   submoduleName: (i: number) => `md-submodule-${i}-name`,
   submoduleResponsibility: (i: number) => `md-submodule-${i}-responsibility`,
+  submoduleInterfaces: (i: number) => `md-submodule-${i}-interfaces`,
+  addSubmodule: 'md-add-submodule',
   interfaceDefinitions: 'md-interface-definitions',
   // Brief #13 D9 · page uses `md-data-flow`.
   dataflowDescription: 'md-data-flow',
   constraint: (key: string) => `md-constraint-${key}`,
   tradeoffText: 'md-tradeoff-text',
   aiOrchestration: (i: number) => `md-ai-orchestration-${i}`,
+  addAiOrchestration: 'md-add-ai-orchestration',
   submit: 'md-submit',
 } as const;
 

@@ -2493,3 +2493,58 @@ final clean rerun:
 
 Brief #20 ship gate #5 is now closed by true B3 evidence, not by server-side
 fixture replay.
+
+### #171 · Cold Start real-session gate exposed MD σ fallback gap
+
+**Type**:Pattern H / Pattern C · production pipeline verification
+**Date**:2026-04-29
+**Status**:closed by Cold Start gate PR
+
+During release-readiness inventory, a new Playwright Cold Start gate was added:
+create a fresh `deep_dive` session, drive P0 → MA → MB → MD → SelfAssess → MC
+through the real candidate UI, fetch `/api/admin/sessions/:id/report`, and
+assert:
+
+- 48 signal definitions
+- 48 signal results
+- 0 missing signal results
+- 0 `value=null` signals
+- admin report DOM has 0 `N/A` / `待评估`
+
+First true failure was clean and bounded: only the 4 MD signals were null
+(`sConstraintIdentification`, `sDesignDecomposition`,
+`sTradeoffArticulation`, `sAiOrchestrationQuality`). DB inspection showed:
+
+- `metadata.phase0`, `metadata.moduleA`, `metadata.mb`,
+  `metadata.selfAssess`, and `metadata.moduleC` were present
+- `metadata.moduleD` was absent
+- `suiteId=deep_dive` and `moduleOrder` included `moduleD`
+
+Root cause: Task 27 closed the `moduleD:submit` socket path, but Brief #19's
+σ HTTP fallback pattern was never extended to Module D. Current V5.0 candidate
+pages still rely on HTTP fallback for guaranteed persistence because root
+`useSocket()` wiring is V5.0.1 cleanup. Phase0 / ModuleA / SelfAssess already
+had the belt-and-suspenders HTTP path; MD did not.
+
+Fix:
+
+- Added `POST /api/v5/exam/:sessionId/moduled/submit` → `persistModuleDSubmission`.
+- `ModuleDPage` now keeps `moduleD:submit` and also posts the same submission
+  over HTTP when `sessionId` is available.
+- `GoldenPathDriver.runMD()` now matches real dynamic UI behavior: add
+  submodule rows before filling them, fill optional interfaces, click
+  constraint buttons, add AI prompt rows before filling them.
+- Added `e2e/cold-start-validation.spec.ts` to the golden-path Playwright
+  config.
+
+Evidence:
+
+- `npm --prefix packages/server test -- exam-content.test.ts` · 33/33 pass
+- `npm run lint` · 0 errors (pre-existing warnings only)
+- `npx playwright test --config=e2e/playwright.golden-path.config.ts e2e/cold-start-validation.spec.ts` · 1/1 pass in 54.4s
+
+Pattern lesson: socket handler unit/integration tests are not enough when the
+production candidate app is still on σ fallback. Each module submission path
+must be verified from real UI action → persisted metadata namespace → Admin
+report signal map, or Pattern H can hide a missing module behind green lower
+layers.

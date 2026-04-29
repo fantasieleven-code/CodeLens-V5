@@ -6,16 +6,21 @@
 
 | Job | 失败原因 | Task owner | 发布影响 | 状态 |
 |---|---|---|---|---|
-| docker | `Dockerfile` 未创建 · trivy scan + base image + multi-stage 未设计 | **V5.2 deployment scope**(原 Task 21) | V5.2 blocker · V5.0 非 blocker(生产用 E2B sandbox 不依赖 docker) | known-red · V5.2 |
+| — | — | — | — | **empty as of 2026-04-29** |
 
-(e2e · prompt-regression · V5.0 CI-Green-Up Task 已 resolve 2026-04-22 · e2e row 被 `e2e/smoke.spec.ts` minimal /health smoke 解封 · prompt-regression row 被 `packages/server/promptfooconfig.yaml` + mock provider baseline 解封 · 详见 observations #146)
+(e2e · prompt-regression · V5.0 CI-Green-Up Task 已 resolve 2026-04-22 · docker 已于
+2026-04-29 通过 PR #101-#103 resolve · main CI run `25088716892` green。)
 
 ### docker 失败
 
-**状态**:pre-existing infra 问题,V5 开发全期间持续红
-**Owner**:V5.2 deployment scope(原 Task 21)
-**发布影响**:**Acceptable** — V5.0 生产用 E2B sandbox(不依赖 docker),Docker 降级验证可 V5.2 加
-**Timeline**:V5.2 才硬性要求清理
+**状态**:resolved 2026-04-29
+**Fix lineage**:
+- PR #101 `f5a05bb` · add `.dockerignore` + `packages/server/Dockerfile`
+- PR #102 `dae6b94` · include root `tsconfig.base.json` in Docker build context
+- PR #103 `edaae5d` · runtime image runs `node packages/server/dist/index.js`
+  and removes npm/npx from the final image, clearing Trivy HIGH CVEs without
+  weakening the scan
+**Evidence**:main CI run `25088716892` green (lint-and-typecheck / test / build / e2e / docker)
 
 ### e2e · prompt-regression 解封历史(V5.0 ship gate · 2026-04-22)
 

@@ -1,4 +1,4 @@
-/** Brief #15 + #18 + #19 · /api/v5/exam routes · 4 GET + 3 POST complete + 15 POST submission cases. */
+/** Brief #15 + #18 + #19 · /api/v5/exam routes · module content + completion + submission fallbacks. */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Request, Response, NextFunction } from 'express';
@@ -11,6 +11,7 @@ const getSession = vi.hoisted(() => vi.fn());
 const persistPhase0Submission = vi.hoisted(() => vi.fn());
 const persistModuleASubmission = vi.hoisted(() => vi.fn());
 const persistMbSubmission = vi.hoisted(() => vi.fn());
+const persistModuleDSubmission = vi.hoisted(() => vi.fn());
 const appendAiCompletionEvents = vi.hoisted(() => vi.fn());
 const appendChatEvents = vi.hoisted(() => vi.fn());
 const appendDiffEvents = vi.hoisted(() => vi.fn());
@@ -72,6 +73,10 @@ vi.mock('../services/modules/mb.service.js', () => ({
   persistFinalTestRun,
 }));
 
+vi.mock('../services/modules/md.service.js', () => ({
+  persistModuleDSubmission,
+}));
+
 vi.mock('../services/modules/se.service.js', () => ({
   persistSelfAssess,
 }));
@@ -86,6 +91,7 @@ import {
   submitPhase0,
   submitModuleA,
   submitMb,
+  submitModuleD,
   submitSelfAssess,
   submitModuleCRound,
   submitMbEditorBehavior,
@@ -130,6 +136,7 @@ beforeEach(() => {
   persistPhase0Submission.mockReset();
   persistModuleASubmission.mockReset();
   persistMbSubmission.mockReset();
+  persistModuleDSubmission.mockReset();
   appendAiCompletionEvents.mockReset();
   appendChatEvents.mockReset();
   appendDiffEvents.mockReset();
@@ -374,6 +381,58 @@ describe('POST /api/v5/exam/:sessionId/mb/submit', () => {
     const { fn, calls } = makeNext();
 
     await submitMb(req, res, fn);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toBe(boom);
+  });
+});
+
+describe('POST /api/v5/exam/:sessionId/moduled/submit', () => {
+  it('returns 200 + invokes persistModuleDSubmission on happy path', async () => {
+    getSession.mockResolvedValue(FAKE_SESSION);
+    persistModuleDSubmission.mockResolvedValue(undefined);
+    const submission = {
+      subModules: [{ name: 'InventoryService', responsibility: '扣减库存' }],
+      interfaceDefinitions: ['POST /orders'],
+      dataFlowDescription: 'Client -> API -> InventoryService',
+      constraintsSelected: ['性能(吞吐 / 延迟)'],
+      tradeoffText: '用最终一致换吞吐。',
+      aiOrchestrationPrompts: ['生成库存扣减实现。'],
+    };
+    const req = makeReq({ sessionId: 'sess-1' }, { submission });
+    const { res, status, json } = makeRes();
+    const { fn, calls } = makeNext();
+
+    await submitModuleD(req, res, fn);
+
+    expect(calls).toHaveLength(0);
+    expect(persistModuleDSubmission).toHaveBeenCalledWith('sess-1', submission);
+    expect(status).toHaveBeenCalledWith(200);
+    expect(json.mock.calls[0][0]).toEqual({ ok: true });
+  });
+
+  it('forwards 404 when session does not exist', async () => {
+    getSession.mockResolvedValue(null);
+    const req = makeReq({ sessionId: 'missing' }, { submission: {} });
+    const { res } = makeRes();
+    const { fn, calls } = makeNext();
+
+    await submitModuleD(req, res, fn);
+
+    expect(persistModuleDSubmission).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(1);
+    expect((calls[0] as { statusCode: number }).statusCode).toBe(404);
+  });
+
+  it('forwards unexpected persist errors to next()', async () => {
+    getSession.mockResolvedValue(FAKE_SESSION);
+    const boom = new Error('prisma exploded');
+    persistModuleDSubmission.mockRejectedValue(boom);
+    const req = makeReq({ sessionId: 'sess-1' }, { submission: {} });
+    const { res } = makeRes();
+    const { fn, calls } = makeNext();
+
+    await submitModuleD(req, res, fn);
 
     expect(calls).toHaveLength(1);
     expect(calls[0]).toBe(boom);
