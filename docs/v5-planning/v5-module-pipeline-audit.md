@@ -53,6 +53,10 @@ Module C now has the same real socket + HTTP retry shape as the other
 submission pages; `v5:modulec:answer` and final `session:end` both carry
 `sessionId` explicitly because there is still no socket-level session
 middleware.
+Historical `v5:modulec:start` and `v5:modulec:complete` design placeholders
+are intentionally not part of the current shared socket contract: grep shows no
+client emits and no server handlers, and final completion is owned by
+`session:end`.
 
 Candidate session bootstrap is a separate read path:
 `GET /api/v5/session/:sessionId` returns only candidate-facing metadata
