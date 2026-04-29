@@ -3606,3 +3606,34 @@ Three-view ratify:
   no longer has an ambiguous guard name.
 - CCL: pure rename-sized patch. No route shape, API contract, or auth logic
   changes.
+
+### #195 · Report trailer transparency copy needs a report-scoped component name
+
+**Type**:frontend naming hygiene / report-vs-public transparency boundary
+**Date**:2026-04-30
+**Status**:closed by `TransparencyStatement` → `ReportTransparencyFooter` rename
+
+A15 shipped a public `/transparency` page with its own policy-doc narrative.
+The older report section named `TransparencyStatement` was never that public
+page; it is the fixed report trailer disclaimer rendered below every report.
+Keeping both live names under "Transparency" made future imports easy to
+misread, especially because A15 explicitly decided not to reuse the report
+trailer inside the public page.
+
+Fix pattern:
+
+- Rename the live report component/test/export to `ReportTransparencyFooter`.
+- Update `ReportViewPage` to render `ReportTransparencyFooter`.
+- Update comments in the public transparency and consent content files to
+  point at the new report-scoped name.
+- Preserve DOM `data-testid` values and all zh/en copy, so this is naming-only
+  rather than a report-snapshot churn.
+
+Three-view ratify:
+
+- Karpathy: name the component after the boundary it actually owns: a report
+  footer, not the whole transparency surface.
+- Gemini: the public `TransparencyPage` and report trailer now have distinct
+  import names while historical observations still document the old lineage.
+- CCL: pure rename plus comments. No report layout, copy, routing, API, or
+  scoring behavior changes.

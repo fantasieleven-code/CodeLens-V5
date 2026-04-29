@@ -8,7 +8,7 @@
  * post-A14a framing. The report trailer copy was reconciled in the
  * signal-count content-only pass, so public page + report trailer now agree.
  *
- * Copy tone follows TransparencyStatement.tsx:
+ * Copy tone follows ReportTransparencyFooter.tsx:
  *   · "设计目标 / 持续校准", not "validated / proven"
  *   · candidate + HR symmetric narrative
  *   · professional + sympathetic, avoids legal-contract register

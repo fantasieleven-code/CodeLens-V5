@@ -19,7 +19,7 @@
 import React, { useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ReportRenderer } from '../report/ReportRenderer.js';
-import { registerAllSections, TransparencyStatement } from '../report/sections/index.js';
+import { registerAllSections, ReportTransparencyFooter } from '../report/sections/index.js';
 import { REPORT_FIXTURES } from '../report/__fixtures__/index.js';
 import type { ReportLayer, ReportViewModel } from '../report/types.js';
 import { colors, spacing, fontSizes, fontWeights, radii } from '../lib/tokens.js';
@@ -179,7 +179,7 @@ export const ReportViewPage: React.FC = () => {
         <div ref={reportRef} data-testid="report-view-capture-root">
           <ReportRenderer viewModel={viewModel} layer={layer} />
           <div style={styles.transparencyTrailer}>
-            <TransparencyStatement />
+            <ReportTransparencyFooter />
           </div>
         </div>
       </div>

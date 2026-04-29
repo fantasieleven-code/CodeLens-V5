@@ -6,9 +6,9 @@
  * (introduction · methodology · ethics · data-usage · candidate-rights ·
  * reviewer-guidance · contact) with zh+en inline copy per the β bilingual
  * pattern inherited from consentContent / profileContent / selfViewContent
- * / TransparencyStatement.tsx.
+ * / ReportTransparencyFooter.tsx.
  *
- * A15 Phase 1 ratify D1: deliberately does NOT reuse `TransparencyStatement`
+ * A15 Phase 1 ratify D1: deliberately does NOT reuse `ReportTransparencyFooter`
  * (report/sections/) — that component is a report-trailer disclaimer, this
  * page is a public policy doc. Different audience discovery paths.
  */

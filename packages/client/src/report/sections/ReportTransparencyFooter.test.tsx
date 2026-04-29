@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { TransparencyStatement } from './TransparencyStatement.js';
+import { ReportTransparencyFooter } from './ReportTransparencyFooter.js';
 
-describe('<TransparencyStatement />', () => {
+describe('<ReportTransparencyFooter />', () => {
   it('renders the transparency root with the four brief-mandated sections', () => {
-    render(<TransparencyStatement />);
+    render(<ReportTransparencyFooter />);
     expect(screen.getByTestId('transparency-statement')).toBeInTheDocument();
     expect(screen.getByTestId('transparency-grade')).toBeInTheDocument();
     expect(screen.getByTestId('transparency-signals')).toBeInTheDocument();
@@ -13,7 +13,7 @@ describe('<TransparencyStatement />', () => {
   });
 
   it('renders zh + en copy inline per section (no language switcher)', () => {
-    render(<TransparencyStatement />);
+    render(<ReportTransparencyFooter />);
     const root = screen.getByTestId('transparency-statement');
     // zh anchors per section — these are the brief's 4-outline keywords.
     expect(root).toHaveTextContent('等级的含义');
@@ -29,7 +29,7 @@ describe('<TransparencyStatement />', () => {
 
   it('uses the "设计目标 / 持续校准" register — not "validated / proven"', () => {
     // Brief tone guard: keep it candidate-sympathetic, avoid over-claiming.
-    render(<TransparencyStatement />);
+    render(<ReportTransparencyFooter />);
     const text = screen.getByTestId('transparency-statement').textContent ?? '';
     expect(text).toContain('设计目标');
     expect(text).toContain('持续校准');
@@ -37,7 +37,7 @@ describe('<TransparencyStatement />', () => {
   });
 
   it('discloses the 48-signal coverage + explicit "what we do not measure" list', () => {
-    render(<TransparencyStatement />);
+    render(<ReportTransparencyFooter />);
     const signalsCard = screen.getByTestId('transparency-signals');
     expect(signalsCard.textContent).toContain('48 个信号');
     expect(signalsCard.textContent).toContain('我们没有测量的东西');
