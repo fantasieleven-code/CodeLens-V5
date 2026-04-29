@@ -191,12 +191,13 @@ export interface ClientToServerEvents {
     data: { sessionId: string; submission: V5ModuleDSubmission },
     ack: (ok: boolean) => void,
   ) => void;
-  // v5: ModuleC — multi-event namespace. `answer` carries sessionId because
-  // sockets still have no session middleware; metadata persists only the
-  // V5ModuleCAnswer fields.
-  'v5:modulec:start': (data: V5ModuleCStartPayload, ack: (ok: boolean) => void) => void;
+  // v5: ModuleC — production socket persistence is per-round answer only.
+  // Final candidate completion is the lifecycle event `session:end`; historical
+  // `v5:modulec:start` / `v5:modulec:complete` design placeholders never had
+  // client emits or server handlers and must not be reintroduced as contracts.
+  // `answer` carries sessionId because sockets still have no session middleware;
+  // metadata persists only the V5ModuleCAnswer fields.
   'v5:modulec:answer': (data: V5ModuleCAnswerPayload, ack: (ok: boolean) => void) => void;
-  'v5:modulec:complete': (data: V5ModuleCCompletePayload, ack: (ok: boolean) => void) => void;
   // v5: MB Cursor mode — shapes mirror packages/server/src/socket/mb-handlers.ts
   // exactly. mb-handlers uses `safe()` which emits `{event}:error` on failure
   // instead of acks, so client emits are fire-and-forget (no ack parameter).
@@ -281,17 +282,6 @@ export interface SocketData {
 }
 
 // ─── V5 socket event payloads ───
-
-/** Client → Server: ack that candidate entered ModuleC. */
-export interface V5ModuleCStartPayload {
-  moduleKey: 'moduleC';
-}
-
-/** Client → Server: candidate finished ModuleC. */
-export interface V5ModuleCCompletePayload {
-  moduleKey: 'moduleC';
-  finishedAt: Date;
-}
 
 export type V5ModuleCAnswerPayload = V5ModuleCAnswer & {
   sessionId: string;

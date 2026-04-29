@@ -3141,3 +3141,40 @@ Three-view ratify:
   session in the current V5 socket architecture.
 - CCL: small patch with high release value: one handler, one client call, and
   focused tests. No scoring or persistence semantics are changed.
+
+### #182 · Module C shared socket contract kept two dead lifecycle placeholders
+
+**Type**:socket contract drift / shared type cleanup / handoff safety
+**Date**:2026-04-29
+**Status**:closed by Module C dead socket event prune patch
+
+After observation #181 made final Module C completion socket-primary via
+`session:end`, a follow-up grep found `packages/shared/src/types/ws.ts` still
+declared `v5:modulec:start` and `v5:modulec:complete`. Those events only
+matched early planning/design docs. They had no production client emits, no
+server handlers, and no tests. Keeping them in shared made the type surface
+look broader than the actual V5 Module C pipeline:
+
+- Per-round persistence: `v5:modulec:answer`.
+- Final session completion: `session:end` with explicit `{ sessionId }`.
+- HTTP endpoints remain fallback/retry surfaces, not hidden socket contracts.
+
+Fix pattern:
+
+- Remove `V5ModuleCStartPayload`, `V5ModuleCCompletePayload`, and their
+  `ClientToServerEvents` declarations from shared.
+- Update the Module C socket comment and module-pipeline audit to state that
+  the historical start/complete placeholders are intentionally not contracts.
+- Leave historical planning/design docs untouched; they are source context, not
+  current production truth.
+
+Three-view ratify:
+
+- Karpathy: shrink the shared API to the two real production lifecycle
+  boundaries. Fewer exported events means fewer false integration targets.
+- Gemini: rejects preserving dead declarations for "future compatibility".
+  Shared types are treated as current contracts; placeholders without handlers
+  are misleading.
+- CCL: small, low-risk cleanup after #181. It changes no runtime behavior and
+  reduces the chance that a future worker implements a second Module C
+  completion path by accident.
