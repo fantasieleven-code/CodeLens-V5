@@ -8,9 +8,9 @@
  *      codeQuality / communication / metacognition) to the 47 V5 signal ids
  *      (9 + 14 + 3 + 12 + 3 + 6).
  *   2. Probe instruction templates load from `promptRegistry.get('mc.probe_engine.*')`
- *      instead of being hard-coded in the engine. Task 10 fills the real
- *      prompt bodies; until then the placeholder content flows through
- *      unchanged.
+ *      instead of being hard-coded in the engine. Seed placeholders are
+ *      treated as unavailable by PromptRegistry, so the built-in guidance is
+ *      the production fallback until real prompt bodies are activated.
  *   3. A Langfuse trace is emitted for each probe decision so we can audit
  *      which strategy fired for which signal shape.
  *
@@ -373,7 +373,7 @@ function detectBoundaryOpportunities(
   return null;
 }
 
-// ─── Prompt template loading (Task 10 fills real content) ────────────────
+// ─── Prompt template loading ─────────────────────────────────────────────
 
 async function loadStrategyTemplate(strategy: V5ProbeStrategy): Promise<string> {
   const key = PROMPT_KEY_BY_STRATEGY[strategy];
@@ -390,9 +390,6 @@ async function loadStrategyTemplate(strategy: V5ProbeStrategy): Promise<string> 
 
 function composePromptGuidance(baseGuidance: string, template: string): string {
   if (!template) return baseGuidance;
-  // Task 10 fills the template body; until then the seed places a TODO marker.
-  // Keep both — the TODO is harmless in production (empty delta) and handy for
-  // seam verification in Golden Path runs.
   return `${baseGuidance}\n\n[策略模板]\n${template}`;
 }
 
@@ -434,8 +431,9 @@ async function traceProbeDecision(
 /**
  * Analyze signal snapshot + decide what to probe in the given round. Loads
  * the strategy prompt template from PromptRegistry and emits a Langfuse
- * trace before returning. Safe to call even when the registry returns the
- * seeded TODO placeholder — the engine falls through without throwing.
+ * trace before returning. Safe to call before real prompt bodies are active:
+ * PromptRegistry rejects seed placeholders and this engine falls back to its
+ * built-in guidance without throwing.
  *
  * @param sessionId       Session id (for trace correlation).
  * @param snapshot        Current signal values (0–1 scale).

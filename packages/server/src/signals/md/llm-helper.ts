@@ -18,9 +18,10 @@
  * and instruct the model to return:
  *   { "score": 0.0-1.0, "notes": "≤2 sentence rationale" }
  *
- * V5.0 placeholder prompts live in the seed as v1 (prompt-keys.ts L28-30);
- * Task 14 promotes them to production-quality rubrics. Until then, the
- * fallback path is the effective scorer in dev.
+ * Seed placeholder prompts live as v1 rows (prompt-keys.ts L28-30), but
+ * PromptRegistry rejects them as unavailable. Until a production rubric is
+ * activated, the SignalRegistry retry/fallback path remains the effective
+ * scorer.
  */
 import type { SignalEvidence, SignalInput, SignalResult } from '@codelens-v5/shared';
 import { logger } from '../../lib/logger.js';

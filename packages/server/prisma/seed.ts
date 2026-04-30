@@ -1,10 +1,11 @@
 /**
  * V5 seed.
  *
- * Seeds 17 v1 prompt placeholders (isActive=true) so downstream services can
- * resolve keys before Task 9/10/11/14 supply real content. Content is a TODO
- * marker; the version slot itself is what matters (callers fail closed when a
- * key has no row at all).
+ * Seeds 18 v1 prompt placeholders (isActive=true) so the registry has a
+ * durable slot for every known key before real content lands. PromptRegistry
+ * treats rows marked `metadata.placeholder=true` or seeded TODO content as
+ * unavailable, so production callers fail closed to their explicit fallback
+ * paths instead of sending TODO text to a model.
  *
  * Re-running this seed is idempotent: existing (name, v1) rows are skipped.
  */

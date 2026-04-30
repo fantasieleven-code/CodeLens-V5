@@ -6,8 +6,10 @@
  * when the version is omitted. A 5-minute in-memory cache shields Prisma from
  * hot-path re-reads (generator / probe loops).
  *
- * Seeded keys live in {@link ./prompt-keys.ts}. Content is populated by the
- * seed (v1 placeholders) and by Task 9/10/11/14 when real prompts land.
+ * Seeded keys live in {@link ./prompt-keys.ts}. The seed creates inactive-for-
+ * use placeholder rows so downstream services can distinguish "known key, no
+ * production prompt yet" from an unregistered key; `get()` still fails closed
+ * until a real prompt version is activated.
  */
 
 import type { Prisma } from '@prisma/client';
@@ -47,8 +49,28 @@ export class PromptNotFoundError extends Error {
   }
 }
 
+export class PromptPlaceholderError extends PromptNotFoundError {
+  constructor(key: string, version?: number) {
+    super(key, version);
+    this.name = 'PromptPlaceholderError';
+    this.message =
+      version === undefined
+        ? `Active prompt for key "${key}" is still a seed placeholder`
+        : `Prompt "${key}" v${version} is still a seed placeholder`;
+  }
+}
+
 function cacheKey(key: string, version?: number): string {
   return version === undefined ? `active:${key}` : `v:${key}:${version}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isPlaceholderPrompt(row: { content: string; metadata: unknown }): boolean {
+  const metadata = isRecord(row.metadata) ? row.metadata : {};
+  return metadata.placeholder === true || row.content.trim().startsWith('TODO: Task 9-10');
 }
 
 export class PromptRegistry {
@@ -83,6 +105,10 @@ export class PromptRegistry {
 
     if (!row) {
       throw new PromptNotFoundError(key, version);
+    }
+
+    if (isPlaceholderPrompt(row)) {
+      throw new PromptPlaceholderError(key, version);
     }
 
     this.cache.set(ck, { content: row.content, cachedAt: Date.now() });

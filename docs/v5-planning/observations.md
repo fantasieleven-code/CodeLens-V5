@@ -4231,3 +4231,40 @@ Three-view ratify:
   That would leak grade/composite/signal evidence across the ethics boundary.
 - CCL: small client-only PR removes a broken CTA and aligns copy/tests without
   touching scoring, auth, or the already-green Cold Start path.
+
+### #214 · Prompt seed placeholders must fail closed before reaching model prompts
+
+**Type**:prompt hygiene / production LLM safety / release hardening
+**Date**:2026-04-30
+**Status**:closed by making `PromptRegistry.get()` reject seed placeholders
+
+Release inventory found that the V5 prompt seed created active v1 rows with
+`content: "TODO: Task 9-10 填充"` and `metadata.placeholder=true`, but
+`PromptRegistry.get()` returned only `content` and discarded the placeholder
+metadata. That let placeholder text flow into three live model-adjacent paths:
+MC voice probe guidance (`[策略模板] ...`), MB chat generation system prompts,
+and MD LLM-whitelist rubrics. The existing comments framed this as harmless
+for seam verification, but production prompt boundaries should never send TODO
+markers to a model or candidate-facing interviewer prompt.
+
+Fix pattern:
+
+- Keep seed rows as durable key/version slots, but treat them as unavailable
+  prompt content.
+- `PromptRegistry.get()` now throws `PromptPlaceholderError` when metadata says
+  `placeholder: true` or the content is the known seed TODO marker.
+- Placeholder failures are not cached, so activating a real prompt version
+  makes it usable immediately.
+- Existing callers keep their explicit fallback behavior: MC uses built-in
+  guidance, MB uses its default coding-assistant system prompt, and MD falls
+  through SignalRegistry retry/fallback instead of grading with a TODO rubric.
+
+Three-view ratify:
+
+- Karpathy: the central registry is the right abstraction boundary; filtering
+  TODO markers in every caller would duplicate policy and miss future keys.
+- Gemini: metadata already encoded the truth, but `get()` erased it. Returning
+  placeholder text is a false-success mode; throwing preserves fail-closed
+  semantics and makes missing real prompts observable.
+- CCL: small backend-only PR, no schema change, no prompt-authoring detour, and
+  it removes production TODO leakage while preserving existing fallbacks.
