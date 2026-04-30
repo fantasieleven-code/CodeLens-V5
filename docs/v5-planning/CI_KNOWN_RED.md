@@ -50,9 +50,8 @@ Current release ledger:
   run P0 → MA → MB → MD → SelfAssess → MC, admin report hydration, 48 signal
   definitions/results, 0 missing, 0 `value=null`, and 0 `N/A` / `待评估` DOM
   text in the report view.
-- Remaining product-quality risk is observation #172: Layer 2 canonical module
-  content parity. That is a content/hydration consistency target, not the old
-  signal production wiring blocker.
+- The post-Cold-Start Layer 2 canonical module content parity risk from
+  observation #172 is closed by #173 and reconciled by #212.
 
 ### Historical audit outcome
 

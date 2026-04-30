@@ -32,10 +32,10 @@
  *     persistence through socket ack or HTTP fallback before advance().
  *   - advance() moves the module store forward only after persistence succeeds
  *
- * Mock fallback:
- *   When no `module` prop is provided, falls back to MD_MOCK_FIXTURE so the
- *   page renders standalone in dev / storybook. Backend Task 14 will pass
- *   the real MDModuleSpecific via prop.
+ * Content source:
+ *   Real candidate sessions fetch canonical MD content by examInstanceId via
+ *   `useModuleContent`. MD_MOCK_FIXTURE is kept only for preview/test
+ *   overrides and no-session local rendering.
  *
  * Bare mode:
  *   `bare={true}` skips ModuleShell — mirrors ModuleAPage / ModuleBPage.

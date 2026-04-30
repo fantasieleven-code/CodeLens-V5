@@ -18,10 +18,9 @@
  * The R4 `round4` field is canonical per Round 3 Part 3 调整 2 L358-372
  * and lives on V5ModuleASubmission directly (no inputBehavior bridge).
  *
- * Mock data source for R4 `migrationScenario` lives in ./moduleA/mock.ts as
- * a local MAMockModule type — backend Task 10 promotes it into MAModuleSpecific
- * per Round 3 Part 3 调整 2 L375-393, at which point MAMockModule can be
- * deleted.
+ * Real candidate sessions fetch canonical MA content by examInstanceId via
+ * `useModuleContent`. `MAMockModule` remains only for preview/test overrides
+ * and no-session local rendering.
  */
 
 import React, { useCallback, useMemo, useState } from 'react';

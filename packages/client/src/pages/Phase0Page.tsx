@@ -51,7 +51,7 @@ interface AiClaimState {
 }
 
 export interface Phase0PageProps {
-  /** Module content. Defaults to the Task 4 mock fixture. Preview route passes this explicitly. */
+  /** Preview/test override. Real candidate sessions fetch canonical P0 content by examInstanceId. */
   module?: P0MockModule;
   /**
    * Test hook: called after a successful submit, before advance(). Allows
