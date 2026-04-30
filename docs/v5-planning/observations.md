@@ -2758,7 +2758,7 @@ layers.
 
 **Type**:Layer 2 content parity / Pattern H scope truth
 **Date**:2026-04-29
-**Status**:open as next target candidate
+**Status**:closed by #173 parity patch; ledger reconciled by #212
 
 After Cold Start went green, a second-layer module audit split V5 readiness
 into three independent layers:
@@ -2771,13 +2771,13 @@ Layer 1 and Layer 3 are green for the V5.0 gate: a fresh `deep_dive` session
 can traverse P0 → MA → MB → MD → SelfAssess → MC and produce 48/48 non-null
 Admin report signals with 0 `N/A` / `待评估`.
 
-The audit found the remaining structural gap is Layer 2. `GET
+At audit time, the remaining structural gap was Layer 2. `GET
 /api/v5/exam/:examInstanceId/module/:moduleType` exists, but only `mb` is
-implemented. Non-MB module content branches still return 501 by design:
+implemented. Non-MB module content branches still returned 501 by design:
 
-- P0 page defaults to `P0_MOCK_FIXTURE`
-- MA page defaults to `MA_MOCK_FIXTURE`
-- MD page defaults to `MD_MOCK_FIXTURE`
+- P0 page used `P0_MOCK_FIXTURE`
+- MA page used `MA_MOCK_FIXTURE`
+- MD page used `MD_MOCK_FIXTURE`
 - MC text fallback uses local prompt constants
 - SE has no heavy module content, but still has no canonical content branch
 
@@ -2793,7 +2793,9 @@ Cold Start passing does not disprove this drift class because the current
 fixture path is aligned enough to produce non-null signals. It proves
 submission and report production health, not full content-source parity.
 
-Recommended next target: `Layer 2 canonical module content parity`.
+Recommended next target was `Layer 2 canonical module content parity`; this
+was implemented by #173 and should no longer be treated as an open V5.0 launch
+blocker.
 
 Scope candidate:
 
@@ -2859,6 +2861,42 @@ Final evidence:
 Scope truth: full local `npm test` still fails in unrelated admin page tests
 because jsdom fetch cannot parse relative `/api/admin/...` URLs in those tests.
 That failure predates this patch and is not the release gate for Layer 2 parity.
+
+### #212 · Layer 2 parity ledger must close the original #172 risk after #173
+
+**Type**:release governance / documentation drift / module content parity
+**Date**:2026-04-30
+**Status**:closed by updating #172 status and stale page comments
+
+The post-#147 release inventory re-audited the Layer 2 canonical module content
+path instead of assuming observation #172 was still open. Current code shows
+the parity patch is already in place:
+
+- `exam-content.ts` routes all six valid module types (`p0|ma|mb|mc|md|se`) to
+  candidate-safe `ExamDataService` projections.
+- `exam-data.service.ts` strips P0 correct answers, MA defect/rubric keys, MB
+  groundTruth, and MD `expectedSubModules` before client delivery.
+- `Phase0Page`, `ModuleAPage`, `ModuleBPage`, `ModuleCPage`, and `ModuleDPage`
+  all consume `useModuleContent` for real candidate sessions; local fixtures
+  remain only for preview/test/no-session rendering.
+- `exam-content.test.ts` covers routing for all valid module types, and
+  `exam-data.service.test.ts` covers the answer-key stripping invariants.
+
+The remaining drift was documentation-level: #172 still said "open", and
+several page comments still implied default mock content or future backend
+work. That could mislead release planning into re-opening a solved structural
+risk.
+
+Three-view ratify:
+
+- Karpathy: close the ledger and comments; no runtime refactor is warranted
+  when the existing endpoint/hook/projection chain already matches the target
+  architecture.
+- Gemini: answer-key safety is already covered by projection tests. The risk is
+  stale planning text, not candidate-visible content leakage.
+- CCL: docs/comment-only PR keeps this as a tight follow-up, avoids touching
+  the proven Cold Start path, and leaves the next real work item selection
+  based on current facts.
 
 ### #174 · MA content parity hardening must fail closed
 

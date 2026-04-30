@@ -6,22 +6,18 @@
  *   - aiClaimDetection block from Round 3 Part 3 adjustment 1
  *     (docs/v5-planning/v5-design-clarifications.md L121-137)
  *
- * This exists only because Backend Task 10 (exam generator) has not landed.
- * When it does, `useP0Mock` / this fixture get replaced by a real
- * ExamModule.moduleSpecific payload over the wire. The shape here MUST stay
- * in lock-step with that contract — the AI claim block is the most
- * schedule-sensitive part and is tagged below for tracking.
+ * Real candidate sessions now fetch candidate-safe P0 content from
+ * ExamModule.moduleSpecific over the module-content endpoint. This fixture is
+ * retained for preview/test/no-session rendering and must stay in lock-step
+ * with the shared P0ModuleSpecific contract.
  */
 
 import type { P0ModuleSpecific } from '@codelens-v5/shared';
 
 /**
- * Extension matching Round 3 Part 3 adjustment 1 L121-137. Not yet in
- * `P0ModuleSpecific` because Backend Task 10 will add it alongside the
- * signal wiring. Consumers see the field through `P0MockModule` below.
- *
- * TODO(task-10): remove this local type once `aiClaimDetection` is added
- * to `@codelens-v5/shared`'s `P0ModuleSpecific`.
+ * Local alias matching Round 3 Part 3 adjustment 1 L121-137. Kept so preview
+ * fixture code can describe the AI-claim block without importing the nested
+ * property type through indexed access.
  */
 export interface P0AiClaimDetection {
   /** AI-generated code the candidate must audit. 20-40 lines. */
@@ -40,8 +36,8 @@ export interface P0AiClaimDetection {
 }
 
 /**
- * Shape delivered to <Phase0Page />. Mirrors what Backend Task 10 will emit
- * from the exam-generator step output + Round 3 Part 3 adjustment 1.
+ * Shape delivered to <Phase0Page /> only in preview/test/no-session paths.
+ * Real candidate flow uses the shared candidate-safe projection.
  */
 export interface P0MockModule extends P0ModuleSpecific {
   aiClaimDetection: P0AiClaimDetection;
