@@ -3925,3 +3925,38 @@ Three-view ratify:
 - CCL: focused backend PR with one endpoint and one negative test. It closes
   the admin.ts Pattern D backlog without pulling in schema strictness or
   hydrator cache behavior.
+
+### #205 · V5ScoringResult top-level schema drift should fail closed
+
+**Type**:shared runtime schema gate / scoring result contract / V5.0.5 housekeeping
+**Date**:2026-04-30
+**Status**:closed by top-level `.strict()`
+
+The V5.0.5 backlog carried a follow-up to audit whether
+`V5ScoringResultSchema` could move from a tolerant top-level object to a
+strict report-facing contract. The audit found:
+
+- `scoreSession()` is the production writer and returns only the declared
+  `V5ScoringResult` fields.
+- Persist happens through `ScoringHydratorService` using that orchestrator
+  output; no repo writer appends extra top-level scoring fields.
+- The only "future field" case was the shared schema test's synthetic
+  `newV5_1Field`.
+- Nested `signals`, `boundaryAnalysis`, `dangerFlag`, and
+  `cursorBehaviorLabel` still need passthrough shells because they carry
+  algorithm-specific evidence/analysis payloads.
+
+Fix pattern:
+
+- Add `.strict()` to `V5ScoringResultSchema` at the top level.
+- Flip the shared drift-defense test so an unknown top-level field throws.
+- Keep nested passthrough semantics unchanged.
+
+Three-view ratify:
+
+- Karpathy: top-level scoring result fields are a product/report contract; new
+  fields should require an intentional shared type/schema update.
+- Gemini: the previous "forward compat" test would silently hide contract
+  drift. Strict mode makes accidental cached JSON growth visible.
+- CCL: small shared-only behavior change with one focused test update. Hydrator
+  cached-result parsing remains the next separate boundary PR.
