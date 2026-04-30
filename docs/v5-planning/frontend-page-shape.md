@@ -55,10 +55,7 @@ Rules:
 Example shape:
 
 ```ts
-export interface BilingualText {
-  readonly zh: string;
-  readonly en: string;
-}
+import type { BilingualText } from '../../lib/bilingual.js';
 
 export const FEATURE_CONTENT = {
   pageTitle: { zh: '...', en: '...' },

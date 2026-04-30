@@ -19,9 +19,9 @@ import {
 } from '../../services/candidateApi.js';
 import {
   SELF_VIEW_CONTENT,
-  type BilingualText,
   type SelfViewErrorKey,
 } from './selfViewContent.js';
+import type { BilingualText } from '../../lib/bilingual.js';
 import { colors, fontSizes, fontWeights, radii, spacing } from '../../lib/tokens.js';
 
 type Strength = V5CandidateSelfView['dimensionRadar'][number]['relativeStrength'];

@@ -15,10 +15,8 @@
 
 import React from 'react';
 import { TRANSPARENCY_CONTENT } from './transparencyContent.js';
-import type {
-  BilingualText,
-  TransparencySection,
-} from './transparencyContent.js';
+import type { TransparencySection } from './transparencyContent.js';
+import type { BilingualText } from '../../lib/bilingual.js';
 import { colors, fontSizes, fontWeights, radii, spacing } from '../../lib/tokens.js';
 
 function handleBack(): void {

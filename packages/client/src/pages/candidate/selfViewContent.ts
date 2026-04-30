@@ -7,10 +7,7 @@
  * server-side code still produces a candidate-friendly message.
  */
 
-export interface BilingualText {
-  readonly zh: string;
-  readonly en: string;
-}
+import type { BilingualText } from '../../lib/bilingual.js';
 
 export type SelfViewErrorKey =
   | 'NOT_FOUND'

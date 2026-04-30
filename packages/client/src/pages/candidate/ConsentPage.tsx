@@ -30,6 +30,7 @@ import {
   radii,
   spacing,
 } from '../../lib/tokens.js';
+import type { BilingualText } from '../../lib/bilingual.js';
 
 export const consentStorageKey = (sessionToken: string): string =>
   `codelens_candidate_consent:${sessionToken}`;
@@ -119,7 +120,7 @@ export const ConsentPage: React.FC = () => {
 
           {errorCode && (() => {
             const copy =
-              (CONSENT_CONTENT.errors as Record<string, { zh: string; en: string }>)[
+              (CONSENT_CONTENT.errors as Record<string, BilingualText>)[
                 errorCode
               ] ?? CONSENT_CONTENT.errors.UNKNOWN;
             return (

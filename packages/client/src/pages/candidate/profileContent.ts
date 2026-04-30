@@ -14,11 +14,7 @@ import type {
   CandidatePrimaryAiTool,
   CandidateDailyAiUsageHours,
 } from '@codelens-v5/shared';
-
-export interface BilingualText {
-  readonly zh: string;
-  readonly en: string;
-}
+import type { BilingualText } from '../../lib/bilingual.js';
 
 export type ProfileFieldName =
   | 'yearsOfExperience'

@@ -3702,3 +3702,36 @@ Three-view ratify:
   made the A-series pages coherent, including public-vs-candidate auth shapes.
 - CCL: doc-only, no production behavior, no test churn. It makes the next
   frontend PR cheaper without touching current pages.
+
+### #198 · Bilingual copy types belong to the client UI layer until they become a contract
+
+**Type**:frontend type hygiene / A-series copy shape consolidation
+**Date**:2026-04-30
+**Status**:closed by `packages/client/src/lib/bilingual.ts`
+
+The A-series frontend pages all converged on the same zh/en inline copy shape,
+but four content modules (`consentContent.ts`, `profileContent.ts`,
+`selfViewContent.ts`, `transparencyContent.ts`) each re-declared
+`BilingualText`. Transparency also carried a local `BilingualParagraphs` shape.
+That duplication kept resurfacing in Phase 1 audits even though the shape is
+pure UI copy and has no server contract.
+
+Fix pattern:
+
+- Add `packages/client/src/lib/bilingual.ts` with `BilingualText` and
+  `BilingualParagraphs`.
+- Import those types from Consent, ProfileSetup, SelfView, and Transparency
+  content/page consumers.
+- Update the frontend page-shape template to point new pages at the shared
+  client-local helper.
+- Close both duplicated backlog entries so future content-adjacent work does
+  not rediscover the same cleanup.
+
+Three-view ratify:
+
+- Karpathy: keep the abstraction at the narrowest true owner. This is client
+  copy structure, not a cross-package domain type.
+- Gemini: no zh/en literals, route behavior, API schemas, or DOM anchors
+  changed; the PR only removes duplicate type declarations and one inline cast.
+- CCL: one tiny helper plus mechanical imports. It improves future page
+  consistency without adding shared-package build/API surface.
