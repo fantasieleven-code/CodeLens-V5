@@ -373,6 +373,42 @@ describe('ScoringHydratorService — Brief #20 C1 polling race cache', () => {
     ]);
   });
 
+  it('rejects cached scoringResult drift before returning cached=true', async () => {
+    const findUnique = vi.fn().mockResolvedValue({
+      id: 's1',
+      metadata: fullMetadata(),
+      scoringResult: { ...STUB_RESULT, grade: 'Z' },
+    });
+    const update = vi.fn();
+    const service = new ScoringHydratorService(
+      buildPrisma({ findUnique, update }),
+      buildExamDataStub(),
+    );
+
+    await expect(service.hydrateAndScore('s1')).rejects.toThrow(/Invalid enum value/);
+
+    expect(scoreSessionMock).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('rejects cached scoringResult unknown top-level fields', async () => {
+    const findUnique = vi.fn().mockResolvedValue({
+      id: 's1',
+      metadata: fullMetadata(),
+      scoringResult: { ...STUB_RESULT, newV5_1Field: 'unexpected' },
+    });
+    const update = vi.fn();
+    const service = new ScoringHydratorService(
+      buildPrisma({ findUnique, update }),
+      buildExamDataStub(),
+    );
+
+    await expect(service.hydrateAndScore('s1')).rejects.toThrow(/Unrecognized key/);
+
+    expect(scoreSessionMock).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it('re-hydrates and re-persists when forceRefresh=true even if cache present', async () => {
     const findUnique = vi.fn().mockResolvedValue({
       id: 's1',

@@ -95,8 +95,8 @@ export interface V5ScoringResult {
  * boundary-analysis payloads remain passthrough because they carry
  * algorithm-specific evidence details and consumers read their stable shells.
  *
- * V5.0.5 cleanup note: Admin report now parses this schema before response
- * assembly; scoring-hydrator cached-result reads are the remaining boundary.
+ * V5.0.5 cleanup note: Admin report and scoring-hydrator cache hits both
+ * parse this schema before treating persisted JSON as trusted output.
  */
 export const V5ScoringResultSchema = z.object({
   grade: z.enum(['D', 'C', 'B', 'B+', 'A', 'S', 'S+']),
