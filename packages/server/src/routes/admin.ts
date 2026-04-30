@@ -47,6 +47,7 @@ import {
   SUITES,
   SUITE_IDS,
   isSuiteId,
+  V5ScoringResultSchema,
   V5_GRADE_ORDER,
 } from '@codelens-v5/shared';
 
@@ -382,7 +383,11 @@ export async function getAdminSessionReport(
       .listSignals()
       .map(toSignalViewMeta);
 
-    const scoring = scoringResult as V5ScoringResult;
+    // Match candidate-self-view's drift defense: Session.scoringResult is JSON
+    // at rest, so validate the report payload before exposing it to Admin UI.
+    const scoring = V5ScoringResultSchema.parse(
+      scoringResult,
+    ) as unknown as V5ScoringResult;
     const report: V5AdminSessionReport = {
       sessionId,
       candidateName: row.candidate.name,

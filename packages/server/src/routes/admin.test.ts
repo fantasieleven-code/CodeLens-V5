@@ -455,6 +455,38 @@ describe('GET /admin/sessions/:sessionId/report', () => {
     expect(payload.submissions).toBe(hydratedSubmissions);
     expect(payload.submissions).not.toEqual({ foo: 'bar' });
   });
+
+  it('rejects hydrated scoringResult shape drift before emitting report', async () => {
+    sessionFindUnique.mockResolvedValue({
+      id: 'sess-1',
+      orgId: 'org-1',
+      status: 'COMPLETED',
+      candidate: { id: 'c1', name: 'Alice', email: 'a@b.com' },
+      createdAt: new Date(1),
+      completedAt: new Date(2),
+      metadata: {},
+      scoringResult: null,
+    });
+    hydrateAndScore.mockResolvedValue({
+      sessionId: 'sess-1',
+      suiteId: 'full_stack',
+      participatingModules: ['phase0', 'moduleA', 'mb', 'selfAssess', 'moduleC'],
+      submissions: {},
+      scoringResult: { ...mockScoring, grade: 'Z' },
+      hydrationReport: {},
+    });
+
+    const req = makeReq({ params: { sessionId: 'sess-1' } });
+    const { res, json } = makeRes();
+    const next = makeNext();
+    await getAdminSessionReport(req, res, next);
+
+    expect(json).not.toHaveBeenCalled();
+    const err = (next as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(err).toBeInstanceOf(Error);
+    expect(String(err)).toContain('Invalid enum value');
+    expect(String(err)).toContain('"grade"');
+  });
 });
 
 // ────────────────────────── endpoint 8: session profile (Task B-A12) ──────────────────────────

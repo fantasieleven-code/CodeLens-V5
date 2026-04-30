@@ -3894,3 +3894,34 @@ Three-view ratify:
 - CCL: one-line behavior change plus comments, verified by the full client
   Vitest suite. This restores local `npm --prefix packages/client test` as a
   trustworthy gate without changing production/admin smoke configuration.
+
+### #204 · Admin report must parse V5ScoringResult before exposing it
+
+**Type**:backend runtime schema gate / Pattern D cleanup / admin report
+**Date**:2026-04-30
+**Status**:closed by `getAdminSessionReport` zod parse
+
+`candidate-self-view.ts` already treats `Session.scoringResult` as JSON at rest
+and validates it with `V5ScoringResultSchema.parse()` before transforming it.
+`admin.ts` endpoint 4 still cast hydrated `scoringResult as V5ScoringResult`,
+so an invalid cached or hydrated shape could be exposed to Admin UI as a
+seemingly valid report.
+
+Fix pattern:
+
+- Import `V5ScoringResultSchema` in `admin.ts`.
+- Parse the hydrated `scoringResult` before assembling
+  `V5AdminSessionReport`.
+- Add a report endpoint test where `grade: 'Z'` fails before `res.json()`.
+- Leave `V5ScoringResultSchema` non-strict and leave scoring-hydrator cached
+  result semantics for a separate deeper-service cleanup.
+
+Three-view ratify:
+
+- Karpathy: reuse the existing shared schema and candidate-self-view pattern;
+  no new admin-only validator.
+- Gemini: the test proves drift fails closed at the admin report boundary
+  instead of silently leaking malformed grade data.
+- CCL: focused backend PR with one endpoint and one negative test. It closes
+  the admin.ts Pattern D backlog without pulling in schema strictness or
+  hydrator cache behavior.
