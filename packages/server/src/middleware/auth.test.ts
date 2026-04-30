@@ -42,8 +42,8 @@ vi.mock('jsonwebtoken', () => ({
   },
 }));
 
-import { requireCandidate } from './auth.js';
-import { AuthenticationError } from './errorHandler.js';
+import { requireAdmin, requireCandidate, requireOrg, requireOrgOwner } from './auth.js';
+import { AuthenticationError, AuthorizationError } from './errorHandler.js';
 
 function makeReq(overrides: Partial<Request> = {}): Request {
   return {
@@ -55,14 +55,24 @@ function makeReq(overrides: Partial<Request> = {}): Request {
   } as unknown as Request;
 }
 
-function makeRes() {
+function makeRes(): Response & {
+  status: ReturnType<typeof vi.fn>;
+  json: ReturnType<typeof vi.fn>;
+} {
   const json = vi.fn();
   const status = vi.fn(() => ({ json }));
-  return { status, json } as unknown as Response;
+  return { status, json } as unknown as Response & {
+    status: ReturnType<typeof vi.fn>;
+    json: ReturnType<typeof vi.fn>;
+  };
 }
 
 function makeNext(): NextFunction {
   return vi.fn() as unknown as NextFunction;
+}
+
+function firstNextArg(next: NextFunction): unknown {
+  return (next as unknown as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
 }
 
 beforeEach(() => {
@@ -159,5 +169,102 @@ describe('requireCandidate middleware', () => {
     const err = (next as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0];
     expect(err).toBeInstanceOf(AuthenticationError);
     expect(err.message).toMatch(/authentication required/i);
+  });
+});
+
+describe('admin/org auth middleware error envelopes', () => {
+  it('requireAdmin · no token → next(AuthenticationError), no direct response write', () => {
+    const res = makeRes();
+    const next = makeNext();
+
+    requireAdmin(makeReq(), res, next);
+
+    const err = firstNextArg(next);
+    expect(err).toBeInstanceOf(AuthenticationError);
+    expect((err as AuthenticationError).statusCode).toBe(401);
+    expect((err as AuthenticationError).code).toBe('AUTH_REQUIRED');
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).not.toHaveBeenCalled();
+  });
+
+  it('requireAdmin · non-admin token → next(AuthorizationError), no direct response write', () => {
+    jwtVerify.mockReturnValue({ sub: 'cand-1', role: 'candidate' });
+    const res = makeRes();
+    const next = makeNext();
+
+    requireAdmin(makeReq({ headers: { authorization: 'Bearer token-abc' } }), res, next);
+
+    const err = firstNextArg(next);
+    expect(err).toBeInstanceOf(AuthorizationError);
+    expect((err as AuthorizationError).statusCode).toBe(403);
+    expect((err as AuthorizationError).code).toBe('FORBIDDEN');
+    expect((err as AuthorizationError).message).toBe('Admin access required');
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).not.toHaveBeenCalled();
+  });
+
+  it('requireAdmin · valid admin token → injects auth/org and calls next()', () => {
+    jwtVerify.mockReturnValue({
+      sub: 'admin-1',
+      role: 'admin',
+      orgId: 'org-1',
+      orgRole: 'OWNER',
+    });
+    const req = makeReq({ headers: { authorization: 'Bearer token-abc' } });
+    const next = makeNext();
+
+    requireAdmin(req, makeRes(), next);
+
+    expect(next).toHaveBeenCalledWith();
+    expect(req.auth).toEqual({
+      sub: 'admin-1',
+      role: 'admin',
+      orgId: 'org-1',
+      orgRole: 'OWNER',
+    });
+    expect(req.orgId).toBe('org-1');
+  });
+
+  it('requireOrg · admin token without orgId → next(AuthorizationError)', () => {
+    jwtVerify.mockReturnValue({ sub: 'admin-1', role: 'admin' });
+    const next = makeNext();
+
+    requireOrg(makeReq({ headers: { authorization: 'Bearer token-abc' } }), makeRes(), next);
+
+    const err = firstNextArg(next);
+    expect(err).toBeInstanceOf(AuthorizationError);
+    expect((err as AuthorizationError).message).toBe('Organization membership required');
+  });
+
+  it('requireOrgOwner · MEMBER token → next(AuthorizationError)', () => {
+    jwtVerify.mockReturnValue({
+      sub: 'admin-1',
+      role: 'admin',
+      orgId: 'org-1',
+      orgRole: 'MEMBER',
+    });
+    const next = makeNext();
+
+    requireOrgOwner(makeReq({ headers: { authorization: 'Bearer token-abc' } }), makeRes(), next);
+
+    const err = firstNextArg(next);
+    expect(err).toBeInstanceOf(AuthorizationError);
+    expect((err as AuthorizationError).message).toBe('Organization owner access required');
+  });
+
+  it('requireOrgOwner · valid OWNER token → injects org and calls next()', () => {
+    jwtVerify.mockReturnValue({
+      sub: 'admin-1',
+      role: 'admin',
+      orgId: 'org-1',
+      orgRole: 'OWNER',
+    });
+    const req = makeReq({ headers: { authorization: 'Bearer token-abc' } });
+    const next = makeNext();
+
+    requireOrgOwner(req, makeRes(), next);
+
+    expect(next).toHaveBeenCalledWith();
+    expect(req.orgId).toBe('org-1');
   });
 });

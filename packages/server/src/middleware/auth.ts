@@ -92,17 +92,15 @@ export async function requireCandidate(req: Request, _res: Response, next: NextF
   }
 }
 
-export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+export function requireAdmin(req: Request, _res: Response, next: NextFunction) {
   const token = extractToken(req);
   if (!token) {
-    res.status(401).json({ error: 'Authentication required' });
-    return;
+    return next(new AuthenticationError('Authentication required'));
   }
   try {
     const payload = jwt.verify(token, env.JWT_SECRET) as AuthPayload;
     if (payload.role !== 'admin') {
-      res.status(403).json({ error: 'Admin access required' });
-      return;
+      return next(new AuthorizationError('Admin access required'));
     }
     req.auth = payload;
     // Inject orgId for multi-tenant data scoping
@@ -111,48 +109,44 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
     }
     next();
   } catch {
-    res.status(401).json({ error: 'Invalid or expired token' });
+    return next(new AuthenticationError('Invalid or expired token'));
   }
 }
 
 /** Require authenticated org member (OWNER or MEMBER). Injects req.orgId. */
-export function requireOrg(req: Request, res: Response, next: NextFunction) {
+export function requireOrg(req: Request, _res: Response, next: NextFunction) {
   const token = extractToken(req);
   if (!token) {
-    res.status(401).json({ error: 'Authentication required' });
-    return;
+    return next(new AuthenticationError('Authentication required'));
   }
   try {
     const payload = jwt.verify(token, env.JWT_SECRET) as AuthPayload;
     if (payload.role !== 'admin' || !payload.orgId) {
-      res.status(403).json({ error: 'Organization membership required' });
-      return;
+      return next(new AuthorizationError('Organization membership required'));
     }
     req.auth = payload;
     req.orgId = payload.orgId;
     next();
   } catch {
-    res.status(401).json({ error: 'Invalid or expired token' });
+    return next(new AuthenticationError('Invalid or expired token'));
   }
 }
 
 /** Require org OWNER role. */
-export function requireOrgOwner(req: Request, res: Response, next: NextFunction) {
+export function requireOrgOwner(req: Request, _res: Response, next: NextFunction) {
   const token = extractToken(req);
   if (!token) {
-    res.status(401).json({ error: 'Authentication required' });
-    return;
+    return next(new AuthenticationError('Authentication required'));
   }
   try {
     const payload = jwt.verify(token, env.JWT_SECRET) as AuthPayload;
     if (payload.role !== 'admin' || !payload.orgId || payload.orgRole !== 'OWNER') {
-      res.status(403).json({ error: 'Organization owner access required' });
-      return;
+      return next(new AuthorizationError('Organization owner access required'));
     }
     req.auth = payload;
     req.orgId = payload.orgId;
     next();
   } catch {
-    res.status(401).json({ error: 'Invalid or expired token' });
+    return next(new AuthenticationError('Invalid or expired token'));
   }
 }
