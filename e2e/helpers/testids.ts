@@ -60,7 +60,6 @@ export const CANDIDATE_TESTIDS = {
   },
   complete: {
     root: 'complete-root',
-    viewReportBtn: 'complete-view-report-btn',
   },
 } as const;
 
