@@ -471,7 +471,7 @@ Added during Task CI-Green-Up(CI infra red-clearance for V5.0 ship · observatio
 
 Added during Task A5(backend Gap 11 Sentry env consumer-half closure · observation #151):
 
-- **`process.env → env.X` batch migration audit(8 items · NODE_ENV × 7 + LOG_LEVEL × 1)**(observation #151 · Phase 1 Q5 surface):8 remaining `process.env.X` bypass sites in `packages/server/src` outside `env.ts` + dynamic-import guards. Inventory from A5 Phase 1 Q5 grep (2026-04-24):
+- ~~**`process.env → env.X` batch migration audit(8 items · NODE_ENV × 7 + LOG_LEVEL × 1)**(observation #151 · Phase 1 Q5 surface):8 remaining `process.env.X` bypass sites in `packages/server/src` outside `env.ts` + dynamic-import guards. Inventory from A5 Phase 1 Q5 grep (2026-04-24):
   1. `config/db.ts:8` · `NODE_ENV` (in schema · consumer bypass)
   2. `lib/sentry.ts:28` · `NODE_ENV` (in schema · **Case B fence kept as-is during A5** · tracesSampleRate branch)
   3. `lib/logger.ts:10` · `LOG_LEVEL` (**NOT in schema · needs declaration first** · most urgent of the 8)
@@ -486,7 +486,7 @@ Added during Task A5(backend Gap 11 Sentry env consumer-half closure · observat
   - Remove any redundant fallbacks (like A5 fallback `|| 'development'` drop)
   - 4-green smoke self-attest (same skeleton as A5 · `env.test.ts` absence is acceptable backward-compat signal)
   
-  Reference · A5 brief Phase 1 Q5 · observations.md #151 pattern env-declare-discipline. Bundle into one PR (mechanical consumer migration · single narrative · ~10 file touch · ~10 line changes).
+  Reference · A5 brief Phase 1 Q5 · observations.md #151 pattern env-declare-discipline. Bundle into one PR (mechanical consumer migration · single narrative · ~10 file touch · ~10 line changes).~~ **DONE 2026-04-30**:`LOG_LEVEL` is now declared in `config/env.ts`, server `NODE_ENV/LOG_LEVEL` consumers read `env.X`, and `packages/server/src/test/setup-env.ts` gives Vitest deterministic defaults so high-fanout logger imports do not depend on the caller shell. See observation #199.
 
 ## V5.0.1 Housekeeping(A2 voice path drift reconcile · 2026-04-24)
 

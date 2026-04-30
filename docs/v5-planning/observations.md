@@ -3735,3 +3735,39 @@ Three-view ratify:
   changed; the PR only removes duplicate type declarations and one inline cast.
 - CCL: one tiny helper plus mechanical imports. It improves future page
   consistency without adding shared-package build/API surface.
+
+### #199 · Env consumer migration needs a test boundary before touching logger
+
+**Type**:backend config discipline / env-declare-discipline closure
+**Date**:2026-04-30
+**Status**:closed by `LOG_LEVEL` schema + server Vitest setup env defaults
+
+Observation #151 recorded the remaining `process.env.NODE_ENV` / `LOG_LEVEL`
+consumer bypasses after A5. The risky part was not `db.ts`, `csrf.ts`, or
+`rateLimiter.ts`; it was `lib/logger.ts`. Logger is a high-fanout import used by
+socket handlers, services, routes, and some pure tests. A naive `logger.ts →
+env.ts` import would make unrelated logger consumers trigger Zod env validation
+at module load, binding pure tests to caller shell state.
+
+Fix pattern:
+
+- Add `LOG_LEVEL` to `packages/server/src/config/env.ts` as
+  `debug | info | warn | error`, defaulting to `info`.
+- Add `packages/server/src/test/setup-env.ts` and wire it via
+  `packages/server/vitest.config.ts` so Vitest always has deterministic
+  `NODE_ENV`, `DATABASE_URL`, `JWT_SECRET`, and `LOG_LEVEL` before module
+  imports.
+- Migrate `logger.ts`, `sentry.ts`, `config/db.ts`, `middleware/csrf.ts`, and
+  `middleware/rateLimiter.ts` from direct `process.env.NODE_ENV/LOG_LEVEL`
+  reads to `env.X`.
+- Keep `process.env` reads inside `env.ts`, `config/secrets.ts`, and test setup
+  as boundary reads rather than consumer bypasses.
+
+Three-view ratify:
+
+- Karpathy: centralize config once, but add the missing test boundary before
+  touching the high-fanout logger.
+- Gemini: `LOG_LEVEL` now has schema validation instead of an unchecked cast;
+  tests no longer depend on whichever shell env happens to launch Vitest.
+- CCL: one small backend PR with mechanical consumers plus focused server
+  typecheck/tests, rather than mixing this with unrelated config cleanup.
