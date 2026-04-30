@@ -393,8 +393,8 @@ From observations #075-#093 + prior Task 17b backlog:
 | `claude-self-check-checklist-v2.md` | v2.1(11 rules · Pattern H 规则 10/11 enforced)| PR #60 · 2026-04-19 |
 | `field-naming-glossary.md` | Event Naming section · Task 30a PR cleanup applied · L220-221 phantom `v5:mb:chat:event` / `v5:mb:diff:event` 替换为真实 `behavior:batch`(`event.type=...`)dispatch rows · 新增 file / edit-session rows | Task 30a PR · 2026-04-19 |
 | `cross-task-shared-extension-backlog.md` | Cluster fix sprint closed · Task 30 split into 30a(this PR)+ 30b(client edit_session emit follow-up) | 2026-04-19 |
-| `CI_KNOWN_RED.md` | e2e + prompt-regression baselines · 5+ merges red · **V5.0 release gate requires green-up** | 2026-04-19 |
-| `v5-signal-production-coverage.md` | 41/47 = 87.2%(post-Task-27)| 2026-04-19 |
+| `CI_KNOWN_RED.md` | Empty known-red list; docker/e2e/prompt-regression green-up closed. Embedded signal production section now marks the 2026-04-18 `35 failing` audit as historical only and points release judgment to Cold Start obs #171 + Layer 2 parity risk #172. | 2026-04-30 |
+| `v5-signal-production-coverage.md` | Historical baseline audit; current runtime catalog is 48 signals and Cold Start real-session gate closed with 0 missing / 0 null per obs #171. | 2026-04-30 |
 
 **Pattern C #5 self-pollution**(#077):glossary 自身 Event Naming 小节有 Claude 写的 `v5:mb:behavior:batch` 错误前缀。Task 30 brief dispatch 前需先修 glossary(Backend 可 squash 进 Task 30 PR,或单独 5-min docs PR)。
 

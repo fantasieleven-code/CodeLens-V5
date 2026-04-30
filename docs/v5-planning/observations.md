@@ -4122,3 +4122,40 @@ Three-view ratify:
   future drift between candidate/admin clients.
 - CCL: #209 already made the frontend tolerant, so this backend-only PR can be
   small and safe while closing the backlog item rather than deferring it again.
+
+### #211 · Release-readiness ledger must not preserve stale blockers as current truth
+
+**Type**:release governance / documentation drift / V5.0 launch readiness
+**Date**:2026-04-30
+**Status**:closed by reconciling `CI_KNOWN_RED.md` and the shared-extension backlog
+
+The release inventory found a stale contradiction in `CI_KNOWN_RED.md`: the top
+of the file correctly said the current known-red list was empty, but the lower
+V5.0 Signal Production Gap section still described the 2026-04-18 audit as a
+current `35 failing` / `Critical-Release-Blocker` state. That was true before
+the Cluster sprint and Cold Start gate, but false after Tasks 22-30 and the
+real-session validation. Keeping both statements in current tense makes release
+judgment non-deterministic and can cause a future reviewer to block on a
+resolved historical gap.
+
+Fix pattern:
+
+- Keep `v5-signal-production-coverage.md` as historical baseline evidence.
+- Update `CI_KNOWN_RED.md` so the signal-production section is explicitly
+  superseded/closed, with current truth pointing to 48 runtime signals and Cold
+  Start observation #171.
+- Name the remaining launch-quality target precisely as observation #172
+  Layer 2 canonical module content parity, instead of reviving the old
+  Cluster A/B/C/D wiring blocker.
+- Update `cross-task-shared-extension-backlog.md` doc-status rows so the docs
+  index no longer advertises 41/47 or CI red as current release state.
+
+Three-view ratify:
+
+- Karpathy: a release ledger needs one current truth. Historical audits stay
+  useful only when clearly labeled as historical.
+- Gemini: stale `Critical-Release-Blocker` wording is a false positive risk for
+  go/no-go decisions; explicit supersession prevents cargo-cult blocking.
+- CCL: docs-only PR, no runtime blast radius, and it clears the path to focus
+  on the real remaining product risk (#172) instead of re-litigating closed
+  Cluster work.
