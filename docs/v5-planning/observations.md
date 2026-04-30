@@ -4089,3 +4089,36 @@ Three-view ratify:
   spots; nested details are preserved instead of being collapsed to status text.
 - CCL: a client-only PR unblocks backend middleware unification while keeping
   AdminGuard logout behavior and report-not-ready UI stable.
+
+### #210 · Admin/org auth middleware should emit AppError envelopes
+
+**Type**:middleware consistency / error envelope hardening / V5.0.5 housekeeping
+**Date**:2026-04-30
+**Status**:closed by routing admin/org guard failures through `next(AppError)`
+
+After #209, the frontend admin API boundary could parse both nested AppError
+and legacy flat guard envelopes. That removed the blocker for normalizing the
+remaining backend auth middleware. Before this patch, `requireAdmin`,
+`requireOrg`, and `requireOrgOwner` still short-circuited with
+`res.status().json({ error: string })`, while `requireCandidate` and most route
+handlers already used `AuthenticationError` / `AuthorizationError` through the
+global `errorHandler`.
+
+Fix pattern:
+
+- Replace direct response writes in `requireAdmin`, `requireOrg`, and
+  `requireOrgOwner` with `next(new AuthenticationError(...))` or
+  `next(new AuthorizationError(...))`.
+- Preserve success-path behavior: valid admin/org tokens still set `req.auth`
+  and `req.orgId`.
+- Add middleware tests proving 401/403 paths no longer call `res.status()` /
+  `res.json()` directly and instead pass AppError subclasses to `next()`.
+
+Three-view ratify:
+
+- Karpathy: one error path for all auth guards is simpler than maintaining two
+  envelope formats at the server boundary.
+- Gemini: nested AppError envelopes preserve machine-readable `code` and avoid
+  future drift between candidate/admin clients.
+- CCL: #209 already made the frontend tolerant, so this backend-only PR can be
+  small and safe while closing the backlog item rather than deferring it again.
