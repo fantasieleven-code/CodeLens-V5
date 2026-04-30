@@ -1,7 +1,8 @@
 import rateLimit from 'express-rate-limit';
 import { RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX_REQUESTS } from '@codelens-v5/shared';
+import { env } from '../config/env.js';
 
-const isTest = process.env.NODE_ENV === 'test';
+const isTest = env.NODE_ENV === 'test';
 
 export const apiLimiter = rateLimit({
   windowMs: RATE_LIMIT_WINDOW_MS,

@@ -1,3 +1,5 @@
+import { env } from '../config/env.js';
+
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const LOG_LEVELS: Record<LogLevel, number> = {
@@ -7,8 +9,8 @@ const LOG_LEVELS: Record<LogLevel, number> = {
   error: 3,
 };
 
-const currentLevel = (process.env.LOG_LEVEL as LogLevel) || 'info';
-const isProduction = process.env.NODE_ENV === 'production';
+const currentLevel = env.LOG_LEVEL;
+const isProduction = env.NODE_ENV === 'production';
 
 interface LogEntry {
   timestamp: string;

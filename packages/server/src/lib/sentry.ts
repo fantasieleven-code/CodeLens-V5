@@ -26,7 +26,7 @@ export async function initSentry(): Promise<void> {
     _sentry.init({
       dsn,
       environment: env.SENTRY_ENVIRONMENT,
-      tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.2 : 1.0,
+      tracesSampleRate: env.NODE_ENV === 'production' ? 0.2 : 1.0,
       beforeSend(event: Record<string, unknown>) {
         // Scrub sensitive headers
         const req = event.request as Record<string, unknown> | undefined;

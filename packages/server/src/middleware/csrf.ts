@@ -16,6 +16,7 @@
 
 import { randomBytes } from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
+import { env } from '../config/env.js';
 
 const CSRF_COOKIE = 'csrf_token';
 const CSRF_HEADER = 'x-csrf-token';
@@ -36,7 +37,7 @@ export function csrfTokenMiddleware(req: Request, res: Response, next: NextFunct
     const token = randomBytes(TOKEN_LENGTH).toString('hex');
     res.cookie(CSRF_COOKIE, token, {
       httpOnly: false, // Client JS needs to read it for double-submit
-      secure: process.env.NODE_ENV === 'production',
+      secure: env.NODE_ENV === 'production',
       sameSite: 'strict',
       path: '/',
       maxAge: 8 * 60 * 60 * 1000, // 8 hours (match admin JWT expiry)
@@ -53,7 +54,7 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
   }
 
   // Skip CSRF in test environment (E2E tests use programmatic API calls)
-  if (process.env.NODE_ENV === 'test') {
+  if (env.NODE_ENV === 'test') {
     return next();
   }
 
