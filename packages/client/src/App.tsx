@@ -8,7 +8,7 @@
  *                         Frontend); sessionToken ≡ sessionId
  *   /candidate/self-view/:sessionId/:privateToken → candidate post-exam
  *                         self-view (F-A10-lite); URL-as-auth, NO Guard
- *   /report/:sessionId  → finished report (Task 3: demo fixtures only)
+ *   /report/:sessionId  → demo report fixture preview only
  *   /login              → admin login (Task 12 Layer 2)
  *   /admin/*            → recruiter tools, fenced by AdminGuard
  *   /share/report/:token → public report share link (stub)

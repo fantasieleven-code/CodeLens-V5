@@ -4,14 +4,15 @@
  * Shows a "completion receipt" with:
  *  - Summary stats (duration, modules done, MC probe rounds)
  *  - Per-module completion status with MB detail (pass rate)
- *  - Next-steps timeline (report → recruiter review → notification)
+ *  - Next-steps timeline (scoring → recruiter review → candidate self-view link)
  *  - Session ID for traceability
  *
- * No scores, grades, or dimension data — those are recruiter-only.
+ * No scores, grades, or dimension data — company-facing reports stay in Admin,
+ * and candidate-facing capability summaries are delivered through the private
+ * self-view link minted for the session.
  */
 
 import React, { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import type { V5ModuleKey, V5Submissions, V5MBSubmission } from '@codelens-v5/shared';
 import { useSessionStore } from '../stores/session.store.js';
 import { useModuleStore } from '../stores/module.store.js';
@@ -44,7 +45,6 @@ export const CompletePage: React.FC = () => {
   const timer = useSessionStore((s) => s.timer);
   const submissions = useSessionStore((s) => s.submissions);
   const moduleOrder = useModuleStore((s) => s.moduleOrder);
-  const navigate = useNavigate();
 
   const stats = useMemo(() => {
     const elapsedMs = timer?.elapsedMs ?? 0;
@@ -130,18 +130,18 @@ export const CompletePage: React.FC = () => {
             <TimelineItem
               color={colors.green}
               title="报告生成"
-              desc="AI 正在分析你的作答，从 6 个维度生成评估报告。大约需要 2 分钟。"
+              desc="系统正在分析你的作答，从 6 个维度生成公司评估报告和候选人能力摘要。大约需要 2 分钟。"
               isFirst
             />
             <TimelineItem
               color={colors.mauve}
               title="招聘方审核"
-              desc="招聘团队将在 3 个工作日内审核你的评估报告。"
+              desc="招聘团队会看到完整评估报告，并在 3 个工作日内完成审核。"
             />
             <TimelineItem
               color={colors.overlay1}
-              title="结果通知"
-              desc="无论结果如何，招聘方都会与你联系。"
+              title="候选人能力摘要"
+              desc="招聘方会提供你的 private self-view 链接，用于查看不含 grade、composite 或原始信号的能力画像。"
               isLast
             />
           </div>
@@ -149,19 +149,12 @@ export const CompletePage: React.FC = () => {
 
         {/* ── Footer ── */}
         <div style={styles.footer}>
-          {sessionId && (
-            <button
-              type="button"
-              data-testid="complete-view-report-btn"
-              onClick={() => navigate(`/report/${sessionId}`)}
-              style={styles.reportBtn}
-            >
-              查看报告
-            </button>
-          )}
           <span style={styles.sessionId}>Session {shortId}</span>
           <p style={styles.footerText}>
-            所有数据已安全存储，仅向招聘团队展示。
+            完整评估报告仅向招聘团队展示。
+          </p>
+          <p style={styles.footerText} data-testid="complete-self-view-note">
+            你可通过招聘方提供的 private self-view 链接查看自己的能力摘要。
           </p>
           <p style={styles.footerText}>
             如有疑问，请直接联系你的招聘联系人。
@@ -372,18 +365,6 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 6,
     marginTop: 8,
     textAlign: 'center' as const,
-  },
-  reportBtn: {
-    padding: `${spacing.sm} ${spacing.xl}`,
-    backgroundColor: colors.blue,
-    border: 'none',
-    borderRadius: radii.md,
-    color: colors.base,
-    fontSize: fontSizes.sm,
-    fontWeight: fontWeights.semibold,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    marginBottom: spacing.md,
   },
   sessionId: {
     fontSize: fontSizes.sm,
