@@ -35,13 +35,11 @@ import {
   type GoldenPathDriverFixture,
 } from './helpers/golden-path-driver.js';
 
-// Task 17 · 4 grade fixtures (naming note · max-c-grade.ts file retained V4
-// naming · actual expectations put Max in 'D' bucket · V5.0.5 housekeeping
-// brief will rename file + export symbol)
+// Task 17 · 4 grade fixtures (Liam S · Steve A · Emma B · Max D).
 import { liamSGradeFixture } from '../packages/server/src/tests/fixtures/golden-path/liam-s-grade.js';
 import { steveAGradeFixture } from '../packages/server/src/tests/fixtures/golden-path/steve-a-grade.js';
 import { emmaBGradeFixture } from '../packages/server/src/tests/fixtures/golden-path/emma-b-grade.js';
-import { maxCGradeFixture } from '../packages/server/src/tests/fixtures/golden-path/max-c-grade.js';
+import { maxDGradeFixture } from '../packages/server/src/tests/fixtures/golden-path/max-d-grade.js';
 
 // Task 17 expectations · Record<'liam'|'steve'|'emma'|'max', FixtureExpectation>
 import {
@@ -240,15 +238,11 @@ test.describe('Golden Path · Emma B-grade', () => {
 test.describe('Golden Path · Max D-grade', () => {
   test.setTimeout(300_000);
 
-  // Note · fixture file is `max-c-grade.ts` (V4-era naming) but actual
-  // expectations bucket Max in 'D' grade per Task A1 recalibration
-  // (metacognition dim Dunning-Kruger anchor · composite [14,24]).
-  // File rename V5.0.5 housekeeping.
   test('completes full flow and matches max expectations on admin report', async ({
     page,
   }) => {
     const fixture: GoldenPathDriverFixture = {
-      ...maxCGradeFixture,
+      ...maxDGradeFixture,
       grade: 'D',
       candidate: MAX_CANDIDATE,
       examId: CANONICAL_EXAM_ID,

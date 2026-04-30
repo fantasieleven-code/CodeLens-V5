@@ -4,7 +4,7 @@
  * Asserts the 45 non-LLM signals (48 registered − 3 in
  * `NON_DETERMINISTIC_SIGNAL_IDS`) return deep-equal results on back-to-back
  * `computeAll` calls against identical input. The 4 Golden Path fixtures
- * (Liam S / Steve A / Emma B / Max C) drive coverage: 4 × 45 = 180 invariant
+ * (Liam S / Steve A / Emma B / Max D) drive coverage: 4 × 45 = 180 invariant
  * checks + 1 algorithm-version-format sweep + 1 A14b placeholder = 182 total.
  *
  * Determinism = no `Date.now()` / `Math.random()` / iteration-order hazards
@@ -47,7 +47,7 @@ import { EXPECTED_SIGNAL_COUNT, registerAllSignals } from '../../signals/index.j
 import { liamSGradeFixture } from '../../tests/fixtures/golden-path/liam-s-grade.js';
 import { steveAGradeFixture } from '../../tests/fixtures/golden-path/steve-a-grade.js';
 import { emmaBGradeFixture } from '../../tests/fixtures/golden-path/emma-b-grade.js';
-import { maxCGradeFixture } from '../../tests/fixtures/golden-path/max-c-grade.js';
+import { maxDGradeFixture } from '../../tests/fixtures/golden-path/max-d-grade.js';
 
 // OQ4-α helper: compare the deterministic payload; drop the `computedAt`
 // timestamp. Matches brief §5 D5 verbatim.
@@ -61,7 +61,7 @@ const FIXTURES = [
   { name: 'Liam · S-grade', input: liamSGradeFixture as SignalInput },
   { name: 'Steve · A-grade', input: steveAGradeFixture as SignalInput },
   { name: 'Emma · B-grade', input: emmaBGradeFixture as SignalInput },
-  { name: 'Max · C-grade', input: maxCGradeFixture as SignalInput },
+  { name: 'Max · D-grade', input: maxDGradeFixture as SignalInput },
 ] as const;
 
 const registry = new SignalRegistryImpl();

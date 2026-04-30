@@ -50,7 +50,7 @@ import {
 import { liamSGradeFixture } from '../fixtures/golden-path/liam-s-grade.js';
 import { steveAGradeFixture } from '../fixtures/golden-path/steve-a-grade.js';
 import { emmaBGradeFixture } from '../fixtures/golden-path/emma-b-grade.js';
-import { maxCGradeFixture } from '../fixtures/golden-path/max-c-grade.js';
+import { maxDGradeFixture } from '../fixtures/golden-path/max-d-grade.js';
 import { FIXTURE_EXPECTATIONS } from '../fixtures/golden-path/expectations.js';
 import type { V5ScoringResult } from '@codelens-v5/shared';
 import { V5_DIMENSIONS, V5_GRADE_ORDER } from '@codelens-v5/shared';
@@ -63,7 +63,7 @@ const ALL_FIXTURES = [
   { name: 'liam', fixture: liamSGradeFixture, expectation: FIXTURE_EXPECTATIONS.liam },
   { name: 'steve', fixture: steveAGradeFixture, expectation: FIXTURE_EXPECTATIONS.steve },
   { name: 'emma', fixture: emmaBGradeFixture, expectation: FIXTURE_EXPECTATIONS.emma },
-  { name: 'max', fixture: maxCGradeFixture, expectation: FIXTURE_EXPECTATIONS.max },
+  { name: 'max', fixture: maxDGradeFixture, expectation: FIXTURE_EXPECTATIONS.max },
 ] as const;
 
 describe('Golden Path — scoreSession end-to-end', () => {
