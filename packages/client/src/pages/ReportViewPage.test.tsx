@@ -42,6 +42,7 @@ describe('<ReportViewPage />', () => {
   it('renders the placeholder for an unknown sessionId', () => {
     renderAt('/report/real-session-abc');
     expect(screen.getByTestId('report-view-placeholder')).toBeInTheDocument();
+    expect(screen.getByText(/仅用于查看 demo 报告/)).toBeInTheDocument();
     expect(screen.queryByTestId('report-view-page')).not.toBeInTheDocument();
   });
 

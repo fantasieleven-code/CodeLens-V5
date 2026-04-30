@@ -4197,3 +4197,37 @@ Three-view ratify:
 - CCL: docs-only PR, no runtime blast radius, and it clears the path to focus
   on the real remaining product risk (#172) instead of re-litigating closed
   Cluster work.
+
+### #213 · Candidate completion page must not route to the company report
+
+**Type**:candidate UX / ethics boundary / report access control
+**Date**:2026-04-30
+**Status**:closed by removing the completion-page full-report CTA
+
+Release inventory found a real candidate-facing mismatch after the Layer 2
+ledger cleanup. `CompletePage` correctly stated that scores, grades, and
+dimension data are recruiter-only, but still rendered a `查看报告` button that
+navigated to `/report/:sessionId`. That route is still demo-fixture backed for
+unknown session IDs, so a real candidate would see a stale "backend pending"
+placeholder immediately after finishing the exam. Worse, wiring it to the real
+admin report would violate the two-audience ethics boundary: full reports are
+company-facing, while candidates receive the restricted private self-view URL.
+
+Fix pattern:
+
+- Remove `complete-view-report-btn` from the candidate completion page.
+- Update the completion timeline to say that the company receives the full
+  report and the candidate receives a private self-view capability summary.
+- Keep `/report/:sessionId` explicitly documented and copied as a demo report
+  preview route, not a production candidate/recruiter entry point.
+- Update tests so the candidate terminal page asserts absence of the full-report
+  CTA and presence of the private self-view note.
+
+Three-view ratify:
+
+- Karpathy: one route per audience is simpler and safer. Admin detail owns the
+  full report; candidate self-view owns the candidate-facing summary.
+- Gemini: do not "fix" this by fetching the admin report from a candidate page.
+  That would leak grade/composite/signal evidence across the ethics boundary.
+- CCL: small client-only PR removes a broken CTA and aligns copy/tests without
+  touching scoring, auth, or the already-green Cold Start path.

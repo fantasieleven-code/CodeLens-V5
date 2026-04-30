@@ -6,7 +6,7 @@
  *   - MB detail shows pass-rate when MB submitted
  *   - session id short tag renders
  *   - timer elapsed converts to minutes (floor to 1 min)
- *   - "查看报告" button present when sessionId exists
+ *   - no full-report CTA is exposed to candidates
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -111,13 +111,16 @@ describe('<CompletePage />', () => {
     expect(screen.getByText(/Session --------/)).toBeInTheDocument();
   });
 
-  it('exposes complete-view-report-btn when sessionId exists', () => {
+  it('does not expose a full-report CTA when sessionId exists', () => {
     useSessionStore.setState({ sessionId: 'abcdef1234567890' });
     renderCompletePage();
-    expect(screen.getByTestId('complete-view-report-btn')).toBeInTheDocument();
+    expect(screen.queryByTestId('complete-view-report-btn')).not.toBeInTheDocument();
+    expect(screen.getByTestId('complete-self-view-note')).toHaveTextContent(
+      'private self-view',
+    );
   });
 
-  it('hides complete-view-report-btn when sessionId is null', () => {
+  it('does not expose a full-report CTA when sessionId is null', () => {
     renderCompletePage();
     expect(screen.queryByTestId('complete-view-report-btn')).not.toBeInTheDocument();
   });

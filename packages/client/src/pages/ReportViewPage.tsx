@@ -1,11 +1,12 @@
 /**
  * ReportViewPage — /report/:sessionId
  *
- * Candidate / recruiter entry-point into a finished report.
+ * Demo report preview route.
  *
- * Task 3 scope: we don't yet have a backend, so sessionId maps to one of
- * three demo fixtures. Non-demo sessionIds show a "real pipeline pending"
- * placeholder. Task 9+ will swap the fixture map for a real fetch.
+ * Real company-facing reports render inside AdminSessionDetailPage via
+ * `GET /api/admin/sessions/:sessionId/report`. Candidate-facing capability
+ * summaries render through `/candidate/self-view/:sessionId/:privateToken`.
+ * This route intentionally stays fixture-backed for demo / design review.
  *
  * - demo-s-plus → sPlus-architect fixture
  * - demo-a      → a-fullstack-boundary fixture
@@ -85,7 +86,7 @@ export const ReportViewPage: React.FC = () => {
         <div style={styles.placeholderCard}>
           <h1 style={styles.placeholderTitle}>报告暂未生成</h1>
           <p style={styles.placeholderBody}>
-            此 session 尚未与后端对接。正式的评分管道完成后(Task 9+),本页会展示真实报告。
+            此页面仅用于查看 demo 报告。真实公司评估报告请从 Admin 会话详情进入;候选人能力摘要请使用 private self-view 链接。
           </p>
           <p style={styles.placeholderBody}>
             开发期可访问 demo 报告:<code>/report/demo-s-plus</code> ·{' '}
