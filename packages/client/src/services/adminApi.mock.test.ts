@@ -44,6 +44,21 @@ describe('adminApi mock', () => {
     await expect(__mockAdminApi__.getSession('nope')).rejects.toThrow(/not found/);
   });
 
+  it('getSessionLinks returns deterministic exam and self-view links', async () => {
+    const session = ADMIN_SESSIONS.find((s) => s.shareableLink);
+    if (!session) throw new Error('fixture invariant broken');
+
+    const links = await __mockAdminApi__.getSessionLinks(session.id);
+
+    expect(links).toEqual({
+      sessionId: session.id,
+      shareableLink: session.shareableLink,
+      candidateToken: `mock-token-${session.id}`,
+      candidateSelfViewToken: `mock-selfview-${session.id}`,
+      selfViewUrl: `/candidate/self-view/${session.id}/mock-selfview-${session.id}`,
+    });
+  });
+
   it('getSessionReport returns a ReportViewModel for completed sessions', async () => {
     const completed = ADMIN_SESSIONS.find((s) => s.status === 'COMPLETED');
     if (!completed) throw new Error('fixture invariant broken');

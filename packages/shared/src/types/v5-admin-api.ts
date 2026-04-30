@@ -3,9 +3,9 @@
  *
  * Migrated verbatim from `packages/client/src/services/adminApi.types.ts`
  * Frontend Task 10 shim. Backend Task 15b and Frontend Task 12 Layer 2 both
- * import from here as the single source of truth for the 7 admin endpoints.
+ * import from here as the single source of truth for the admin endpoints.
  *
- * 7 endpoints covered (Phase 1 Q3 locked, Steve adjudicated option c):
+ * Endpoints covered (Phase 1 Q3 locked, Steve adjudicated option c):
  *   1. POST /admin/sessions/create         → V5AdminSessionCreateResponse
  *   2. GET  /admin/sessions                → V5AdminSessionList
  *   3. GET  /admin/sessions/:sessionId     → V5AdminSession
@@ -13,6 +13,8 @@
  *   5. GET  /admin/exam-instances          → V5AdminExamInstance[]
  *   6. GET  /admin/suites                  → V5AdminSuite[]
  *   7. GET  /admin/stats/overview          → V5AdminStatsOverview
+ *   8. GET  /admin/sessions/:id/profile    → V5AdminSessionProfile
+ *   9. GET  /admin/sessions/:id/links      → V5AdminSessionLinksResponse
  *
  * Field shapes are frozen against the Frontend shim (Pattern F defense —
  * no rename, no "improve"). Task 12 Layer 2 migrates Frontend imports from
@@ -162,6 +164,21 @@ export interface V5AdminSessionCreateResponse {
    * Returned alongside `shareableLink`; the two links are intentionally
    * separate because they authorize different audiences.
    */
+  selfViewUrl: string;
+}
+
+// ── /admin/sessions/:sessionId/links ────────────────────────────────
+
+/**
+ * Idempotent read-side for links minted by `POST /admin/sessions/create`.
+ * This endpoint never re-mints tokens; missing token columns indicate legacy
+ * or corrupted session data and should fail closed server-side.
+ */
+export interface V5AdminSessionLinksResponse {
+  sessionId: string;
+  shareableLink: string;
+  candidateToken: string;
+  candidateSelfViewToken: string;
   selfViewUrl: string;
 }
 

@@ -83,6 +83,7 @@ import {
   createAdminSession,
   listAdminSessions,
   getAdminSession,
+  getAdminSessionLinks,
   getAdminSessionReport,
   getAdminSessionProfile,
   listAdminExamInstances,
@@ -368,6 +369,75 @@ describe('GET /admin/sessions/:sessionId', () => {
     const next = makeNext();
     await getAdminSession(req, makeRes().res, next);
     expect((next as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0].statusCode).toBe(403);
+  });
+});
+
+// ────────────────────────── endpoint 9: session links ──────────────────────────
+
+describe('GET /admin/sessions/:sessionId/links', () => {
+  it('returns minted exam + self-view links without re-minting tokens', async () => {
+    sessionFindUnique.mockResolvedValue({
+      id: 'sess-1',
+      orgId: 'org-1',
+      candidateToken: 'candidate-token-xyz',
+      candidateSelfViewToken: 'self-view-token-xyz',
+    });
+    const req = makeReq({ params: { sessionId: 'sess-1' } });
+    const { res, json } = makeRes();
+
+    await getAdminSessionLinks(req, res, makeNext());
+
+    expect(sessionFindUnique).toHaveBeenCalledWith({
+      where: { id: 'sess-1' },
+      select: {
+        id: true,
+        orgId: true,
+        candidateToken: true,
+        candidateSelfViewToken: true,
+      },
+    });
+    expect(sessionCreate).not.toHaveBeenCalled();
+    expect(json.mock.calls[0][0]).toEqual({
+      sessionId: 'sess-1',
+      shareableLink: 'https://app.test/exam/sess-1',
+      candidateToken: 'candidate-token-xyz',
+      candidateSelfViewToken: 'self-view-token-xyz',
+      selfViewUrl:
+        'https://app.test/candidate/self-view/sess-1/self-view-token-xyz',
+    });
+  });
+
+  it('409s when a legacy session has no minted link tokens', async () => {
+    sessionFindUnique.mockResolvedValue({
+      id: 'sess-legacy',
+      orgId: 'org-1',
+      candidateToken: null,
+      candidateSelfViewToken: 'self-view-token-xyz',
+    });
+    const req = makeReq({ params: { sessionId: 'sess-legacy' } });
+    const next = makeNext();
+
+    await getAdminSessionLinks(req, makeRes().res, next);
+
+    const err = (next as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(err.statusCode).toBe(409);
+    expect(err.message).toContain('not minted');
+  });
+
+  it('403s when session belongs to a different org', async () => {
+    sessionFindUnique.mockResolvedValue({
+      id: 'sess-1',
+      orgId: 'org-OTHER',
+      candidateToken: 'candidate-token-xyz',
+      candidateSelfViewToken: 'self-view-token-xyz',
+    });
+    const req = makeReq({ params: { sessionId: 'sess-1' } });
+    const next = makeNext();
+
+    await getAdminSessionLinks(req, makeRes().res, next);
+
+    const err = (next as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(err.statusCode).toBe(403);
   });
 });
 

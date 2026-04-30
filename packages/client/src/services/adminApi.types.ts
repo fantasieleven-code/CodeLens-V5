@@ -1,10 +1,10 @@
 /**
  * Admin API client-only shim types — Task 12 Layer 2 slim-down.
  *
- * The 10 server-contract types (V5AdminStatsOverview, V5AdminExamInstance,
+ * The server-contract types (V5AdminStatsOverview, V5AdminExamInstance,
  * V5AdminSuite, V5AdminSession, V5AdminListSessionsParams, V5AdminSessionList,
- * V5AdminSessionCreateRequest, V5AdminSessionCreateResponse, V5AdminSessionReport,
- * V5AdminCandidateSnapshot) were migrated to
+ * V5AdminSessionCreateRequest, V5AdminSessionCreateResponse, V5AdminSessionLinksResponse,
+ * V5AdminSessionReport, V5AdminCandidateSnapshot) live in
  * `packages/shared/src/types/v5-admin-api.ts` under Backend Task 15a and are
  * imported directly from `@codelens-v5/shared` by Frontend admin code.
  *
