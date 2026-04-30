@@ -13,11 +13,7 @@
  */
 
 import type { CandidateApiErrorCode } from '../../services/candidateApi.js';
-
-export interface BilingualText {
-  readonly zh: string;
-  readonly en: string;
-}
+import type { BilingualText } from '../../lib/bilingual.js';
 
 export interface ConsentSection {
   readonly id: 'privacy' | 'scope' | 'retention' | 'rights';

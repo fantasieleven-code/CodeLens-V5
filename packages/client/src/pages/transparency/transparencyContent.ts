@@ -14,15 +14,10 @@
  *   · professional + sympathetic, avoids legal-contract register
  */
 
-export interface BilingualText {
-  readonly zh: string;
-  readonly en: string;
-}
-
-export interface BilingualParagraphs {
-  readonly zh: readonly string[];
-  readonly en: readonly string[];
-}
+import type {
+  BilingualParagraphs,
+  BilingualText,
+} from '../../lib/bilingual.js';
 
 export type TransparencySectionId =
   | 'introduction'

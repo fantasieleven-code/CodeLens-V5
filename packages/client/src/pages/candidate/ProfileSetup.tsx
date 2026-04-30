@@ -12,7 +12,8 @@ import {
   submitProfile,
   CandidateApiError,
 } from '../../services/candidateApi.js';
-import { PROFILE_CONTENT, type BilingualText } from './profileContent.js';
+import { PROFILE_CONTENT } from './profileContent.js';
+import type { BilingualText } from '../../lib/bilingual.js';
 import {
   colors,
   fontSizes,
