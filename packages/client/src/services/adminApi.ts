@@ -44,6 +44,11 @@ declare global {
 
 function shouldUseMock(): boolean {
   const env = (import.meta.env ?? {}) as Record<string, string | undefined>;
+  // Component tests are fixture-backed by default. A developer shell can
+  // legitimately export VITE_API_URL for manual real-backend smoke work, but
+  // letting packages/client/.env leak into Vitest flips admin pages to real
+  // fetch and makes local full client tests depend on a live server.
+  if (env.MODE === 'test') return true;
   if (env.VITE_ADMIN_API_MOCK === 'true') return true;
   if (env.VITE_ADMIN_API_MOCK === 'false') return false;
   return !env.VITE_API_URL;
