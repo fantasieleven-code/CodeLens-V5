@@ -1,5 +1,5 @@
 /**
- * Task 17 — Golden Path fixture: Max (target grade: C or D).
+ * Task 17 — Golden Path fixture: Max (target grade: D).
  *
  * Surface / wrong / minimal answers. Mirrors the Max archetype in the
  * module signal tests: every signal should be near zero.
@@ -177,8 +177,8 @@ const submissions: V5Submissions = {
   ],
 };
 
-export const maxCGradeFixture: ScoreSessionInput = {
-  sessionId: 'gp-max-c',
+export const maxDGradeFixture: ScoreSessionInput = {
+  sessionId: 'gp-max-d',
   suiteId: 'full_stack',
   submissions,
   examData: GOLDEN_PATH_EXAM_DATA,

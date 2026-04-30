@@ -675,17 +675,18 @@ observation #193.
 
 **Priority**: Low · shared source hygiene · current inline const works · V5.0.5 cleanup。
 
-### max-c-grade.ts fixture rename ('D' grade alignment)
+### max-c-grade.ts fixture rename ('D' grade alignment) — DONE 2026-04-30
 
 **Origin**: Task 17 · V4-era naming · fixture file `max-c-grade.ts` + export `maxCGradeFixture` · actual expectations bucket Max in 'D' grade per Task A1 recalibration。
 
 **V5.0.5 scope** (micro-PR · all-touching rename):
-- `max-c-grade.ts` → `max-d-grade.ts`
-- `maxCGradeFixture` export → `maxDGradeFixture`
-- B3 spec import + describe name update
-- In-process `golden-path.test.ts` import update
+- ~~`max-c-grade.ts` → `max-d-grade.ts`~~ **DONE**
+- ~~`maxCGradeFixture` export → `maxDGradeFixture`~~ **DONE**
+- ~~B3 spec import + describe name update~~ **DONE**
+- ~~In-process `golden-path.test.ts` import update~~ **DONE**
 
-**Priority**: Low · cosmetic alignment · current spec comment notes discrepancy · V5.0.5 hygiene。
+Closure: pure naming alignment only. No fixture data, scoring expectations,
+driver behavior, or grade bands changed.
 
 ### Rule #9 git worktree infra
 

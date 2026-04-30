@@ -3801,3 +3801,32 @@ Three-view ratify:
   looks like a supported offline test path while pointing at nonexistent files.
 - CCL: two live-file edits plus ledger closure. No runtime app code, no
   workflow behavior, and no scoring/test expectation changes.
+
+### #201 · Max Golden Path fixture name should match its calibrated D-grade role
+
+**Type**:fixture naming hygiene / Golden Path clarity / V5.0.5 housekeeping
+**Date**:2026-04-30
+**Status**:closed by `max-c-grade.ts` / `maxCGradeFixture` rename
+
+Max's Golden Path fixture had already been recalibrated into the D-grade
+expectation bucket, but the live file/export still carried V4-era C-grade
+naming. That forced `e2e/golden-path.spec.ts` to carry an explanatory comment
+for a discrepancy that no longer had product meaning.
+
+Fix pattern:
+
+- Rename `max-c-grade.ts` to `max-d-grade.ts`.
+- Rename `maxCGradeFixture` to `maxDGradeFixture`.
+- Update live imports in the e2e Golden Path spec, in-process Golden Path
+  scoring test, pure-rule reliability gate, and verification script.
+- Keep fixture contents, grade bands, scoring logic, and driver behavior
+  unchanged.
+
+Three-view ratify:
+
+- Karpathy: names should encode the current boundary. Max is the calibrated
+  D-grade archetype; retaining C-grade naming only preserved obsolete lineage.
+- Gemini: historical docs still explain the recalibration, while live code no
+  longer needs comments warning that the name is wrong.
+- CCL: all-touching rename with targeted Golden Path and reliability tests.
+  No production code path or scoring threshold changes.

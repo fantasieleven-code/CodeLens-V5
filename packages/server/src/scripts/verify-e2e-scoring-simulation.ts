@@ -42,14 +42,14 @@ import { scoreSession } from '../services/scoring-orchestrator.service.js';
 import { liamSGradeFixture } from '../tests/fixtures/golden-path/liam-s-grade.js';
 import { steveAGradeFixture } from '../tests/fixtures/golden-path/steve-a-grade.js';
 import { emmaBGradeFixture } from '../tests/fixtures/golden-path/emma-b-grade.js';
-import { maxCGradeFixture } from '../tests/fixtures/golden-path/max-c-grade.js';
+import { maxDGradeFixture } from '../tests/fixtures/golden-path/max-d-grade.js';
 import { FIXTURE_EXPECTATIONS } from '../tests/fixtures/golden-path/expectations.js';
 
 const FIXTURES = [
   { key: 'liam', fixture: liamSGradeFixture, expectation: FIXTURE_EXPECTATIONS.liam },
   { key: 'steve', fixture: steveAGradeFixture, expectation: FIXTURE_EXPECTATIONS.steve },
   { key: 'emma', fixture: emmaBGradeFixture, expectation: FIXTURE_EXPECTATIONS.emma },
-  { key: 'max', fixture: maxCGradeFixture, expectation: FIXTURE_EXPECTATIONS.max },
+  { key: 'max', fixture: maxDGradeFixture, expectation: FIXTURE_EXPECTATIONS.max },
 ] as const;
 
 async function main(): Promise<void> {
