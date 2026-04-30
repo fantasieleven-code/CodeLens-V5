@@ -3830,3 +3830,33 @@ Three-view ratify:
   longer needs comments warning that the name is wrong.
 - CCL: all-touching rename with targeted Golden Path and reliability tests.
   No production code path or scoring threshold changes.
+
+### #202 · Candidate AppError details should survive the client API boundary
+
+**Type**:client error-envelope fidelity / candidate API / V5.0.5 housekeeping
+**Date**:2026-04-30
+**Status**:closed by adding `CandidateApiError.details`
+
+Backend AppError envelopes already support nested
+`{ error: { code, message, details? } }`, but the candidate client parser only
+preserved `code` and `message`. That made field-level 422 payloads unavailable
+to downstream UI even though the transport contract allowed them.
+
+Fix pattern:
+
+- Add `readonly details?: unknown` to `CandidateApiError`.
+- Preserve nested AppError `details` in `parseErrorBody`.
+- Pass `details` through `submitConsent`, `submitProfile`, and
+  `fetchCandidateSelfView`.
+- Keep legacy flat `{ error: string }`, non-JSON fallback, and network errors
+  unchanged.
+
+Three-view ratify:
+
+- Karpathy: keep the existing error boundary and widen it by one optional
+  field; no new error class or UI behavior branch is needed.
+- Gemini: unknown details stay `unknown`, preserving type honesty while proving
+  the 422 field-error object is not dropped.
+- CCL: one small client PR with focused parser coverage. This closes the F-A12
+  deferred assertion without touching production scoring, routing, or backend
+  middleware.
