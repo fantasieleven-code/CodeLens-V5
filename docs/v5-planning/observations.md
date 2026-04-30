@@ -3668,3 +3668,37 @@ Three-view ratify:
 - CCL: one workflow line plus ledger/observation update. The proof surface is
   main CI docker/Trivy after merge, because the docker job only runs on main
   push.
+
+### #197 · A-series frontend page shape should be a reusable template, not oral tradition
+
+**Type**:frontend process template / candidate-facing page consistency
+**Date**:2026-04-30
+**Status**:closed by `docs/v5-planning/frontend-page-shape.md`
+
+Observation #145 recorded that Consent, ProfileSetup, SelfView, and
+Transparency all converged on the same page structure: a colocated bilingual
+content module, a route-level page component using `lib/tokens`, and a
+colocated test that asserts route/DOM/ethics-floor behavior. The pattern was
+working but undocumented, which meant the next candidate-facing page would have
+to rediscover the same rules from examples.
+
+Fix pattern:
+
+- Add `docs/v5-planning/frontend-page-shape.md`.
+- Codify the `{feature}Content.ts` + `{Feature}Page.tsx` +
+  `{Feature}Page.test.tsx` triad.
+- Lock route-boundary guard naming (`ExamGuard`, `ProfileGuard`) instead of
+  broad audience naming.
+- Capture bilingual inline copy, `lib/tokens` usage, stable `data-testid`
+  anchors, route-token missing states, cancellation guards for async fetches,
+  and ethics-sensitive negative DOM assertions.
+- Include concrete PR cross-check commands.
+
+Three-view ratify:
+
+- Karpathy: extract the pattern only after four examples proved it. This is a
+  template, not a new runtime abstraction.
+- Gemini: it prevents future drift by documenting the exact constraints that
+  made the A-series pages coherent, including public-vs-candidate auth shapes.
+- CCL: doc-only, no production behavior, no test churn. It makes the next
+  frontend PR cheaper without touching current pages.
