@@ -43,6 +43,7 @@ vi.mock('../../lib/logger.js', () => ({
 
 import {
   PromptNotFoundError,
+  PromptPlaceholderError,
   PromptRegistry,
 } from '../prompt-registry.service.js';
 import { V5_PROMPT_KEYS } from '../prompt-keys.js';
@@ -122,6 +123,38 @@ describe('PromptRegistry.get', () => {
 
     mockPrisma.promptVersion.findUnique.mockResolvedValueOnce(null);
     await expect(registry.get('missing.key', 5)).rejects.toBeInstanceOf(PromptNotFoundError);
+  });
+
+  it('rejects seeded placeholder rows instead of returning TODO prompt text', async () => {
+    mockPrisma.promptVersion.findFirst.mockResolvedValueOnce({
+      id: 'row-placeholder',
+      name: 'mc.probe_engine.baseline',
+      version: 1,
+      content: 'TODO: Task 9-10 填充',
+      isActive: true,
+      metadata: { placeholder: true, seededBy: 'task-7' },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await expect(registry.get('mc.probe_engine.baseline')).rejects.toBeInstanceOf(PromptPlaceholderError);
+    expect(mockPrisma.promptVersion.findFirst).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects TODO seed content even when placeholder metadata is missing', async () => {
+    mockPrisma.promptVersion.findUnique.mockResolvedValueOnce({
+      id: 'row-placeholder',
+      name: 'md.llm_whitelist.tradeoff',
+      version: 1,
+      content: 'TODO: Task 9-10 填充',
+      isActive: true,
+      metadata: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await expect(registry.get('md.llm_whitelist.tradeoff', 1)).rejects.toBeInstanceOf(PromptPlaceholderError);
+    expect(mockPrisma.promptVersion.findUnique).toHaveBeenCalledTimes(1);
   });
 
   it('caches active reads within TTL (second call hits the cache, not Prisma)', async () => {
@@ -445,8 +478,8 @@ describe('PromptRegistry.setActive', () => {
   });
 });
 
-describe('Integration flow: seeded key → get returns placeholder', () => {
-  it('seeds all 17 keys as v1 active then get() resolves each', async () => {
+describe('Integration flow: seeded key → get fails closed until real prompt activation', () => {
+  it('seeds all 18 keys as v1 active but rejects them as usable prompt content', async () => {
     resetMocks();
 
     // In-memory table. Single active row per key (after seed).
@@ -494,17 +527,49 @@ describe('Integration flow: seeded key → get returns placeholder', () => {
     const registry = new PromptRegistry();
 
     for (const key of V5_PROMPT_KEYS) {
-      const body = await registry.get(key);
-      expect(body).toBe('TODO: Task 9-10 填充');
+      await expect(registry.get(key)).rejects.toBeInstanceOf(PromptPlaceholderError);
     }
 
-    // Each key should have been queried exactly once (cache warms after first hit).
+    // Placeholder failures are intentionally not cached, so a real prompt can
+    // become usable immediately after activation.
     expect(mockPrisma.promptVersion.findFirst).toHaveBeenCalledTimes(V5_PROMPT_KEYS.length);
+  });
 
-    // Repeating the reads should not hit Prisma again.
-    for (const key of V5_PROMPT_KEYS) {
-      await registry.get(key);
-    }
-    expect(mockPrisma.promptVersion.findFirst).toHaveBeenCalledTimes(V5_PROMPT_KEYS.length);
+  it('resolves a real active version even when an older seed placeholder exists', async () => {
+    resetMocks();
+
+    const table = new Map<string, PromptRow>();
+    const rowKey = (name: string, version: number) => `${name}::${version}`;
+
+    mockPrisma.promptVersion.findFirst.mockImplementation(async ({ where }: PromptFindFirstArgs) => {
+      const rows = Array.from(table.values())
+        .filter((r) => r.name === where.name && (where.isActive === undefined || r.isActive === where.isActive))
+        .sort((a, b) => b.version - a.version);
+      return rows[0] ?? null;
+    });
+
+    table.set(rowKey('mc.probe_engine.baseline', 1), {
+      id: 'seed',
+      name: 'mc.probe_engine.baseline',
+      version: 1,
+      content: 'TODO: Task 9-10 填充',
+      isActive: false,
+      metadata: { placeholder: true, seededBy: 'task-7' },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    table.set(rowKey('mc.probe_engine.baseline', 2), {
+      id: 'real',
+      name: 'mc.probe_engine.baseline',
+      version: 2,
+      content: 'real baseline prompt',
+      isActive: true,
+      metadata: { seededBy: 'task-11' },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const registry = new PromptRegistry();
+    await expect(registry.get('mc.probe_engine.baseline')).resolves.toBe('real baseline prompt');
   });
 });
