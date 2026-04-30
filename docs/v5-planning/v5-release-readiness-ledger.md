@@ -129,4 +129,7 @@ not test pass-rate telemetry. The fix in PR #127:
   `upload-artifact@v4` to v7 while preserving the project test runtime at
   `node-version: 20`. Main run `25119721076` proved the upgraded action pins
   plus the MB final-submit ordering fix across lint/typecheck, test, build, e2e
-  artifact upload, Docker, and Trivy.
+  artifact upload, Docker, and Trivy. Main run `25139648655` later exposed one
+  remaining Docker action-runtime warning from `docker/setup-buildx-action@v3`;
+  the follow-up CI hygiene PR upgrades that final Docker action pin to v4
+  without changing the project Node runtime.
