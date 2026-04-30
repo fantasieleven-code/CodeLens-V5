@@ -3637,3 +3637,34 @@ Three-view ratify:
   import names while historical observations still document the old lineage.
 - CCL: pure rename plus comments. No report layout, copy, routing, API, or
   scoring behavior changes.
+
+### #196 · Docker Buildx action pin was the remaining Node 20 action-runtime warning
+
+**Type**:CI maintenance / release hygiene / action-runtime deprecation cleanup
+**Date**:2026-04-30
+**Status**:closed by `docker/setup-buildx-action@v3` → `@v4`
+
+Main CI run `25139648655` after PR #131 was functionally green, but GitHub
+emitted one remaining Node.js 20 action-runtime annotation from the docker job:
+`docker/setup-buildx-action@v3`. Observation #191 had already moved first-party
+actions (`checkout`, `setup-node`, `upload-artifact`) to Node-24-compatible
+majors while preserving project `node-version: 20`; this was the second-wave
+residual action pin.
+
+Fix pattern:
+
+- Upgrade the docker job's Buildx setup step to
+  `docker/setup-buildx-action@v4`.
+- Keep `actions/setup-node` project runtime at `node-version: 20`.
+- Do not use `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`; the clean fix is the
+  maintained action major.
+
+Three-view ratify:
+
+- Karpathy: fix the boundary at the action pin. The app runtime and Docker
+  action runtime are separate concerns.
+- Gemini: this addresses the exact annotation source observed on green main CI;
+  no workflow-wide runtime override hides future stale pins.
+- CCL: one workflow line plus ledger/observation update. The proof surface is
+  main CI docker/Trivy after merge, because the docker job only runs on main
+  push.
