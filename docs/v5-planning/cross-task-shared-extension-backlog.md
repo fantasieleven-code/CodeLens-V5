@@ -520,7 +520,7 @@ Added during Task A2 (Brief #2 v3 · voice-mount · observation #155):
 
 **Session evidence**: B1 session 内 2 race episodes · first 导致 commit 错落 a2 branch(post-commit `git branch --show-current` caught · cherry-pick 恢复)· second pre-write caught 由 Rule #9 apply(pre-commit verify 显 HEAD `main` · checkout B1 前 0 mutation)。Rule #9 validated as working safety net · 不 ceremonial。
 
-### Mock config scaffold reconcile(V5.0.5)
+### Mock config scaffold reconcile(V5.0.5) — DONE 2026-04-30
 
 **来源**: Brief #7 B1 W2 Brief #INV-2 discovery 2026-04-24 · `e2e/playwright.mock.config.ts` 73 LOC shipped V5 init `c6c2417` · broken refs surface during B1 Phase 1
 
@@ -528,15 +528,18 @@ Added during Task A2 (Brief #2 v3 · voice-mount · observation #155):
 - `e2e/playwright.mock.config.ts` 73 LOC · V5 init era · V4 port scaffold · references missing:
   - `full-interview-flow.spec.ts`(spec 不存)
   - `e2e/fixtures/mock-ai-server.ts`(server 不存)
-- Root `package.json` 仍 has `test:e2e:mock` script referencing 此 config
+- Root `package.json` originally had `test:e2e:mock` script referencing 此 config; closure removed it.
 - Intent unclear · likely mock-AI interview flow for offline dev
 
-**V5.0.5 reconcile approaches**(pick one):
+**V5.0.5 reconcile approaches**:
 - α · Fix · create missing spec + mock-ai-server · complete scaffold(scope explosion · ~500+ LOC · V5.0.5 full brief)
-- β · Delete · remove config + script + refs · clean orphan(~5 LOC · safe · recommended)
+- ~~β · Delete · remove config + script + refs · clean orphan(~5 LOC · safe · recommended)~~ **DONE**: removed the orphan `e2e/playwright.mock.config.ts` and root `test:e2e:mock` script. No live CI or local documented gate consumes this path; current e2e entry points are root smoke and `e2e/playwright.golden-path.config.ts`.
 - γ · Defer · document + leave · revisit V5.2 if mock-AI flow revived
 
-**Decision deferred V5.0.5 housekeeping brief**。
+Closure: choose β. The config referenced `full-interview-flow.spec.ts` and
+`e2e/fixtures/mock-ai-server.ts`, neither of which exists. Keeping the script
+advertised a broken local gate; implementing α would create a new mock-AI
+product surface rather than reconciling an orphan scaffold.
 
 ## V5.0.1 Housekeeping(A3 mc-voice-chat URL doc sweep · 2026-04-24)
 
@@ -592,9 +595,9 @@ Reference · Brief #8 B2 observation #158 Pattern F 10th validation · rule cand
 
 **Action** · closed by client dead root-socket hook deletion PR. Keep V5 module pages on direct `getSocket()` + HTTP fallback/retry where already implemented.
 
-### Mock config scaffold reconcile(重复 reference · 见 B1 V5.0.5 section · 不重复 entry)
+### Mock config scaffold reconcile(重复 reference · 见 B1 V5.0.5 section · 不重复 entry) — DONE
 
-Already captured · `e2e/playwright.mock.config.ts` broken refs(full-interview-flow.spec.ts + mock-ai-server.ts 不存)· 3 approaches α/β/γ · 决策 V5.0.5 housekeeping brief。
+Already captured · `e2e/playwright.mock.config.ts` broken refs(full-interview-flow.spec.ts + mock-ai-server.ts 不存)· closed by deleting the orphan config and root `test:e2e:mock` script.
 
 ## V5.0.1 Housekeeping brief(pre-ship consolidate · B3 post-merge draft)
 

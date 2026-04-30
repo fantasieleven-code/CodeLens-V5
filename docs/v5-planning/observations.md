@@ -3771,3 +3771,33 @@ Three-view ratify:
   tests no longer depend on whichever shell env happens to launch Vitest.
 - CCL: one small backend PR with mechanical consumers plus focused server
   typecheck/tests, rather than mixing this with unrelated config cleanup.
+
+### #200 · Broken mock E2E scaffold should be deleted, not advertised as a runnable gate
+
+**Type**:e2e hygiene / orphan scaffold cleanup / V5.0.5 housekeeping
+**Date**:2026-04-30
+**Status**:closed by removing `e2e/playwright.mock.config.ts` and `test:e2e:mock`
+
+The V5 init-era mock Playwright config advertised `npm run test:e2e:mock`, but
+the route was not runnable: it matched `full-interview-flow.spec.ts` and started
+`e2e/fixtures/mock-ai-server.ts`, and both files are absent. No CI workflow or
+current release gate consumes that config; the live e2e entry points are the
+root smoke config and `e2e/playwright.golden-path.config.ts`.
+
+Fix pattern:
+
+- Delete the orphan `e2e/playwright.mock.config.ts`.
+- Remove the root `test:e2e:mock` script so local command discovery no longer
+  offers a broken gate.
+- Mark the duplicate backlog entries closed. Historical `design-reference-p0`
+  copy commands stay untouched as archived planning context.
+
+Three-view ratify:
+
+- Karpathy: remove the dead boundary instead of constructing a new mock-AI
+  harness from a V4 scaffold. The current golden-path gate is the real product
+  proof surface.
+- Gemini: leaving the script would be worse than having no script, because it
+  looks like a supported offline test path while pointing at nonexistent files.
+- CCL: two live-file edits plus ledger closure. No runtime app code, no
+  workflow behavior, and no scoring/test expectation changes.
