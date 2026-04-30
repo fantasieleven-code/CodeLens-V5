@@ -4,8 +4,8 @@
  * Called by B3 `e2e/golden-path.spec.ts` (pending brief). 4 fixtures
  * (liam-S · steve-A · emma-B · max-C) replay the full candidate journey
  * from admin session create → candidate guards → exam modules → scoring
- * completion poll. Assertion surface is `/admin/sessions/:id` (NOT
- * `/report/:sessionId` which is demo-fixture-only Task 9+ deferred).
+ * completion poll. Assertion surface is `/admin/sessions/:id`; `/report/:sessionId`
+ * is intentionally demo-fixture-only and not part of candidate completion.
  *
  * Architectural decisions (Brief #8 B2 Phase 1 + Phase 2 ratify):
  * - Fixture type · `GoldenPathDriverFixture extends ScoreSessionInput`
@@ -718,9 +718,8 @@ export class GoldenPathDriver {
     await this.page
       .locator(byTestId(CANDIDATE_TESTIDS.complete.root))
       .waitFor({ state: 'visible', timeout: 30_000 });
-    // Candidate clicking viewReportBtn would navigate to the demo-fixture
-    // self-view · B3 spec asserts via admin route instead; just confirm
-    // the complete page rendered (scoring pipeline triggers server-side).
+    // Candidate completion intentionally has no full-report CTA. B3 asserts
+    // the company-facing report through the admin route instead.
   }
 
   // ─── Step 13 · Scoring completion poll ──────────────────
