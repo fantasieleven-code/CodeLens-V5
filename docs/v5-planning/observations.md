@@ -4024,3 +4024,33 @@ Three-view ratify:
   invalidate prior candidate links and hide migration/data-quality issues.
 - CCL: one narrow shared/server/client contract PR closes the backlog item
   without pulling in Admin UI layout work or middleware error-envelope changes.
+
+### #208 · Candidate person-scoped token columns should be removed
+
+**Type**:schema hardening / auth surface reduction / V5.0.5 housekeeping
+**Date**:2026-04-30
+**Status**:closed by dropping `Candidate.token` + `Candidate.tokenExpiresAt`
+
+The V5.0.5 backlog carried a `Candidate.token` audit because the column was
+historically HR-minted and person-scoped, while the live V5 candidate auth flow
+is Session-scoped. Repo scan found no active reader or writer for
+`Candidate.token` / `Candidate.tokenExpiresAt`; the only references were
+historical observations and the Prisma schema. Live candidate exam auth uses
+`Session.candidateToken` or `Session.id` in `requireCandidate`, and candidate
+self-view uses `Session.candidateSelfViewToken`.
+
+Fix pattern:
+
+- Remove `Candidate.token` and `Candidate.tokenExpiresAt` from Prisma schema.
+- Add a migration that drops both columns with `IF EXISTS`.
+- Keep Session-scoped `candidateToken` and `candidateSelfViewToken` unchanged.
+
+Three-view ratify:
+
+- Karpathy: delete the unused person-scoped auth surface instead of adding
+  comments around it. The Session token model is already the simpler source of
+  truth.
+- Gemini: retaining a generic `Candidate.token` invites future misuse and
+  cross-session replay; no active code path depends on it.
+- CCL: small schema/migration PR. Pre-launch data loss risk is acceptable
+  because the fields have no consumers, and the migration is explicit.

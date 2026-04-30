@@ -89,8 +89,6 @@ model Candidate {
   name           String
   email          String    @unique
   orgId          String?
-  token          String?
-  tokenExpiresAt DateTime?
   metadata       Json      @default("{}")
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
