@@ -203,10 +203,15 @@ describe('submitProfile', () => {
     expect((err as CandidateApiError).message).toBe('Authentication required');
   });
 
-  it('throws CandidateApiError(VALIDATION_ERROR) on 422 nested envelope', async () => {
+  it('throws CandidateApiError(VALIDATION_ERROR) on 422 nested envelope with details', async () => {
+    const details = {
+      fieldErrors: {
+        yearsOfExperience: ['Expected number greater than or equal to 0'],
+      },
+    };
     mockFetch(async () =>
       jsonResponse(422, {
-        error: { code: 'VALIDATION_ERROR', message: 'Invalid profile' },
+        error: { code: 'VALIDATION_ERROR', message: 'Invalid profile', details },
       }),
     );
     const err = await submitProfile({
@@ -217,6 +222,7 @@ describe('submitProfile', () => {
     expect((err as CandidateApiError).code).toBe('VALIDATION_ERROR');
     expect((err as CandidateApiError).status).toBe(422);
     expect((err as CandidateApiError).message).toBe('Invalid profile');
+    expect((err as CandidateApiError).details).toEqual(details);
   });
 
   it('throws CandidateApiError(NETWORK) when fetch itself rejects', async () => {

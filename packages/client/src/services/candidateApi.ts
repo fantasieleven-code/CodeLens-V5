@@ -35,11 +35,18 @@ export type CandidateApiErrorCode =
 export class CandidateApiError extends Error {
   readonly code: string;
   readonly status: number | null;
-  constructor(code: string, status: number | null, message: string) {
+  readonly details?: unknown;
+  constructor(
+    code: string,
+    status: number | null,
+    message: string,
+    details?: unknown,
+  ) {
     super(message);
     this.name = 'CandidateApiError';
     this.code = code;
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -86,9 +93,10 @@ async function candidateFetch(
 }
 
 /**
- * Parse a non-2xx Backend response into (code, message).
+ * Parse a non-2xx Backend response into (code, message, details).
  *
- * Preferred nested shape (AppError → errorHandler): { error: { code, message } }.
+ * Preferred nested shape (AppError → errorHandler):
+ * { error: { code, message, details? } }.
  * Legacy flat shape (e.g. requireAdmin): { error: 'string' } → AUTH_REQUIRED
  * by convention, since the only flat emitters today are 401/403 guards.
  * Anything else (non-JSON, empty) → UNKNOWN.
@@ -96,17 +104,21 @@ async function candidateFetch(
 function parseErrorBody(
   body: unknown,
   status: number,
-): { code: string; message: string } {
+): { code: string; message: string; details?: unknown } {
   if (body && typeof body === 'object') {
     const errField = (body as { error?: unknown }).error;
     if (errField && typeof errField === 'object') {
-      const nested = errField as { code?: unknown; message?: unknown };
+      const nested = errField as {
+        code?: unknown;
+        message?: unknown;
+        details?: unknown;
+      };
       const code = typeof nested.code === 'string' ? nested.code : 'UNKNOWN';
       const message =
         typeof nested.message === 'string'
           ? nested.message
           : `Request failed: ${status}`;
-      return { code, message };
+      return { code, message, details: nested.details };
     }
     if (typeof errField === 'string') {
       return { code: 'AUTH_REQUIRED', message: errField };
@@ -142,8 +154,8 @@ export async function submitConsent(
   } catch {
     /* body not JSON — parseErrorBody treats as UNKNOWN */
   }
-  const { code, message } = parseErrorBody(body, res.status);
-  throw new CandidateApiError(code, res.status, message);
+  const { code, message, details } = parseErrorBody(body, res.status);
+  throw new CandidateApiError(code, res.status, message, details);
 }
 
 export async function submitProfile(
@@ -173,8 +185,8 @@ export async function submitProfile(
   } catch {
     /* body not JSON — parseErrorBody treats as UNKNOWN */
   }
-  const { code, message } = parseErrorBody(body, res.status);
-  throw new CandidateApiError(code, res.status, message);
+  const { code, message, details } = parseErrorBody(body, res.status);
+  throw new CandidateApiError(code, res.status, message, details);
 }
 
 /**
@@ -215,8 +227,8 @@ export async function fetchCandidateSelfView(
     } catch {
       /* body not JSON — parseErrorBody treats as UNKNOWN */
     }
-    const { code, message } = parseErrorBody(body, res.status);
-    throw new CandidateApiError(code, res.status, message);
+    const { code, message, details } = parseErrorBody(body, res.status);
+    throw new CandidateApiError(code, res.status, message, details);
   }
 
   let raw: unknown;
