@@ -149,10 +149,10 @@ describe('V5ScoringResultSchema · drift defense (β ratified)', () => {
     expect(() => V5ScoringResultSchema.parse(validScoring)).not.toThrow();
   });
 
-  it('tolerates unknown top-level fields (non-strict · forward compat)', () => {
+  it('rejects unknown top-level fields so report-facing schema drift is explicit', () => {
     expect(() =>
       V5ScoringResultSchema.parse({ ...validScoring, newV5_1Field: 'ok' }),
-    ).not.toThrow();
+    ).toThrow();
   });
 
   it('rejects missing required field "grade"', () => {

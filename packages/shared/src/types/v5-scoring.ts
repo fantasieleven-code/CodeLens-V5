@@ -90,15 +90,13 @@ export interface V5ScoringResult {
  * V5ScoringResult runtime zod schema — Task B-A10-lite β ratified.
  *
  * Consumer-facing drift defense for `Session.scoringResult` Json reads.
- * NOT strict at top level — Task 17 may extend future fields; self-view
- * transform strips to V5CandidateSelfView via a separate strict schema
- * (the ethics floor gate). capabilityProfiles + dimensions + grade are
- * the fields self-view actually reads, so those nested shapes carry the
- * runtime guarantees; signals / boundaryAnalysis / cursorBehaviorLabel
- * use passthrough because self-view drops them entirely.
+ * Strict at top level so cached JSON cannot silently grow new report-facing
+ * fields without an explicit shared contract update. Nested signal /
+ * boundary-analysis payloads remain passthrough because they carry
+ * algorithm-specific evidence details and consumers read their stable shells.
  *
- * V5.0.5 cleanup candidate: migrate admin.ts:374 `scoringResult as
- * V5ScoringResult` cast + scoring-hydrator read path to this schema.
+ * V5.0.5 cleanup note: Admin report now parses this schema before response
+ * assembly; scoring-hydrator cached-result reads are the remaining boundary.
  */
 export const V5ScoringResultSchema = z.object({
   grade: z.enum(['D', 'C', 'B', 'B+', 'A', 'S', 'S+']),
@@ -127,4 +125,4 @@ export const V5ScoringResultSchema = z.object({
     }),
   ),
   cursorBehaviorLabel: z.object({}).passthrough().optional(),
-});
+}).strict();
