@@ -3960,3 +3960,35 @@ Three-view ratify:
   drift. Strict mode makes accidental cached JSON growth visible.
 - CCL: small shared-only behavior change with one focused test update. Hydrator
   cached-result parsing remains the next separate boundary PR.
+
+### #206 · Hydrator cache hits must validate persisted V5ScoringResult JSON
+
+**Type**:backend runtime schema gate / scoring hydrator cache / data integrity
+**Date**:2026-04-30
+**Status**:closed by cached-result zod parse
+
+`Session.scoringResult` is JSON at rest. `ScoringHydratorService` had a cache-hit
+path for Brief #20 C1 polling-race defense, but that path cast cached JSON to
+`V5ScoringResult` and returned `cached=true` without the runtime schema gate.
+After #204 and #205, Admin report and shared schema were fail-closed, but the
+deeper service boundary could still treat invalid persisted JSON as trusted
+hydrator output until a later route boundary caught it.
+
+Fix pattern:
+
+- Import `V5ScoringResultSchema` in `scoring-hydrator.service.ts`.
+- Parse cached `Session.scoringResult` before returning `cached=true`.
+- Do not silently re-score invalid cache: persisted scoring-result drift is a
+  data-integrity problem and should fail closed.
+- Add negative cache tests for invalid grade drift and unknown top-level
+  strict-schema drift; assert `scoreSession()` and `session.update()` are not
+  called.
+
+Three-view ratify:
+
+- Karpathy: a cache hit must be as trustworthy as fresh `scoreSession()` output;
+  validate at the hydrator boundary instead of trusting JSON at rest.
+- Gemini: re-scoring on invalid cache would hide persisted corruption and make
+  the drift harder to diagnose. Throwing preserves the real failure signal.
+- CCL: one hydrator-only PR closes the remaining cached-result boundary without
+  changing normal scoring, report assembly, or force-refresh behavior.

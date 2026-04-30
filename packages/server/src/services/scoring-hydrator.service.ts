@@ -42,7 +42,7 @@ import type {
   V5SelfAssessSubmission,
   V5Submissions,
 } from '@codelens-v5/shared';
-import { SUITES, isSuiteId } from '@codelens-v5/shared';
+import { SUITES, V5ScoringResultSchema, isSuiteId } from '@codelens-v5/shared';
 
 import { prisma as defaultPrisma } from '../config/db.js';
 import { logger } from '../lib/logger.js';
@@ -176,6 +176,10 @@ export class ScoringHydratorService {
     // (e.g. when fixture/spec changes invalidate cached output).
     const cached = (session as { scoringResult?: unknown }).scoringResult;
     if (!options.forceRefresh && cached && typeof cached === 'object') {
+      // Session.scoringResult is JSON at rest; validate cached payloads before cached=true.
+      const parsedCached = V5ScoringResultSchema.parse(
+        cached,
+      ) as unknown as V5ScoringResult;
       logger.info('[hydrator] hydrateAndScore cache hit', {
         sessionId,
         suiteId,
@@ -185,7 +189,7 @@ export class ScoringHydratorService {
         suiteId,
         participatingModules,
         submissions,
-        scoringResult: cached as V5ScoringResult,
+        scoringResult: parsedCached,
         hydrationReport: {
           ...subReport,
           examData: {},
