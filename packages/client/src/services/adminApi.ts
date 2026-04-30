@@ -35,6 +35,25 @@ import {
 import { buildAdminStatsOverview } from '../pages/admin/mock/admin-stats-fixture.js';
 import { REPORT_FIXTURES } from '../report/__fixtures__/index.js';
 
+export class AdminApiError extends Error {
+  readonly code: string;
+  readonly status: number | null;
+  readonly details?: unknown;
+
+  constructor(
+    code: string,
+    status: number | null,
+    message: string,
+    details?: unknown,
+  ) {
+    super(message);
+    this.name = 'AdminApiError';
+    this.code = code;
+    this.status = status;
+    this.details = details;
+  }
+}
+
 // ── Mock / real switch ───────────────────────────────────────────────
 
 declare global {
@@ -237,6 +256,54 @@ async function adminFetch(path: string, init: RequestInit = {}): Promise<Respons
   return res;
 }
 
+function parseAdminErrorBody(
+  body: unknown,
+  status: number,
+): { code: string; message: string; details?: unknown } {
+  if (body && typeof body === 'object') {
+    const errField = (body as { error?: unknown }).error;
+    if (errField && typeof errField === 'object') {
+      const nested = errField as {
+        code?: unknown;
+        message?: unknown;
+        details?: unknown;
+      };
+      const code = typeof nested.code === 'string' ? nested.code : 'UNKNOWN';
+      const message =
+        typeof nested.message === 'string'
+          ? nested.message
+          : `Admin request failed: ${status}`;
+      return { code, message, details: nested.details };
+    }
+    if (typeof errField === 'string') {
+      return {
+        code:
+          status === 401
+            ? 'AUTH_REQUIRED'
+            : status === 403
+              ? 'FORBIDDEN'
+              : 'UNKNOWN',
+        message: errField,
+      };
+    }
+  }
+  return { code: 'UNKNOWN', message: `Admin request failed: ${status}` };
+}
+
+async function throwAdminApiError(
+  res: Response,
+  operation: string,
+): Promise<never> {
+  let body: unknown = null;
+  try {
+    body = await res.json();
+  } catch {
+    /* non-JSON bodies fall through to UNKNOWN with status context */
+  }
+  const { code, message, details } = parseAdminErrorBody(body, res.status);
+  throw new AdminApiError(code, res.status, `${operation}: ${message}`, details);
+}
+
 async function realCreateSession(
   req: V5AdminSessionCreateRequest,
 ): Promise<V5AdminSessionCreateResponse> {
@@ -244,7 +311,7 @@ async function realCreateSession(
     method: 'POST',
     body: JSON.stringify(req),
   });
-  if (!res.ok) throw new Error(`createSession failed: ${res.status}`);
+  if (!res.ok) await throwAdminApiError(res, 'createSession');
   return res.json() as Promise<V5AdminSessionCreateResponse>;
 }
 
@@ -258,13 +325,13 @@ async function realListSessions(
     if (v !== undefined) qs.set(k, String(v));
   }
   const res = await adminFetch(`/api/admin/sessions?${qs.toString()}`);
-  if (!res.ok) throw new Error(`listSessions failed: ${res.status}`);
+  if (!res.ok) await throwAdminApiError(res, 'listSessions');
   return res.json() as Promise<V5AdminSessionList>;
 }
 
 async function realGetSession(sessionId: string): Promise<V5AdminSession> {
   const res = await adminFetch(`/api/admin/sessions/${sessionId}`);
-  if (!res.ok) throw new Error(`getSession failed: ${res.status}`);
+  if (!res.ok) await throwAdminApiError(res, 'getSession');
   return res.json() as Promise<V5AdminSession>;
 }
 
@@ -272,7 +339,7 @@ async function realGetSessionLinks(
   sessionId: string,
 ): Promise<V5AdminSessionLinksResponse> {
   const res = await adminFetch(`/api/admin/sessions/${sessionId}/links`);
-  if (!res.ok) throw new Error(`getSessionLinks failed: ${res.status}`);
+  if (!res.ok) await throwAdminApiError(res, 'getSessionLinks');
   return res.json() as Promise<V5AdminSessionLinksResponse>;
 }
 
@@ -282,7 +349,7 @@ async function realGetSessionReport(
   const res = await adminFetch(`/api/admin/sessions/${sessionId}/report`);
   if (!res.ok) {
     if (res.status === 400) throw new Error('REPORT_NOT_COMPLETED');
-    throw new Error(`getSessionReport failed: ${res.status}`);
+    await throwAdminApiError(res, 'getSessionReport');
   }
   return res.json() as Promise<V5AdminSessionReport>;
 }
@@ -298,19 +365,19 @@ async function realListExamInstances(params: {
     if (v !== undefined) qs.set(k, String(v));
   }
   const res = await adminFetch(`/api/admin/exam-instances?${qs.toString()}`);
-  if (!res.ok) throw new Error(`listExamInstances failed: ${res.status}`);
+  if (!res.ok) await throwAdminApiError(res, 'listExamInstances');
   return res.json() as Promise<V5AdminExamInstance[]>;
 }
 
 async function realGetSuites(): Promise<V5AdminSuite[]> {
   const res = await adminFetch('/api/admin/suites');
-  if (!res.ok) throw new Error(`getSuites failed: ${res.status}`);
+  if (!res.ok) await throwAdminApiError(res, 'getSuites');
   return res.json() as Promise<V5AdminSuite[]>;
 }
 
 async function realGetStatsOverview(): Promise<V5AdminStatsOverview> {
   const res = await adminFetch('/api/admin/stats/overview');
-  if (!res.ok) throw new Error(`getStatsOverview failed: ${res.status}`);
+  if (!res.ok) await throwAdminApiError(res, 'getStatsOverview');
   return res.json() as Promise<V5AdminStatsOverview>;
 }
 
@@ -350,6 +417,8 @@ export const adminApi: AdminApi = shouldUseMock()
     };
 
 export const __adminFetch__ = adminFetch;
+export const __parseAdminErrorBody__ = parseAdminErrorBody;
+export const __throwAdminApiError__ = throwAdminApiError;
 
 export const __mockAdminApi__ = {
   createSession: mockCreateSession,

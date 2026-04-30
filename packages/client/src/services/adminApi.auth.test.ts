@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { __adminFetch__ } from './adminApi.js';
+import {
+  __adminFetch__,
+  __parseAdminErrorBody__,
+  __throwAdminApiError__,
+} from './adminApi.js';
+import type { AdminApiError } from './adminApi.js';
 import { __authStorageKey__, useAuthStore } from '../stores/auth.store.js';
 
 const ORIGINAL_FETCH = globalThis.fetch;
@@ -116,5 +121,74 @@ describe('adminFetch', () => {
       'http://api.test/';
     await __adminFetch__('/api/admin/suites');
     expect(capturedUrl).toBe('/api/admin/suites');
+  });
+});
+
+describe('admin API error parsing', () => {
+  it('maps nested AppError envelopes and preserves details', () => {
+    const details = { fields: { candidate: 'required' } };
+    const parsed = __parseAdminErrorBody__(
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid candidate',
+          details,
+        },
+      },
+      422,
+    );
+
+    expect(parsed).toEqual({
+      code: 'VALIDATION_ERROR',
+      message: 'Invalid candidate',
+      details,
+    });
+  });
+
+  it('maps legacy flat 401 guard envelopes to AUTH_REQUIRED', () => {
+    expect(
+      __parseAdminErrorBody__({ error: 'Authentication required' }, 401),
+    ).toEqual({
+      code: 'AUTH_REQUIRED',
+      message: 'Authentication required',
+    });
+  });
+
+  it('maps legacy flat 403 guard envelopes to FORBIDDEN', () => {
+    expect(
+      __parseAdminErrorBody__({ error: 'Admin access required' }, 403),
+    ).toEqual({
+      code: 'FORBIDDEN',
+      message: 'Admin access required',
+    });
+  });
+
+  it('falls back cleanly for empty or non-JSON bodies', () => {
+    expect(__parseAdminErrorBody__(null, 500)).toEqual({
+      code: 'UNKNOWN',
+      message: 'Admin request failed: 500',
+    });
+  });
+
+  it('throws AdminApiError with operation context and AppError fields', async () => {
+    const details = { sessionId: 'sess-missing' };
+    const res = new Response(
+      JSON.stringify({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Session not found',
+          details,
+        },
+      }),
+      { status: 404 },
+    );
+
+    await expect(__throwAdminApiError__(res, 'getSession')).rejects.toMatchObject({
+      name: 'AdminApiError',
+      code: 'NOT_FOUND',
+      status: 404,
+      message: 'getSession: Session not found',
+      details,
+    } satisfies Partial<AdminApiError>);
   });
 });

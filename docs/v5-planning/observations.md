@@ -4054,3 +4054,38 @@ Three-view ratify:
   cross-session replay; no active code path depends on it.
 - CCL: small schema/migration PR. Pre-launch data loss risk is acceptable
   because the fields have no consumers, and the migration is explicit.
+
+### #209 · Admin API needs an error parser before middleware envelope unification
+
+**Type**:frontend boundary hardening / middleware migration prerequisite
+**Date**:2026-04-30
+**Status**:closed by `AdminApiError` + nested/flat parser
+
+The V5.0.5 backlog still had two coupled items: admin middleware envelope
+consistency and frontend admin error-shape remap. Backend admin route handlers
+mostly already throw AppError/ValidationError/AuthorizationError, but
+`requireAdmin` / `requireOrg` / `requireOrgOwner` still return flat
+`{ error: string }` guard responses. The candidate API had a robust parser for
+nested AppError and legacy flat envelopes; admin API still threw plain
+`Error("endpoint failed: status")`, which meant flipping middleware first would
+lose code/details at the UI boundary.
+
+Fix pattern:
+
+- Add `AdminApiError` with `code`, `status`, and optional `details`.
+- Parse nested `{ error: { code, message, details? } }` and preserve details.
+- Keep legacy flat guard support: 401 maps to `AUTH_REQUIRED`, 403 maps to
+  `FORBIDDEN`.
+- Keep `getSessionReport`'s `REPORT_NOT_COMPLETED` page-level contract
+  unchanged; it is a deliberate UX state, not a generic admin error.
+- Add tests for nested AppError details, flat 401/403, unknown bodies, and
+  operation-prefixed `AdminApiError` throws.
+
+Three-view ratify:
+
+- Karpathy: normalize the frontend boundary first, then flip middleware in a
+  second small PR. This keeps each PR's behavioral surface obvious.
+- Gemini: dual-shape parsing prevents a partial migration from creating blind
+  spots; nested details are preserved instead of being collapsed to status text.
+- CCL: a client-only PR unblocks backend middleware unification while keeping
+  AdminGuard logout behavior and report-not-ready UI stable.
