@@ -3992,3 +3992,35 @@ Three-view ratify:
   the drift harder to diagnose. Throwing preserves the real failure signal.
 - CCL: one hydrator-only PR closes the remaining cached-result boundary without
   changing normal scoring, report assembly, or force-refresh behavior.
+
+### #207 · Admin session links need an idempotent read endpoint
+
+**Type**:admin API lifecycle / two-token separation / V5.0.5 housekeeping
+**Date**:2026-04-30
+**Status**:closed by `GET /admin/sessions/:sessionId/links`
+
+`POST /admin/sessions/create` minted both Session-scoped tokens
+(`candidateToken` and `candidateSelfViewToken`) and returned pre-rendered
+exam/self-view links, but Admin UI had no idempotent read endpoint to recover
+those links after the create response was gone. Reusing create would re-mint
+tokens and break already-shared links; deriving self-view links client-side
+would require exposing token assumptions outside the admin API contract.
+
+Fix pattern:
+
+- Add shared `V5AdminSessionLinksResponse`.
+- Add `GET /admin/sessions/:sessionId/links`, scoped by `req.orgId`.
+- Read existing `candidateToken` and `candidateSelfViewToken`; never re-mint.
+- Return 409 for legacy/corrupted sessions missing either token, because the
+  API cannot faithfully reconstruct a self-view URL without persisted token
+  state.
+- Wire `adminApi.getSessionLinks()` in real and mock clients.
+
+Three-view ratify:
+
+- Karpathy: model links as a read-side projection of Session state, not a
+  second creation path. This keeps token ownership in one place.
+- Gemini: fail closed on missing tokens. Re-minting on read would silently
+  invalidate prior candidate links and hide migration/data-quality issues.
+- CCL: one narrow shared/server/client contract PR closes the backlog item
+  without pulling in Admin UI layout work or middleware error-envelope changes.

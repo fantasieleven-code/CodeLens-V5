@@ -1,7 +1,7 @@
 /**
  * Admin API client — Task 12 Layer 2 cutover.
  *
- * A single module exposes the 7 Admin endpoints as `adminApi.*`. Each endpoint
+ * A single module exposes the Admin endpoints as `adminApi.*`. Each endpoint
  * has a mock implementation backed by the `pages/admin/mock/` fixtures and a
  * real implementation wired to Backend Task 15b under `/api/admin/*`. The
  * `VITE_ADMIN_API_MOCK` env switch (or the absence of `VITE_API_URL`) selects
@@ -23,6 +23,7 @@ import type {
   V5AdminSuite,
   V5AdminSessionCreateRequest,
   V5AdminSessionCreateResponse,
+  V5AdminSessionLinksResponse,
   V5AdminListSessionsParams,
   V5AdminSessionList,
 } from '@codelens-v5/shared';
@@ -90,6 +91,23 @@ async function mockGetSession(sessionId: string): Promise<V5AdminSession> {
   const session = findSessionById(sessionId);
   if (!session) throw new Error(`session ${sessionId} not found`);
   return session;
+}
+
+async function mockGetSessionLinks(
+  sessionId: string,
+): Promise<V5AdminSessionLinksResponse> {
+  const session = findSessionById(sessionId);
+  if (!session) throw new Error(`session ${sessionId} not found`);
+  const shareableLink = session.shareableLink ?? `/exam/${sessionId}`;
+  const candidateToken = `mock-token-${sessionId}`;
+  const candidateSelfViewToken = `mock-selfview-${sessionId}`;
+  return {
+    sessionId,
+    shareableLink,
+    candidateToken,
+    candidateSelfViewToken,
+    selfViewUrl: `/candidate/self-view/${sessionId}/${candidateSelfViewToken}`,
+  };
 }
 
 async function mockGetSessionReport(
@@ -250,6 +268,14 @@ async function realGetSession(sessionId: string): Promise<V5AdminSession> {
   return res.json() as Promise<V5AdminSession>;
 }
 
+async function realGetSessionLinks(
+  sessionId: string,
+): Promise<V5AdminSessionLinksResponse> {
+  const res = await adminFetch(`/api/admin/sessions/${sessionId}/links`);
+  if (!res.ok) throw new Error(`getSessionLinks failed: ${res.status}`);
+  return res.json() as Promise<V5AdminSessionLinksResponse>;
+}
+
 async function realGetSessionReport(
   sessionId: string,
 ): Promise<V5AdminSessionReport> {
@@ -294,6 +320,7 @@ export interface AdminApi {
   createSession: typeof mockCreateSession;
   listSessions: typeof mockListSessions;
   getSession: typeof mockGetSession;
+  getSessionLinks: typeof mockGetSessionLinks;
   getSessionReport: typeof mockGetSessionReport;
   listExamInstances: typeof mockListExamInstances;
   getSuites: typeof mockGetSuites;
@@ -305,6 +332,7 @@ export const adminApi: AdminApi = shouldUseMock()
       createSession: mockCreateSession,
       listSessions: mockListSessions,
       getSession: mockGetSession,
+      getSessionLinks: mockGetSessionLinks,
       getSessionReport: mockGetSessionReport,
       listExamInstances: mockListExamInstances,
       getSuites: mockGetSuites,
@@ -314,6 +342,7 @@ export const adminApi: AdminApi = shouldUseMock()
       createSession: realCreateSession,
       listSessions: realListSessions,
       getSession: realGetSession,
+      getSessionLinks: realGetSessionLinks,
       getSessionReport: realGetSessionReport,
       listExamInstances: realListExamInstances,
       getSuites: realGetSuites,
@@ -326,6 +355,7 @@ export const __mockAdminApi__ = {
   createSession: mockCreateSession,
   listSessions: mockListSessions,
   getSession: mockGetSession,
+  getSessionLinks: mockGetSessionLinks,
   getSessionReport: mockGetSessionReport,
   listExamInstances: mockListExamInstances,
   getSuites: mockGetSuites,

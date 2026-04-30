@@ -1,7 +1,7 @@
 /**
  * Admin API routes — Task 15b Deliverable §2 (+ Task B-A12 profile read).
  *
- * 8 endpoints matching `V5Admin*` canonical contract in
+ * 9 endpoints matching `V5Admin*` canonical contract in
  * `packages/shared/src/types/v5-admin-api.ts`. All endpoints are mounted
  * under `requireAdmin` (injects `req.orgId`) at `/api/admin/*` in index.ts.
  * Endpoint 8 (`GET /admin/sessions/:sessionId/profile`) is Task B-A12's
@@ -27,6 +27,7 @@ import type {
   V5AdminSessionList,
   V5AdminSessionCreateRequest,
   V5AdminSessionCreateResponse,
+  V5AdminSessionLinksResponse,
   V5AdminSessionReport,
   V5AdminSessionProfile,
   V5AdminExamInstance,
@@ -55,6 +56,7 @@ import { prisma } from '../config/db.js';
 import { logger } from '../lib/logger.js';
 import {
   AuthorizationError,
+  ConflictError,
   NotFoundError,
   ValidationError,
 } from '../middleware/errorHandler.js';
@@ -104,16 +106,25 @@ function parsePositiveInt(value: unknown, fallback: number, max = 200): number {
   return Math.min(Math.floor(n), max);
 }
 
+function requestOrigin(req: Request): string {
+  const origin =
+    (typeof req.headers.origin === 'string' && req.headers.origin) ||
+    `${req.protocol}://${req.get('host') ?? 'localhost'}`;
+  return origin;
+}
+
 function shareableUrl(req: Request, sessionId: string): string {
   // sessionToken ≡ sessionId per CandidateGuard / ConsentPage ratified design
   // (Phase 1 [B]). The signShareToken/verifyShareToken indirection in
   // auth.service.ts is currently dead code — no /shared/:token route handler
   // exists on either side — so emitting `/shared/<token>` produced links that
   // 404'd everywhere. Match the actual route graph: `/exam/:sessionId`.
-  const origin =
-    (typeof req.headers.origin === 'string' && req.headers.origin) ||
-    `${req.protocol}://${req.get('host') ?? 'localhost'}`;
+  const origin = requestOrigin(req);
   return `${origin}/exam/${sessionId}`;
+}
+
+function selfViewUrl(req: Request, sessionId: string, token: string): string {
+  return `${requestOrigin(req)}/candidate/self-view/${sessionId}/${token}`;
 }
 
 function readSuiteIdFromMetadata(metadata: unknown): SuiteId | null {
@@ -271,10 +282,11 @@ export async function createAdminSession(
     });
 
     const shareableLink = shareableUrl(req, sessionRow.id);
-    const origin =
-      (typeof req.headers.origin === 'string' && req.headers.origin) ||
-      `${req.protocol}://${req.get('host') ?? 'localhost'}`;
-    const selfViewUrl = `${origin}/candidate/self-view/${sessionRow.id}/${candidateSelfViewToken}`;
+    const candidateSelfViewUrl = selfViewUrl(
+      req,
+      sessionRow.id,
+      candidateSelfViewToken,
+    );
     const session = toAdminSession(sessionRow);
     session.shareableLink = shareableLink;
 
@@ -283,7 +295,7 @@ export async function createAdminSession(
       shareableLink,
       candidateToken,
       candidateSelfViewToken,
-      selfViewUrl,
+      selfViewUrl: candidateSelfViewUrl,
     };
     res.status(201).json(response);
   } catch (err) {
@@ -351,6 +363,44 @@ export async function getAdminSession(
     if (!row) throw new NotFoundError('Session not found');
     if (row.orgId !== orgId) throw new AuthorizationError('Session belongs to a different org');
     res.json(toAdminSession(row));
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** GET /admin/sessions/:sessionId/links — endpoint 9. */
+export async function getAdminSessionLinks(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const orgId = requireOrgScope(req);
+    const row = await prisma.session.findUnique({
+      where: { id: req.params.sessionId },
+      select: {
+        id: true,
+        orgId: true,
+        candidateToken: true,
+        candidateSelfViewToken: true,
+      },
+    });
+    if (!row) throw new NotFoundError('Session not found');
+    if (row.orgId !== orgId) {
+      throw new AuthorizationError('Session belongs to a different org');
+    }
+    if (!row.candidateToken || !row.candidateSelfViewToken) {
+      throw new ConflictError('Session links were not minted for this session');
+    }
+
+    const response: V5AdminSessionLinksResponse = {
+      sessionId: row.id,
+      shareableLink: shareableUrl(req, row.id),
+      candidateToken: row.candidateToken,
+      candidateSelfViewToken: row.candidateSelfViewToken,
+      selfViewUrl: selfViewUrl(req, row.id, row.candidateSelfViewToken),
+    };
+    res.json(response);
   } catch (err) {
     next(err);
   }
@@ -600,10 +650,11 @@ export const adminRouter = Router();
 adminRouter.post('/sessions/create', createAdminSession);
 adminRouter.get('/sessions', listAdminSessions);
 adminRouter.get('/sessions/:sessionId', getAdminSession);
+adminRouter.get('/sessions/:sessionId/links', getAdminSessionLinks);
 adminRouter.get('/sessions/:sessionId/report', getAdminSessionReport);
 adminRouter.get('/sessions/:sessionId/profile', getAdminSessionProfile);
 adminRouter.get('/exam-instances', listAdminExamInstances);
 adminRouter.get('/suites', listAdminSuites);
 adminRouter.get('/stats/overview', getAdminStatsOverview);
 
-logger.debug('[admin] routes wired (8 endpoints)');
+logger.debug('[admin] routes wired (9 endpoints)');
