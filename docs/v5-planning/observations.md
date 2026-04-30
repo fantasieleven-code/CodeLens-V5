@@ -3860,3 +3860,37 @@ Three-view ratify:
 - CCL: one small client PR with focused parser coverage. This closes the F-A12
   deferred assertion without touching production scoring, routing, or backend
   middleware.
+
+### #203 · Admin page tests must not inherit real-backend `.env` mode
+
+**Type**:client test determinism / admin API mock switch / local CI parity
+**Date**:2026-04-30
+**Status**:closed by forcing admin mock mode in Vitest
+
+Local `packages/client/.env` can set `VITE_API_URL=http://localhost:4000` and
+`VITE_ADMIN_API_MOCK=false` for manual real-backend admin smoke work. Vitest
+loads that file too, so admin page component tests imported `adminApi` in real
+mode and attempted Node/JSDOM `fetch('/api/admin/...')`, which fails before a
+server is even relevant (`Failed to parse URL from /api/admin/...`). CI stayed
+green because its environment did not carry that local `.env` state.
+
+Fix pattern:
+
+- Make `adminApi.shouldUseMock()` return mock mode when `import.meta.env.MODE`
+  is `test`, before honoring `.env`'s explicit `VITE_ADMIN_API_MOCK=false`.
+- Keep non-test behavior unchanged: explicit `true` forces mock, explicit
+  `false` forces real, otherwise absence of `VITE_API_URL` selects mock.
+- Leave `__adminFetch__` tests intact; they import the fetch wrapper directly
+  and continue to cover Bearer injection, content-type, 401 logout, and
+  relative URL preservation.
+
+Three-view ratify:
+
+- Karpathy: put the rule at the existing switch boundary instead of adding
+  per-page fetch mocks or relying on test setup side effects.
+- Gemini: the first attempted setup-file env write did not work because
+  `packages/client/.env` still won at module import time; moving the test-mode
+  rule into `shouldUseMock()` matches the observed failure path.
+- CCL: one-line behavior change plus comments, verified by the full client
+  Vitest suite. This restores local `npm --prefix packages/client test` as a
+  trustworthy gate without changing production/admin smoke configuration.
