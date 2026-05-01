@@ -4305,3 +4305,39 @@ Three-view ratify:
 - CCL: cleanup-only PR, no runtime behavior change, and it reduces launch-time
   ambiguity while the candidate submit pipeline remains covered by existing
   tests and e2e.
+
+### #216 · Current release scope must not be read from a superseded timeline
+
+**Type**:release governance / documentation drift / go-no-go clarity
+**Date**:2026-05-01
+**Status**:closed by reconciling the cross-task backlog current snapshot
+
+Release inventory found that `cross-task-shared-extension-backlog.md` still had
+a large `V5.0 Remaining Scope(post-Cluster-C)` section and an 8-11 workday
+timeline from 2026-04-20 in current-tense headings. Many individual rows had
+been updated later, but the section title still made a future reviewer read
+completed work (Task 30, Task 15, A-series, CI green-up, Cold Start) as active
+release scope. This is the same failure mode as #211: historical planning data
+is valuable, but only if the current release truth is unambiguous.
+
+Fix pattern:
+
+- Add a 2026-05-01 Current Release Scope Snapshot before the historical task
+  table.
+- Mark the post-Cluster-C remaining-scope and timeline sections as historical
+  / superseded instead of deleting them.
+- Point current go/no-go truth to concrete gates: 48-signal Cold Start, Layer 2
+  parity closure, admin/report hydration parsing, candidate ethics/access
+  boundary, empty known-red list, prompt placeholder fail-closed, and real
+  module submit persistence.
+- List V5.0.5+ follow-ups separately so they are not mistaken for V5.0 launch
+  blockers.
+
+Three-view ratify:
+
+- Karpathy: current state belongs at the top of the ledger; old plans can stay
+  below only as provenance.
+- Gemini: stale headings are a false-positive blocker risk and can cause
+  repeated re-audits of already-closed work.
+- CCL: docs-only, no runtime blast radius, and it answers the operational
+  question "what is actually left before deploy approval?" directly.
