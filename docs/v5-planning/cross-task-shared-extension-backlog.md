@@ -270,7 +270,54 @@ Task 30 将验证 pattern 是否可 extend 到 **multi-event-type ingest pipelin
 
 ---
 
-## V5.0 Remaining Scope(post-Cluster-C)
+## Current Release Scope Snapshot(2026-05-01)
+
+**Status**:the post-Cluster-C task list below is historical. It was true on
+2026-04-20, before Task 30, Task 15, A-series hardening, CI green-up, Cold
+Start, and the late release-hardening cleanup PRs.
+
+Current V5.0 release truth:
+
+- Signal production gate is closed: runtime catalog is 48 signals, Cold Start
+  real-session validation reported 0 missing / 0 null / 0 report `N/A` or
+  `待评估` text (obs #171), and Layer 2 canonical module content parity is
+  closed by #173/#212.
+- Admin/report hydration gate is closed: admin report output parses
+  `V5ScoringResultSchema`, cached hydrator reads parse the persisted JSON, and
+  strict top-level scoring-result schema drift now fails closed.
+- Candidate-facing ethics/access gates are closed: consent/profile/self-view/
+  transparency pages shipped, candidate completion no longer links to the
+  company report, and full reports stay on the admin detail surface.
+- CI known-red list is empty; `CI_KNOWN_RED.md` is the current CI release
+  ledger, not the 2026-04-18 production-coverage audit.
+- Prompt seed placeholders fail closed at `PromptRegistry.get()` and no longer
+  flow into MC/MB/MD model-adjacent prompts.
+- Candidate module submits persist through `persistCandidateSubmission` with
+  typed socket ack and REST fallback; stale local-only submit and phantom
+  pause/resume socket contracts are removed.
+
+Current non-blocking backlog belongs to V5.0.5+ unless a fresh production audit
+finds a new blocker:
+
+- A14b LLM variance monitoring with a real provider and CI secret.
+- `computedAt` stamp hoist from individual signal results into the registry /
+  hydrator layer.
+- Deep-dive Golden Path fixture coverage for real Module D compute paths.
+- Playwright smoke config optimization and broader doc-drift sweeps.
+
+Pre-deploy checklist after the final merge:
+
+- Latest `main` CI green.
+- Final local/git sanity check: no unexpected tracked diff; only known
+  `.env.bak-*` untracked files.
+- Steve manual smoke / deployment approval.
+
+## Historical V5.0 Remaining Scope Snapshot(post-Cluster-C · superseded)
+
+> Historical note: this section is retained to preserve planning provenance.
+> Do not treat the task list or 8-11 day timeline below as current release
+> scope. Use the Current Release Scope Snapshot above plus `CI_KNOWN_RED.md`
+> for current go/no-go truth.
 
 ### 1. Task 30 · Cluster A remaining 5 signals(Phase 1/2 split,30a + 30b · 1.0-1.5 day total)
 
@@ -352,7 +399,7 @@ Frontend adminApi.types.ts shim 与这 5 个 shared types **1:1 对齐**(Fronten
 
 ---
 
-## V5.0 Timeline(updated to ~8-11 workdays)
+## Historical V5.0 Timeline(updated to ~8-11 workdays · superseded)
 
 | Day | Owner | Activity | Blocks |
 |-----|-------|----------|--------|
@@ -364,7 +411,9 @@ Frontend adminApi.types.ts shim 与这 5 个 shared types **1:1 对齐**(Fronten
 | 7-8 | Backend | CI green-up | Cold Start |
 | 8-9 | Backend + Steve | Cold Start Validation | V5.0 release |
 
-**总 estimate: 8-11 workdays from 2026-04-20**。
+**Historical estimate only**:8-11 workdays from 2026-04-20. This has been
+superseded by the completed Task 30 / Task 15 / A-series / CI / Cold Start
+sequence and later release-hardening cleanup.
 
 ---
 
@@ -392,7 +441,7 @@ From observations #075-#093 + prior Task 17b backlog:
 | `observations.md` | 98 observations tracked(#094 Pattern E 第 5 次 + #095-#098 Task 30a Phase 1 batch appended) | 2026-04-19 |
 | `claude-self-check-checklist-v2.md` | v2.1(11 rules · Pattern H 规则 10/11 enforced)| PR #60 · 2026-04-19 |
 | `field-naming-glossary.md` | Event Naming section · Task 30a PR cleanup applied · L220-221 phantom `v5:mb:chat:event` / `v5:mb:diff:event` 替换为真实 `behavior:batch`(`event.type=...`)dispatch rows · 新增 file / edit-session rows | Task 30a PR · 2026-04-19 |
-| `cross-task-shared-extension-backlog.md` | Cluster fix sprint closed · Task 30 split into 30a(this PR)+ 30b(client edit_session emit follow-up) | 2026-04-19 |
+| `cross-task-shared-extension-backlog.md` | Current release snapshot reconciled; post-Cluster-C remaining-scope/timeline section explicitly marked historical/superseded. | 2026-05-01 |
 | `CI_KNOWN_RED.md` | Empty known-red list; docker/e2e/prompt-regression green-up closed. Embedded signal production section now marks the 2026-04-18 `35 failing` audit as historical only; Layer 2 parity risk #172 is closed by #173/#212. | 2026-04-30 |
 | `v5-signal-production-coverage.md` | Historical baseline audit; current runtime catalog is 48 signals and Cold Start real-session gate closed with 0 missing / 0 null per obs #171. | 2026-04-30 |
 
