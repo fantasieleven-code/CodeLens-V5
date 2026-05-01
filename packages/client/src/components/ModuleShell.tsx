@@ -8,9 +8,8 @@
  *   - Pause / Resume control in the header strip
  *
  * Keeps the pause flag local-only: the store flips isPaused, and a callback
- * hook (onPauseChange) is exposed so future Task 7+ wiring can emit
- * `v5:session:pause` / `v5:session:resume` without ModuleShell needing to
- * know about sockets.
+ * hook (onPauseChange) lets tests or embedding shells observe the UI state
+ * transition without implying backend time-bank semantics.
  */
 
 import React from 'react';
@@ -22,8 +21,8 @@ import { colors, spacing, fontSizes, fontWeights, radii } from '../lib/tokens.js
 export interface ModuleShellProps {
   children: React.ReactNode;
   /**
-   * Fires after pause state flips. Task 3 doesn't use it (no backend);
-   * Task 7+ will wire a socket emit here.
+   * Fires after pause state flips. This is observation-only; ModuleShell does
+   * not emit pause/resume socket events in V5.0.
    */
   onPauseChange?: (paused: boolean) => void;
 }

@@ -6,12 +6,10 @@
  * V5Submissions shape so CompletePage / DecisionSummary can read fields
  * directly without adapters.
  *
- * Task 1 batch 3 scope (skeleton per review):
- *   - `setModuleSubmissionLocal` updates local state only.
- *   - `setModuleSubmission` is a TODO until shared/ws.ts gains the
- *     `v5:{module}:submit` events (filed per Backend module tasks).
- *   - `loadSession` is a TODO pending a REST endpoint.
- *   - `getDecisionSummary` is fully implemented (P0-8).
+ * Runtime submission persistence is owned by each module page via
+ * `persistCandidateSubmission`, which emits the typed module submit event and
+ * falls back to the matching REST endpoint. This store keeps the local
+ * in-browser copy used by CompletePage / DecisionSummary.
  */
 
 import { create } from 'zustand';
@@ -72,11 +70,6 @@ export interface SessionStore {
     moduleKey: K,
     data: V5Submissions[K],
   ) => void;
-
-  setModuleSubmission: <K extends keyof V5Submissions>(
-    moduleKey: K,
-    data: V5Submissions[K],
-  ) => Promise<void>;
 
   getModuleSubmission: <K extends keyof V5Submissions>(
     moduleKey: K,
@@ -150,18 +143,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((state) => ({
       submissions: { ...state.submissions, [moduleKey]: data },
     }));
-  },
-
-  setModuleSubmission: async (moduleKey, data) => {
-    // Local update is always safe.
-    get().setModuleSubmissionLocal(moduleKey, data);
-    // TODO(shared/ws.ts): wire `v5:{moduleKey}:submit` socket emit + ack
-    // once the typed event exists (Backend adds one per module: Task 3 P0,
-    // Task 4 MA, Task 5 MB, Task 6 MD). For now we keep local-only so
-    // CompletePage/DecisionSummary still render during dev.
-    console.warn(
-      `[session.store] setModuleSubmission(${String(moduleKey)}) is local-only — socket emit pending shared/ws.ts contract.`,
-    );
   },
 
   getModuleSubmission: (moduleKey) => {
