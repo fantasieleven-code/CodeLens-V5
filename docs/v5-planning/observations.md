@@ -4268,3 +4268,40 @@ Three-view ratify:
   semantics and makes missing real prompts observable.
 - CCL: small backend-only PR, no schema change, no prompt-authoring detour, and
   it removes production TODO leakage while preserving existing fallbacks.
+
+### #215 · Candidate flow should not keep phantom submit or pause socket contracts
+
+**Type**:contract hygiene / candidate flow cleanup / release hardening
+**Date**:2026-05-01
+**Status**:closed by deleting unused local-submit API and stale pause events
+
+Post-#151 inventory found two stale candidate-flow contracts that no longer
+matched runtime truth. `session.store` still exposed `setModuleSubmission()` as
+a TODO local-only method that warned about missing `v5:{module}:submit` socket
+events, even though every module page now persists through
+`persistCandidateSubmission` with typed socket ack plus REST fallback.
+Separately, shared `ws.ts` still declared `session:pause` / `session:resume`
+events while no client emitted them and no server handler existed. Module pause
+is intentionally UI-only in V5.0 because pausing does not extend
+`session.expiresAt`.
+
+Fix pattern:
+
+- Remove the unused `setModuleSubmission()` API and warning from
+  `session.store`.
+- Keep `setModuleSubmissionLocal()` as the local mirror used by completion and
+  decision-summary UI after a real module persist succeeds.
+- Remove phantom `session:pause` / `session:resume` event declarations from
+  shared ws types.
+- Rewrite ModuleShell/module.store comments so pause is documented as UI-only,
+  not future backend wiring.
+
+Three-view ratify:
+
+- Karpathy: fewer public store/socket APIs is simpler; the real persistence
+  boundary is already `persistCandidateSubmission`.
+- Gemini: typed events without emitters or handlers are false contracts and
+  invite future code to rely on a no-op backend path.
+- CCL: cleanup-only PR, no runtime behavior change, and it reduces launch-time
+  ambiguity while the candidate submit pipeline remains covered by existing
+  tests and e2e.

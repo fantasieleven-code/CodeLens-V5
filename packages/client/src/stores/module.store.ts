@@ -10,9 +10,9 @@
  * Design principle (submit-is-final): no `goBack`, no `goToModule`, no
  * `skipModule`. The only forward transition is `advance()`.
  *
- * Pause/resume: `isPaused` is a candidate-triggered UI flag. Backend is told
- * via socket (Task 9+ wiring) but `session.expiresAt` is NOT adjusted — pause
- * is a courtesy nudge, not time-bank accounting.
+ * Pause/resume: `isPaused` is a candidate-triggered UI-only flag. It does not
+ * notify the backend and does not adjust `session.expiresAt` — pause is a
+ * courtesy nudge, not time-bank accounting.
  */
 
 import { create } from 'zustand';
