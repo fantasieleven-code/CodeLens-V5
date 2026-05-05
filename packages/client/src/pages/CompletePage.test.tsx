@@ -113,16 +113,18 @@ describe('<CompletePage />', () => {
 
   it('does not expose a full-report CTA when sessionId exists', () => {
     useSessionStore.setState({ sessionId: 'abcdef1234567890' });
-    renderCompletePage();
+    const { container } = renderCompletePage();
     expect(screen.queryByTestId('complete-view-report-btn')).not.toBeInTheDocument();
-    expect(screen.getByTestId('complete-self-view-note')).toHaveTextContent(
-      'private self-view',
-    );
+    expect(container.querySelector('a[href*="/report"]')).toBeNull();
+    expect(container.querySelector('a[href*="/admin"]')).toBeNull();
+    expect(screen.getByTestId('complete-self-view-note')).toHaveTextContent('private self-view');
   });
 
   it('does not expose a full-report CTA when sessionId is null', () => {
-    renderCompletePage();
+    const { container } = renderCompletePage();
     expect(screen.queryByTestId('complete-view-report-btn')).not.toBeInTheDocument();
+    expect(container.querySelector('a[href*="/report"]')).toBeNull();
+    expect(container.querySelector('a[href*="/admin"]')).toBeNull();
   });
 
   it('converts timer elapsedMs to rounded minutes (min 1)', () => {
