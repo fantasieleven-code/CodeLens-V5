@@ -78,7 +78,7 @@ interface CompletionRequestPayload {
 }
 
 interface RunTestPayload {
-  sessionId: string;
+  sessionId?: string;
 }
 
 interface FileChangePayload {
@@ -284,8 +284,18 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
 
   socket.on(
     'v5:mb:run_test',
-    safe(socket, 'v5:mb:run_test', async (payload: RunTestPayload) => {
-      const files = fileSnapshotService.getSnapshot(payload.sessionId);
+    async (payload: RunTestPayload) => {
+      const sessionId = resolveSocketSessionId(socket, payload);
+      if (!sessionId) {
+        failSocketRequest(
+          socket,
+          'v5:mb:run_test',
+          'VALIDATION_ERROR',
+          missingSessionMessage('v5:mb:run_test'),
+        );
+        return;
+      }
+      const files = fileSnapshotService.getSnapshot(sessionId);
       const provider = await sandboxFactory.getProvider();
       const sandbox = await provider.create();
       try {
@@ -299,24 +309,32 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
           passRate,
           durationMs: result.durationMs,
         });
-        await persistFinalTestRun(payload.sessionId, {
+        await persistFinalTestRun(sessionId, {
           passRate,
           duration: result.durationMs,
         });
         await eventBus.emit(V5Event.MB_TEST_RUN, {
-          sessionId: payload.sessionId,
+          sessionId,
           passRate,
           duration: result.durationMs,
         });
+      } catch (err) {
+        const message = describeSocketError(err);
+        logger.warn('[socket:mb] v5:mb:run_test failed', {
+          socketId: socket.id,
+          sessionId,
+          error: message,
+        });
+        failSocketRequest(socket, 'v5:mb:run_test', 'PERSIST_FAILED', message);
       } finally {
         await provider.destroy(sandbox).catch((err) => {
           logger.warn('[socket:mb] sandbox destroy failed', {
-            sessionId: payload.sessionId,
+            sessionId,
             error: err instanceof Error ? err.message : String(err),
           });
         });
       }
-    }),
+    },
   );
 
   socket.on(
