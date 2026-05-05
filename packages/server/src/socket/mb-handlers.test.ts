@@ -236,6 +236,46 @@ describe('planning / standards / audit submit', () => {
     await dispatch(ee, 'v5:mb:audit:submit', { sessionId: 's1', violations });
     expect(mocks.persistAudit).toHaveBeenCalledWith('s1', { violations });
   });
+
+  it('audit:submit can persist with socket-bound session identity only', async () => {
+    const { socket, ee } = makeSocket({ sessionId: 'bound-session' });
+    registerMBHandlers({} as never, socket);
+    const violations = [{ exampleIndex: 0, markedAsViolation: true }];
+
+    await dispatch(ee, 'v5:mb:audit:submit', { violations });
+
+    expect(mocks.persistAudit).toHaveBeenCalledWith('bound-session', { violations });
+    expect(mocks.eventBusEmit).toHaveBeenCalledWith(V5Event.MODULE_SUBMITTED, {
+      sessionId: 'bound-session',
+      module: 'mb.audit',
+    });
+  });
+
+  it('audit:submit rejects missing session identity with typed validation error', async () => {
+    const { socket, emit, ee } = makeSocket();
+    registerMBHandlers({} as never, socket);
+
+    await dispatch(ee, 'v5:mb:audit:submit', { violations: [] });
+
+    expect(emit).toHaveBeenCalledWith('v5:mb:audit:submit:error', {
+      code: 'VALIDATION_ERROR',
+      message: 'v5:mb:audit:submit requires sessionId in socket handshake or payload',
+    });
+    expect(mocks.persistAudit).not.toHaveBeenCalled();
+  });
+
+  it('audit:submit emits typed persist failure without adding an ack contract', async () => {
+    mocks.persistAudit.mockRejectedValueOnce(new Error('db down'));
+    const { socket, emit, ee } = makeSocket();
+    registerMBHandlers({} as never, socket);
+
+    await dispatch(ee, 'v5:mb:audit:submit', { sessionId: 's1', violations: [] });
+
+    expect(emit).toHaveBeenCalledWith('v5:mb:audit:submit:error', {
+      code: 'PERSIST_FAILED',
+      message: 'db down',
+    });
+  });
 });
 
 describe('chat_generate', () => {
