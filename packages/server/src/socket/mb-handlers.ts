@@ -39,6 +39,13 @@ import {
   persistMbSubmission,
   appendVisibilityEvent,
 } from '../services/modules/mb.service.js';
+import {
+  ackBoolean,
+  describeSocketError,
+  failSocketRequest,
+  type BooleanAck,
+} from './socket-contract.js';
+import { missingSessionMessage, resolveSocketSessionId } from './socket-session.js';
 
 interface PlanningPayload {
   sessionId: string;
@@ -88,7 +95,7 @@ interface VisibilityChangePayload {
 }
 
 interface SubmitPayload {
-  sessionId: string;
+  sessionId?: string;
   submission: V5MBSubmission;
 }
 
@@ -298,24 +305,34 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
 
   socket.on(
     'v5:mb:submit',
-    async (payload: SubmitPayload, ack?: (ok: boolean) => void) => {
+    async (payload: SubmitPayload, ack?: BooleanAck) => {
+      const sessionId = resolveSocketSessionId(socket, payload);
+      if (!sessionId) {
+        failSocketRequest(
+          socket,
+          'v5:mb:submit',
+          'VALIDATION_ERROR',
+          missingSessionMessage('v5:mb:submit'),
+          ack,
+        );
+        return;
+      }
       try {
-        await fileSnapshotService.persistToMetadata(payload.sessionId);
-        await persistMbSubmission(payload.sessionId, payload.submission);
+        await fileSnapshotService.persistToMetadata(sessionId);
+        await persistMbSubmission(sessionId, payload.submission);
         await eventBus.emit(V5Event.MODULE_SUBMITTED, {
-          sessionId: payload.sessionId,
+          sessionId,
           module: 'mb.submit',
         });
-        ack?.(true);
+        ackBoolean(ack, true);
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = describeSocketError(err);
         logger.warn('[socket:mb] v5:mb:submit failed', {
           socketId: socket.id,
-          sessionId: payload?.sessionId,
+          sessionId,
           error: message,
         });
-        socket.emit('v5:mb:submit:error', { error: message });
-        ack?.(false);
+        failSocketRequest(socket, 'v5:mb:submit', 'PERSIST_FAILED', message, ack);
       }
     },
   );

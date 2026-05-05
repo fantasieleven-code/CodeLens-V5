@@ -82,10 +82,10 @@ vi.mock('../services/sandbox/index.js', () => ({
 import { registerMBHandlers } from './mb-handlers.js';
 import { V5Event } from '@codelens-v5/shared';
 
-function makeSocket() {
+function makeSocket(data?: Record<string, unknown>) {
   const ee = new EventEmitter();
   const emit = vi.fn();
-  const socket = Object.assign(ee, { id: 'sock-1', emit }) as unknown as Parameters<
+  const socket = Object.assign(ee, { id: 'sock-1', data, emit }) as unknown as Parameters<
     typeof registerMBHandlers
   >[1];
   return { socket, emit, ee };
@@ -409,6 +409,40 @@ describe('v5:mb:submit (Task 23 — Cluster B closer + Pattern H v2.2 defense)',
     expect(ack).toHaveBeenCalledWith(true);
   });
 
+  it('prefers socket-bound sessionId over payload fallback', async () => {
+    mocks.fileSnapshotPersistToMetadata.mockResolvedValueOnce(undefined);
+    mocks.persistMbSubmission.mockResolvedValueOnce(undefined);
+
+    const { socket, ee } = makeSocket({ sessionId: 'bound-session' });
+    registerMBHandlers({} as never, socket);
+    const ack = vi.fn();
+    const submission = makeSubmission();
+    await dispatchWithAck(ee, 'v5:mb:submit', { sessionId: 'payload-session', submission }, ack);
+
+    expect(mocks.fileSnapshotPersistToMetadata).toHaveBeenCalledWith('bound-session');
+    expect(mocks.persistMbSubmission).toHaveBeenCalledWith('bound-session', submission);
+    expect(mocks.eventBusEmit).toHaveBeenCalledWith(V5Event.MODULE_SUBMITTED, {
+      sessionId: 'bound-session',
+      module: 'mb.submit',
+    });
+    expect(ack).toHaveBeenCalledWith(true);
+  });
+
+  it('rejects missing session identity with typed validation error + ack false', async () => {
+    const { socket, emit, ee } = makeSocket();
+    registerMBHandlers({} as never, socket);
+    const ack = vi.fn();
+
+    await dispatchWithAck(ee, 'v5:mb:submit', { submission: makeSubmission() }, ack);
+
+    expect(ack).toHaveBeenCalledWith(false);
+    expect(emit).toHaveBeenCalledWith('v5:mb:submit:error', {
+      code: 'VALIDATION_ERROR',
+      message: 'v5:mb:submit requires sessionId in socket handshake or payload',
+    });
+    expect(mocks.persistMbSubmission).not.toHaveBeenCalled();
+  });
+
   it('acks false + emits :error when persistMbSubmission throws (no socket crash)', async () => {
     mocks.fileSnapshotPersistToMetadata.mockResolvedValueOnce(undefined);
     mocks.persistMbSubmission.mockRejectedValueOnce(new Error('db down'));
@@ -422,7 +456,10 @@ describe('v5:mb:submit (Task 23 — Cluster B closer + Pattern H v2.2 defense)',
     ).resolves.toBeUndefined();
 
     expect(ack).toHaveBeenCalledWith(false);
-    expect(emit).toHaveBeenCalledWith('v5:mb:submit:error', { error: 'db down' });
+    expect(emit).toHaveBeenCalledWith('v5:mb:submit:error', {
+      code: 'PERSIST_FAILED',
+      message: 'db down',
+    });
   });
 
   it('does not throw when ack is omitted (fire-and-forget callers stay safe)', async () => {
