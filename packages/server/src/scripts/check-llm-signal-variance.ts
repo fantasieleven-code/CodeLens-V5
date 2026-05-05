@@ -1,12 +1,17 @@
 import {
   NON_DETERMINISTIC_SIGNAL_IDS,
   type SignalInput,
-  type SignalResults,
 } from '@codelens-v5/shared';
 
 import { SignalRegistryImpl } from '../services/signal-registry.service.js';
 import { modelFactory } from '../services/model/index.js';
 import { registerAllSignals } from '../signals/index.js';
+import {
+  LLMVarianceDiagnosticError,
+  classifyLLMVarianceError,
+  summarizeLLMSignalSamples,
+  type LLMSignalSample,
+} from './llm-variance-diagnostics.js';
 
 const RUNS = Number.parseInt(process.env.LLM_VARIANCE_RUNS ?? '3', 10);
 const TOLERANCE = Number.parseFloat(process.env.LLM_VARIANCE_TOLERANCE ?? '0.08');
@@ -75,15 +80,6 @@ function scoringProvidersAvailable(): boolean {
   return available.some((provider) => provider.id === 'glm' || provider.id === 'claude');
 }
 
-function collectValues(runs: SignalResults[], signalId: string): number[] {
-  const values = runs.map((result) => result[signalId]?.value);
-  const numeric = values.filter((value): value is number => typeof value === 'number');
-  if (numeric.length !== runs.length) {
-    throw new Error(`${signalId} returned missing/non-numeric values: ${JSON.stringify(values)}`);
-  }
-  return numeric;
-}
-
 async function main(): Promise<void> {
   ensureConfig();
 
@@ -112,25 +108,34 @@ async function main(): Promise<void> {
     );
   }
 
-  const runs: SignalResults[] = [];
-  for (let i = 0; i < RUNS; i += 1) {
-    runs.push(await registry.computeAll(MD_VARIANCE_INPUT));
+  const llmSignals = registry
+    .listSignals()
+    .filter((signal) => signal.isLLMWhitelist)
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  const samplesBySignal = new Map<string, LLMSignalSample[]>();
+  for (const signal of llmSignals) {
+    const samples: LLMSignalSample[] = [];
+    for (let i = 0; i < RUNS; i += 1) {
+      try {
+        const result = await signal.compute(MD_VARIANCE_INPUT);
+        samples.push({ value: result.value, algorithmVersion: result.algorithmVersion });
+      } catch (err) {
+        throw new LLMVarianceDiagnosticError(
+          classifyLLMVarianceError(err),
+          `${signal.id} live LLM sample ${i + 1}/${RUNS} failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+          { signalId: signal.id, sample: i + 1 },
+        );
+      }
+    }
+    samplesBySignal.set(signal.id, samples);
   }
 
-  const summary = llmSignalIds.map((signalId) => {
-    const values = collectValues(runs, signalId);
-    const spread = Math.max(...values) - Math.min(...values);
-    const versions = runs.map((result) => result[signalId]?.algorithmVersion);
-    if (versions.some((version) => !version?.endsWith('_llm'))) {
-      throw new Error(`${signalId} did not use the live LLM path: ${JSON.stringify(versions)}`);
-    }
-    if (spread > TOLERANCE) {
-      throw new Error(
-        `${signalId} spread ${spread.toFixed(4)} exceeds tolerance ${TOLERANCE.toFixed(4)} values=${JSON.stringify(values)}`,
-      );
-    }
-    return { signalId, values, spread };
-  });
+  const summary = llmSignalIds.map((signalId) =>
+    summarizeLLMSignalSamples(signalId, samplesBySignal.get(signalId) ?? [], TOLERANCE),
+  );
 
   console.log(
     JSON.stringify(
@@ -147,6 +152,22 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  console.error(error);
+  if (error instanceof LLMVarianceDiagnosticError) {
+    console.error(
+      JSON.stringify(
+        {
+          gate: 'md-llm-signal-variance',
+          status: 'failed',
+          diagnosis: error.diagnosis,
+          message: error.message,
+          details: error.details,
+        },
+        null,
+        2,
+      ),
+    );
+  } else {
+    console.error(error);
+  }
   process.exit(1);
 });
