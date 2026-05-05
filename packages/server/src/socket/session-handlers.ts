@@ -11,6 +11,7 @@ import { z } from 'zod';
 
 import { logger } from '../lib/logger.js';
 import { sessionService } from '../services/session.service.js';
+import { ackBoolean, describeSocketError, failSocketRequest } from './socket-contract.js';
 
 const sessionEndPayloadSchema = z.object({
   sessionId: z.string().min(1),
@@ -24,22 +25,22 @@ export function registerSessionHandlers(_io: SocketIOServer, socket: Socket): vo
         socketId: socket.id,
         error: parsed.error.message,
       });
-      ack?.(false);
+      failSocketRequest(socket, 'session:end', 'VALIDATION_ERROR', parsed.error.message, ack);
       return;
     }
 
     const { sessionId } = parsed.data;
     try {
       await sessionService.endSession(sessionId);
-      ack?.(true);
+      ackBoolean(ack, true);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = describeSocketError(err);
       logger.warn('[socket:session] session:end failed', {
         socketId: socket.id,
         sessionId,
         error: message,
       });
-      ack?.(false);
+      failSocketRequest(socket, 'session:end', 'PERSIST_FAILED', message, ack);
     }
   });
 }

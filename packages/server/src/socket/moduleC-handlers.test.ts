@@ -14,17 +14,19 @@ import { registerModuleCHandlers } from './moduleC-handlers.js';
 
 interface FakeSocket {
   id: string;
+  emit: ReturnType<typeof vi.fn>;
   handlers: Map<string, (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>>;
-  on: (event: string, handler: (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>) => void;
+  on: (
+    event: string,
+    handler: (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>,
+  ) => void;
 }
 
 function newFakeSocket(): FakeSocket {
-  const handlers = new Map<
-    string,
-    (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>
-  >();
+  const handlers = new Map<string, (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>>();
   return {
     id: 'sock-1',
+    emit: vi.fn(),
     handlers,
     on: (event, handler) => {
       handlers.set(event, handler);
@@ -85,6 +87,10 @@ describe('registerModuleCHandlers · v5:modulec:answer', () => {
     );
 
     expect(saveRoundAnswer).not.toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('v5:modulec:answer:error', {
+      code: 'VALIDATION_ERROR',
+      message: expect.any(String),
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 
@@ -99,6 +105,10 @@ describe('registerModuleCHandlers · v5:modulec:answer', () => {
     );
 
     expect(saveRoundAnswer).not.toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('v5:modulec:answer:error', {
+      code: 'VALIDATION_ERROR',
+      message: expect.any(String),
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 
@@ -111,6 +121,10 @@ describe('registerModuleCHandlers · v5:modulec:answer', () => {
     await socket.handlers.get('v5:modulec:answer')!(VALID_PAYLOAD, ack);
 
     expect(saveRoundAnswer).toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('v5:modulec:answer:error', {
+      code: 'PERSIST_FAILED',
+      message: 'db down',
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 

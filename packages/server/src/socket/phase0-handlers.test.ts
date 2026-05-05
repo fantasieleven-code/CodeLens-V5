@@ -28,17 +28,19 @@ import { V5Event } from '@codelens-v5/shared';
 
 interface FakeSocket {
   id: string;
+  emit: ReturnType<typeof vi.fn>;
   handlers: Map<string, (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>>;
-  on: (event: string, handler: (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>) => void;
+  on: (
+    event: string,
+    handler: (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>,
+  ) => void;
 }
 
 function newFakeSocket(): FakeSocket {
-  const handlers = new Map<
-    string,
-    (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>
-  >();
+  const handlers = new Map<string, (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>>();
   return {
     id: 'sock-1',
+    emit: vi.fn(),
     handlers,
     on: (event, handler) => {
       handlers.set(event, handler);
@@ -119,6 +121,10 @@ describe('registerPhase0Handlers · phase0:submit', () => {
 
     expect(persistMock).not.toHaveBeenCalled();
     expect(eventBusEmit).not.toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('phase0:submit:error', {
+      code: 'VALIDATION_ERROR',
+      message: expect.any(String),
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 
@@ -139,6 +145,10 @@ describe('registerPhase0Handlers · phase0:submit', () => {
     );
 
     expect(persistMock).not.toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('phase0:submit:error', {
+      code: 'VALIDATION_ERROR',
+      message: expect.any(String),
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 
@@ -155,6 +165,10 @@ describe('registerPhase0Handlers · phase0:submit', () => {
 
     expect(persistMock).toHaveBeenCalled();
     expect(eventBusEmit).not.toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('phase0:submit:error', {
+      code: 'PERSIST_FAILED',
+      message: 'db down',
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 

@@ -31,17 +31,19 @@ import { V5Event } from '@codelens-v5/shared';
 
 interface FakeSocket {
   id: string;
+  emit: ReturnType<typeof vi.fn>;
   handlers: Map<string, (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>>;
-  on: (event: string, handler: (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>) => void;
+  on: (
+    event: string,
+    handler: (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>,
+  ) => void;
 }
 
 function newFakeSocket(): FakeSocket {
-  const handlers = new Map<
-    string,
-    (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>
-  >();
+  const handlers = new Map<string, (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>>();
   return {
     id: 'sock-md-1',
+    emit: vi.fn(),
     handlers,
     on: (event, handler) => {
       handlers.set(event, handler);
@@ -58,10 +60,7 @@ const VALID_SUBMISSION: V5ModuleDSubmission = {
   dataFlowDescription: 'gateway → inventory(Redis Lua) → MQ → fulfillment',
   constraintsSelected: ['high_throughput', 'eventual_consistency'],
   tradeoffText: '吞吐换强一致:Lua + 异步对账,代价是对账延迟 30s',
-  aiOrchestrationPrompts: [
-    '帮我列出秒杀场景下需要原子操作的步骤',
-    '审视这个数据流是否有死锁风险',
-  ],
+  aiOrchestrationPrompts: ['帮我列出秒杀场景下需要原子操作的步骤', '审视这个数据流是否有死锁风险'],
 };
 
 beforeEach(() => {
@@ -147,6 +146,10 @@ describe('registerModuleDHandlers · moduleD:submit', () => {
 
     expect(persistMock).not.toHaveBeenCalled();
     expect(eventBusEmit).not.toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('moduleD:submit:error', {
+      code: 'VALIDATION_ERROR',
+      message: expect.any(String),
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 
@@ -160,13 +163,19 @@ describe('registerModuleDHandlers · moduleD:submit', () => {
         sessionId: 's1',
         submission: {
           ...VALID_SUBMISSION,
-          subModules: [{ responsibility: 'r' } as unknown as { name: string; responsibility: string }],
+          subModules: [
+            { responsibility: 'r' } as unknown as { name: string; responsibility: string },
+          ],
         },
       },
       ack,
     );
 
     expect(persistMock).not.toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('moduleD:submit:error', {
+      code: 'VALIDATION_ERROR',
+      message: expect.any(String),
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 
@@ -187,6 +196,10 @@ describe('registerModuleDHandlers · moduleD:submit', () => {
     );
 
     expect(persistMock).not.toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('moduleD:submit:error', {
+      code: 'VALIDATION_ERROR',
+      message: expect.any(String),
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 
@@ -207,6 +220,10 @@ describe('registerModuleDHandlers · moduleD:submit', () => {
     );
 
     expect(persistMock).not.toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('moduleD:submit:error', {
+      code: 'VALIDATION_ERROR',
+      message: expect.any(String),
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 
@@ -223,6 +240,10 @@ describe('registerModuleDHandlers · moduleD:submit', () => {
 
     expect(persistMock).toHaveBeenCalled();
     expect(eventBusEmit).not.toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('moduleD:submit:error', {
+      code: 'PERSIST_FAILED',
+      message: 'db down',
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 

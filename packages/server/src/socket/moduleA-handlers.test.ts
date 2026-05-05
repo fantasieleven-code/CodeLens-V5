@@ -30,17 +30,19 @@ import { V5Event } from '@codelens-v5/shared';
 
 interface FakeSocket {
   id: string;
+  emit: ReturnType<typeof vi.fn>;
   handlers: Map<string, (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>>;
-  on: (event: string, handler: (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>) => void;
+  on: (
+    event: string,
+    handler: (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>,
+  ) => void;
 }
 
 function newFakeSocket(): FakeSocket {
-  const handlers = new Map<
-    string,
-    (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>
-  >();
+  const handlers = new Map<string, (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>>();
   return {
     id: 'sock-ma-1',
+    emit: vi.fn(),
     handlers,
     on: (event, handler) => {
       handlers.set(event, handler);
@@ -62,7 +64,12 @@ const VALID_SUBMISSION: V5ModuleASubmission = {
   },
   round2: {
     markedDefects: [
-      { defectId: 'cand-1', commentType: 'bug', comment: 'SET NX missing EX', fixSuggestion: 'add 30s TTL' },
+      {
+        defectId: 'cand-1',
+        commentType: 'bug',
+        comment: 'SET NX missing EX',
+        fixSuggestion: 'add 30s TTL',
+      },
     ],
   },
   round3: {
@@ -149,6 +156,10 @@ describe('registerModuleAHandlers · moduleA:submit', () => {
 
     expect(persistMock).not.toHaveBeenCalled();
     expect(eventBusEmit).not.toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('moduleA:submit:error', {
+      code: 'VALIDATION_ERROR',
+      message: expect.any(String),
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 
@@ -169,6 +180,10 @@ describe('registerModuleAHandlers · moduleA:submit', () => {
     );
 
     expect(persistMock).not.toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('moduleA:submit:error', {
+      code: 'VALIDATION_ERROR',
+      message: expect.any(String),
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 
@@ -197,6 +212,10 @@ describe('registerModuleAHandlers · moduleA:submit', () => {
     );
 
     expect(persistMock).not.toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('moduleA:submit:error', {
+      code: 'VALIDATION_ERROR',
+      message: expect.any(String),
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 
@@ -217,6 +236,10 @@ describe('registerModuleAHandlers · moduleA:submit', () => {
     );
 
     expect(persistMock).not.toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('moduleA:submit:error', {
+      code: 'VALIDATION_ERROR',
+      message: expect.any(String),
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 
@@ -233,6 +256,10 @@ describe('registerModuleAHandlers · moduleA:submit', () => {
 
     expect(persistMock).toHaveBeenCalled();
     expect(eventBusEmit).not.toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('moduleA:submit:error', {
+      code: 'PERSIST_FAILED',
+      message: 'db down',
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 
