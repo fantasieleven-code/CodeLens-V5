@@ -124,6 +124,53 @@ describe('Pattern H v2.2 — Cluster D pipeline (Task 24)', () => {
     expect(meta.value).toBeCloseTo(0.7, 5);
   });
 
+  it('(i-b) V5-native envelope → handler persist → sMetaCognition includes reviewedDecisions', async () => {
+    const { socket, ee } = makeSocket();
+    registerSelfAssessHandlers({} as never, socket);
+
+    const sessionId = 'sess-cluster-d-v5-native';
+    const reasoning =
+      '我回顾了 Phase0、ModuleA 和 MB 的三个关键决定，并重新校准了风险判断。'.repeat(3);
+    const ack = vi.fn();
+
+    await dispatchWithAck(
+      ee,
+      'self-assess:submit',
+      {
+        sessionId,
+        submission: {
+          confidence: 0.6,
+          reasoning,
+          reviewedDecisions: ['P0 claim check', 'MA R1 scheme', 'MB final tests'],
+        },
+      },
+      ack,
+    );
+
+    expect(ack).toHaveBeenCalledWith(true);
+
+    const persisted = store.metadata as { selfAssess?: Record<string, unknown> };
+    expect(persisted.selfAssess).toEqual({
+      confidence: 0.6,
+      reasoning,
+      reviewedDecisions: ['P0 claim check', 'MA R1 scheme', 'MB final tests'],
+    });
+
+    const submissions = store.metadata as unknown as V5Submissions;
+    const input: SignalInput = {
+      sessionId,
+      suiteId: 'full_stack',
+      submissions,
+      examData: {},
+      participatingModules: ['selfAssess'],
+    };
+    const meta = await sMetaCognition.compute(input);
+    expect(meta.value).not.toBeNull();
+    // reasoningScore=1.0 × 0.5 + balancedConfidence=1.0 × 0.2 + reviewScore=1.0 × 0.3
+    // = 1.0
+    expect(meta.value).toBeCloseTo(1, 5);
+  });
+
   it('(ii) cross-Task regression defense — Task 22 aiCompletionEvents + Task 23 finalTestPassRate / finalFiles survive a SE write', async () => {
     // Seed Task 22 + Task 23 state directly (those pipelines have their own
     // gates in mb-cluster-b-pipeline.test.ts; here we only assert SE writer
@@ -132,8 +179,26 @@ describe('Pattern H v2.2 — Cluster D pipeline (Task 24)', () => {
       mb: {
         editorBehavior: {
           aiCompletionEvents: [
-            { timestamp: 1, accepted: true, lineNumber: 5, completionLength: 12, shown: true, shownAt: 100, respondedAt: 800, documentVisibleMs: 700 },
-            { timestamp: 2, accepted: false, lineNumber: 6, completionLength: 8, shown: true, shownAt: 200, respondedAt: 1400, documentVisibleMs: 1200 },
+            {
+              timestamp: 1,
+              accepted: true,
+              lineNumber: 5,
+              completionLength: 12,
+              shown: true,
+              shownAt: 100,
+              respondedAt: 800,
+              documentVisibleMs: 700,
+            },
+            {
+              timestamp: 2,
+              accepted: false,
+              lineNumber: 6,
+              completionLength: 8,
+              shown: true,
+              shownAt: 200,
+              respondedAt: 1400,
+              documentVisibleMs: 1200,
+            },
           ],
           documentVisibilityEvents: [{ timestamp: 3, hidden: false }],
           testRuns: [{ timestamp: 4, passRate: 0.8, duration: 1500 }],
