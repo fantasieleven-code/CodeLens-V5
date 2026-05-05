@@ -25,8 +25,8 @@
 | `moduleD:submit`           | client -> server | MD submit        | handshake or payload   | boolean | `{event}:error` | V5-native payload already; payload sessionId is fallback          |
 | `v5:modulec:answer`        | client -> server | MC answer        | handshake or payload   | boolean | `{event}:error` | V5-native payload already; payload sessionId is fallback          |
 | `session:end`              | client -> server | lifecycle        | handshake or payload   | boolean | `{event}:error` | V5-native lifecycle; payload sessionId is fallback                |
-| `v5:mb:planning:submit`    | client -> server | MB stage         | payload `sessionId`    | boolean | `{event}:error` | Normalize via helper; preserve event                              |
-| `v5:mb:standards:submit`   | client -> server | MB stage         | payload `sessionId`    | boolean | `{event}:error` | Normalize via helper; preserve event                              |
+| `v5:mb:planning:submit`    | client -> server | MB stage         | handshake or payload   | boolean | `{event}:error` | Stage submit normalized; payload sessionId is fallback            |
+| `v5:mb:standards:submit`   | client -> server | MB stage         | handshake or payload   | boolean | `{event}:error` | Stage submit normalized; payload sessionId is fallback            |
 | `v5:mb:submit`             | client -> server | MB final         | handshake or payload   | boolean | `{event}:error` | Final submit normalized; payload sessionId is fallback            |
 | `v5:mb:audit:submit`       | client -> server | MB stage         | payload `sessionId`    | none    | `{event}:error` | Decide if ack is needed before migration                          |
 | `v5:mb:chat_generate`      | client -> server | MB LLM stream    | payload `sessionId`    | none    | `{event}:error` | Streaming event; do not force boolean ack                         |
@@ -41,7 +41,8 @@
 - Candidate socket creation now carries `handshake.auth.sessionId` after session load; payload `sessionId` remains the compatibility fallback.
 - `self-assess:submit` client emits V5-native payload; server still accepts the V4 bridge shape until usage logs prove it is unused.
 - MB final submit (`v5:mb:submit`) resolves handshake identity first and keeps payload fallback.
-- MB stage submit / streaming / telemetry and `behavior:batch` still read only payload `sessionId`; migrate those after high-volume telemetry identity behavior is observed.
+- MB planning / standards / final submit resolve handshake identity first and keep payload fallback.
+- MB audit / streaming / telemetry and `behavior:batch` still read only payload `sessionId`; migrate those after high-volume telemetry identity behavior is observed.
 - `behavior:batch` silently logs invalid schema or persist failure, because telemetry must not block candidate flow.
 - MB `safe()` wrapper catches thrown errors and emits `{event}:error`, but it does not call ack because most wrapped events are stream/fire-and-forget.
 - `self-assess:submit` is the only V4 -> V5 normalize bridge. Its event name should not be renamed until the client dual-emits or switches shape.
@@ -195,6 +196,20 @@ Acceptance:
 - Missing session identity returns `ack(false)` plus `VALIDATION_ERROR`.
 - Persist failure returns `ack(false)` plus `PERSIST_FAILED`.
 - MB planning / standards / audit / streaming / telemetry are intentionally unchanged in this PR.
+
+### PR 8 · MB Stage Submit Socket Contract
+
+Status:done in V5.1 prep. `v5:mb:planning:submit` and
+`v5:mb:standards:submit` now use the same socket identity resolver and typed
+error frame contract as MB final submit. They still preserve boolean ack and
+payload session fallback.
+
+Acceptance:
+
+- Planning submit prefers bound socket identity and rejects missing identity with `VALIDATION_ERROR`.
+- Standards submit can persist with socket-bound identity only.
+- Persist failures emit `PERSIST_FAILED` while preserving `ack(false)`.
+- MB audit / streaming / telemetry remain unchanged.
 
 ## Non-Goals
 
