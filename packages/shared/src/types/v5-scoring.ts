@@ -70,10 +70,15 @@ export interface ScoreSessionInput {
  *   conversion lives at `computeDimensions` boundary).
  * - `signals` is the raw per-signal SignalResult map (Round 3 重构 1
  *   shape: value / evidence / computedAt / algorithmVersion).
+ * - `computedAt` / `algorithmVersion` stamp the top-level frozen scoring
+ *   snapshot. They are optional for legacy V5.0 snapshots persisted before
+ *   the V5.1 replay-policy hardening.
  * - `cursorBehaviorLabel` is optional — V5.0 returns undefined pending
  *   V5.1 implementation of `computeCursorBehaviorLabel`.
  */
 export interface V5ScoringResult {
+  computedAt?: number;
+  algorithmVersion?: string;
   grade: V5Grade;
   composite: number;
   dimensions: V5DimensionScores;
@@ -99,6 +104,8 @@ export interface V5ScoringResult {
  * parse this schema before treating persisted JSON as trusted output.
  */
 export const V5ScoringResultSchema = z.object({
+  computedAt: z.number().optional(),
+  algorithmVersion: z.string().optional(),
   grade: z.enum(['D', 'C', 'B', 'B+', 'A', 'S', 'S+']),
   composite: z.number(),
   dimensions: z.record(z.string(), z.number().nullable()),

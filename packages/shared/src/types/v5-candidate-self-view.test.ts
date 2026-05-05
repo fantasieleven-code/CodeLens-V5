@@ -149,6 +149,17 @@ describe('V5ScoringResultSchema · drift defense (β ratified)', () => {
     expect(() => V5ScoringResultSchema.parse(validScoring)).not.toThrow();
   });
 
+  it('accepts V5.1 top-level snapshot stamps while keeping legacy snapshots optional', () => {
+    expect(() =>
+      V5ScoringResultSchema.parse({
+        ...validScoring,
+        computedAt: 1_700_000_000_001,
+        algorithmVersion: 'scoreSession@v1',
+      }),
+    ).not.toThrow();
+    expect(V5ScoringResultSchema.parse(validScoring).computedAt).toBeUndefined();
+  });
+
   it('rejects unknown top-level fields so report-facing schema drift is explicit', () => {
     expect(() =>
       V5ScoringResultSchema.parse({ ...validScoring, newV5_1Field: 'ok' }),

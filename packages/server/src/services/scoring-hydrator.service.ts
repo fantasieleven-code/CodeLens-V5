@@ -24,6 +24,9 @@
  * - **Idempotent**: calling hydrateAndScore twice against the same session
  *   yields deep-equal scoringResult (pure function of session state at call
  *   time; any non-deterministic pieces live inside signal authors, not here).
+ * - **Replay policy**: `Session.scoringResult` is the canonical frozen report
+ *   snapshot. Admin/report callers reuse it by default; explicit diagnostic
+ *   callers can pass `forceRefresh=true` to recompute and overwrite it.
  */
 
 import type { PrismaClient, Prisma } from '@prisma/client';
