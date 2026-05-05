@@ -49,6 +49,8 @@ import {
   participatingDimensionsOf,
 } from './scoring.service.js';
 
+export const SCORING_RESULT_ALGORITHM_VERSION = 'scoreSession@v1';
+
 /**
  * Meta-signals — V5.0 A1 guardrail constant (Gemini-ratified naming).
  *
@@ -195,6 +197,8 @@ export async function scoreSession(
   const capabilityProfiles = computeAllProfiles(dimensions, participatingDimensionsOf(suite));
 
   return {
+    computedAt: Date.now(),
+    algorithmVersion: SCORING_RESULT_ALGORITHM_VERSION,
     grade: gradeDecision.grade,
     composite: gradeDecision.composite,
     dimensions: gradeDecision.dimensions,

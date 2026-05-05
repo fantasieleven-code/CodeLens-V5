@@ -30,6 +30,7 @@ vi.mock('../lib/langfuse.js', () => ({
 }));
 
 import {
+  SCORING_RESULT_ALGORITHM_VERSION,
   __resetDefaultRegistryForTests,
   scoreSession,
 } from './scoring-orchestrator.service.js';
@@ -135,6 +136,8 @@ describe('scoreSession — wiring', () => {
     const result = await scoreSession(makeInput(), { registry });
 
     expect(result).toMatchObject({
+      computedAt: expect.any(Number),
+      algorithmVersion: SCORING_RESULT_ALGORITHM_VERSION,
       grade: expect.any(String),
       composite: expect.any(Number),
       dimensions: expect.any(Object),
@@ -144,6 +147,7 @@ describe('scoreSession — wiring', () => {
       signals: expect.any(Object),
       capabilityProfiles: expect.any(Array),
     });
+    expect(Number.isFinite(result.computedAt)).toBe(true);
     expect(Object.keys(result.signals)).toEqual(['sA', 'sB', 'sC', 'sD', 'sE']);
   });
 
