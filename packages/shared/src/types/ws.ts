@@ -59,10 +59,10 @@ export interface ClientToServerEvents {
    * Task 24 — Cluster D self-assess submit. The server accepts both the
    * V4-legacy field set (`selfConfidence` 0-100, `selfIdentifiedRisk`,
    * `responseTimeMs`) and the V5-native `{ submission }` envelope.
-   * `sessionId` was added in Task 24 (Option C) so the handler has a target
-   * for `metadata.selfAssess.*` writes — the server has no socket-level
-   * session middleware (Task 15 will add it). The dual-shape bridge between
-   * the V4 socket payload and V5SelfAssessSubmission is V5.0.5 cleanup.
+   * `sessionId` remains optional because the server resolves socket-bound
+   * identity first and uses payload identity as the compatibility fallback.
+   * The dual-shape bridge between the V4 socket payload and
+   * V5SelfAssessSubmission is V5.0.5 cleanup.
    */
   'self-assess:submit': (
     data:
@@ -258,8 +258,8 @@ export interface ServerToClientEvents {
   'micro-verify:result': (data: { verificationId: string; confidenceScore: number }) => void;
   'self-assess:trigger': () => void;
   // v5: MB Cursor mode responses — shapes mirror packages/server/src/socket/mb-handlers.ts
-  // exact emit calls. Error frames use the `{event}:error` convention from the
-  // safe() wrapper (e.g. `v5:mb:run_test:error`) and are not typed individually.
+  // exact emit calls. Error frames use the `{event}:error` convention and are
+  // not typed individually.
   'v5:mb:chat_stream': (data: V5MBChatStreamPayload) => void;
   'v5:mb:chat_complete': (data: V5MBChatCompletePayload) => void;
   'v5:mb:completion_response': (data: V5MBCompletionResponsePayload) => void;
@@ -312,7 +312,7 @@ export interface V5MBChatGeneratePayload {
 }
 
 export interface V5MBCompletionRequestPayload {
-  sessionId: string;
+  sessionId?: string;
   filePath: string;
   content: string;
   line: number;
@@ -320,29 +320,29 @@ export interface V5MBCompletionRequestPayload {
 }
 
 export interface V5MBFileChangePayload {
-  sessionId: string;
+  sessionId?: string;
   filePath: string;
   content: string;
   source: 'manual_edit' | 'ai_chat' | 'ai_completion';
 }
 
 export interface V5MBRunTestPayload {
-  sessionId: string;
+  sessionId?: string;
 }
 
 export interface V5MBPlanningSubmitPayload {
-  sessionId: string;
+  sessionId?: string;
   planning: V5MBPlanning;
 }
 
 export interface V5MBStandardsSubmitPayload {
-  sessionId: string;
+  sessionId?: string;
   rulesContent: string;
   agentContent?: string;
 }
 
 export interface V5MBAuditSubmitPayload {
-  sessionId: string;
+  sessionId?: string;
   violations: V5MBAudit['violations'];
 }
 
@@ -352,7 +352,7 @@ export interface V5MBAuditSubmitPayload {
  * can compute document-visible time slices for chat/completion decisions.
  */
 export interface V5MBVisibilityChangePayload {
-  sessionId: string;
+  sessionId?: string;
   timestamp: number;
   hidden: boolean;
 }
@@ -368,7 +368,7 @@ export interface V5MBVisibilityChangePayload {
  * the client sends empty arrays in this field.
  */
 export interface V5MBSubmitPayload {
-  sessionId: string;
+  sessionId?: string;
   submission: V5MBSubmission;
 }
 

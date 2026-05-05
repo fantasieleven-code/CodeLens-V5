@@ -24,6 +24,7 @@ import type {
   V5MBPlanningSubmitPayload,
   V5MBRunTestPayload,
   V5MBStandardsSubmitPayload,
+  V5MBSubmitPayload,
   V5MBTestResultPayload,
   V5MBVisibilityChangePayload,
 } from './ws.js';
@@ -41,7 +42,7 @@ describe('ws.ts v5:mb:* payload shapes', () => {
     >();
   });
 
-  it('Client → Server: 8 MB events are all listed on ClientToServerEvents', () => {
+  it('Client → Server: 9 MB events are all listed on ClientToServerEvents', () => {
     expectTypeOf<ClientToServerEvents['v5:mb:chat_generate']>().parameters.toEqualTypeOf<
       [V5MBChatGeneratePayload]
     >();
@@ -66,6 +67,9 @@ describe('ws.ts v5:mb:* payload shapes', () => {
     expectTypeOf<ClientToServerEvents['v5:mb:visibility_change']>().parameters.toEqualTypeOf<
       [V5MBVisibilityChangePayload]
     >();
+    expectTypeOf<ClientToServerEvents['v5:mb:submit']>().parameters.toEqualTypeOf<
+      [V5MBSubmitPayload, (ok: boolean) => void]
+    >();
   });
 
   it('Server → Client: 4 MB response events are all listed on ServerToClientEvents', () => {
@@ -83,17 +87,32 @@ describe('ws.ts v5:mb:* payload shapes', () => {
     >();
   });
 
-  it('Client → Server: chat can use handshake identity while other MB payloads keep fallback sessionId', () => {
+  it('Client → Server: MB payloads can use handshake identity with payload fallback', () => {
     expectTypeOf<V5MBChatGeneratePayload>()
       .toHaveProperty('sessionId')
       .toEqualTypeOf<string | undefined>();
-    expectTypeOf<V5MBCompletionRequestPayload>().toHaveProperty('sessionId').toEqualTypeOf<string>();
-    expectTypeOf<V5MBFileChangePayload>().toHaveProperty('sessionId').toEqualTypeOf<string>();
-    expectTypeOf<V5MBRunTestPayload>().toHaveProperty('sessionId').toEqualTypeOf<string>();
-    expectTypeOf<V5MBPlanningSubmitPayload>().toHaveProperty('sessionId').toEqualTypeOf<string>();
-    expectTypeOf<V5MBStandardsSubmitPayload>().toHaveProperty('sessionId').toEqualTypeOf<string>();
-    expectTypeOf<V5MBAuditSubmitPayload>().toHaveProperty('sessionId').toEqualTypeOf<string>();
-    expectTypeOf<V5MBVisibilityChangePayload>().toHaveProperty('sessionId').toEqualTypeOf<string>();
+    expectTypeOf<V5MBCompletionRequestPayload>()
+      .toHaveProperty('sessionId')
+      .toEqualTypeOf<string | undefined>();
+    expectTypeOf<V5MBFileChangePayload>()
+      .toHaveProperty('sessionId')
+      .toEqualTypeOf<string | undefined>();
+    expectTypeOf<V5MBRunTestPayload>()
+      .toHaveProperty('sessionId')
+      .toEqualTypeOf<string | undefined>();
+    expectTypeOf<V5MBPlanningSubmitPayload>()
+      .toHaveProperty('sessionId')
+      .toEqualTypeOf<string | undefined>();
+    expectTypeOf<V5MBStandardsSubmitPayload>()
+      .toHaveProperty('sessionId')
+      .toEqualTypeOf<string | undefined>();
+    expectTypeOf<V5MBAuditSubmitPayload>()
+      .toHaveProperty('sessionId')
+      .toEqualTypeOf<string | undefined>();
+    expectTypeOf<V5MBVisibilityChangePayload>()
+      .toHaveProperty('sessionId')
+      .toEqualTypeOf<string | undefined>();
+    expectTypeOf<V5MBSubmitPayload>().toHaveProperty('sessionId').toEqualTypeOf<string | undefined>();
   });
 
   it('file_change.source is a closed 3-value union', () => {
