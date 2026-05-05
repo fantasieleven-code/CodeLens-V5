@@ -1,10 +1,10 @@
 /**
  * Task CI-Green-Up · C2 · promptfoo mock provider.
  *
- * Deterministic file-based provider for the V5.0 minimal prompt-regression
- * baseline (1 LLM signal · sAiOrchestrationQuality). Returns a fixed JSON
- * payload so `npx promptfoo eval` runs without network, secrets, or token
- * cost in CI. Real LLM variance monitoring lives in V5.0.5 Task A14b.
+ * Deterministic file-based provider for the MD prompt-regression baseline
+ * (3 LLM signals · A14b). Returns a fixed JSON payload so `npx promptfoo eval`
+ * runs without network, secrets, token cost, or provider variance in main CI.
+ * Real-provider variance monitoring belongs in a separate nightly/manual gate.
  *
  * The shape mirrors the contract enforced by
  * `packages/server/src/signals/md/llm-helper.ts` (SYSTEM_PROMPT):
