@@ -48,12 +48,12 @@ import {
 import { missingSessionMessage, resolveSocketSessionId } from './socket-session.js';
 
 interface PlanningPayload {
-  sessionId: string;
+  sessionId?: string;
   planning: V5MBPlanning;
 }
 
 interface StandardsPayload {
-  sessionId: string;
+  sessionId?: string;
   rulesContent: string;
   agentContent?: string;
 }
@@ -99,8 +99,6 @@ interface SubmitPayload {
   submission: V5MBSubmission;
 }
 
-type Ack = (ok: boolean) => void;
-
 function safe<T extends unknown[]>(
   socket: Socket,
   event: string,
@@ -120,50 +118,70 @@ function safe<T extends unknown[]>(
 export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
   socket.on(
     'v5:mb:planning:submit',
-    async (payload: PlanningPayload, ack?: Ack) => {
+    async (payload: PlanningPayload, ack?: BooleanAck) => {
+      const sessionId = resolveSocketSessionId(socket, payload);
+      if (!sessionId) {
+        failSocketRequest(
+          socket,
+          'v5:mb:planning:submit',
+          'VALIDATION_ERROR',
+          missingSessionMessage('v5:mb:planning:submit'),
+          ack,
+        );
+        return;
+      }
       try {
-        await persistPlanning(payload.sessionId, payload.planning);
+        await persistPlanning(sessionId, payload.planning);
         await eventBus.emit(V5Event.MODULE_SUBMITTED, {
-          sessionId: payload.sessionId,
+          sessionId,
           module: 'mb.planning',
         });
-        ack?.(true);
+        ackBoolean(ack, true);
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = describeSocketError(err);
         logger.warn('[socket:mb] v5:mb:planning:submit failed', {
           socketId: socket.id,
-          sessionId: payload?.sessionId,
+          sessionId,
           error: message,
         });
-        socket.emit('v5:mb:planning:submit:error', { error: message });
-        ack?.(false);
+        failSocketRequest(socket, 'v5:mb:planning:submit', 'PERSIST_FAILED', message, ack);
       }
     },
   );
 
   socket.on(
     'v5:mb:standards:submit',
-    async (payload: StandardsPayload, ack?: Ack) => {
+    async (payload: StandardsPayload, ack?: BooleanAck) => {
+      const sessionId = resolveSocketSessionId(socket, payload);
+      if (!sessionId) {
+        failSocketRequest(
+          socket,
+          'v5:mb:standards:submit',
+          'VALIDATION_ERROR',
+          missingSessionMessage('v5:mb:standards:submit'),
+          ack,
+        );
+        return;
+      }
       try {
         const standards: V5MBStandards = {
           rulesContent: payload.rulesContent,
           ...(payload.agentContent !== undefined ? { agentContent: payload.agentContent } : {}),
         };
-        await persistStandards(payload.sessionId, standards);
+        await persistStandards(sessionId, standards);
         await eventBus.emit(V5Event.MODULE_SUBMITTED, {
-          sessionId: payload.sessionId,
+          sessionId,
           module: 'mb.standards',
         });
-        ack?.(true);
+        ackBoolean(ack, true);
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = describeSocketError(err);
         logger.warn('[socket:mb] v5:mb:standards:submit failed', {
           socketId: socket.id,
-          sessionId: payload?.sessionId,
+          sessionId,
           error: message,
         });
-        socket.emit('v5:mb:standards:submit:error', { error: message });
-        ack?.(false);
+        failSocketRequest(socket, 'v5:mb:standards:submit', 'PERSIST_FAILED', message, ack);
       }
     },
   );

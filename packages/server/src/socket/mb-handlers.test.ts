@@ -160,6 +160,43 @@ describe('planning / standards / audit submit', () => {
     expect(ack).toHaveBeenCalledWith(true);
   });
 
+  it('planning:submit prefers socket-bound sessionId over payload fallback', async () => {
+    const { socket, ee } = makeSocket({ sessionId: 'bound-session' });
+    registerMBHandlers({} as never, socket);
+    const ack = vi.fn();
+    await dispatchWithAck(ee, 'v5:mb:planning:submit', {
+      sessionId: 'payload-session',
+      planning: { decomposition: 'a', dependencies: 'b', fallbackStrategy: 'c' },
+    }, ack);
+
+    expect(mocks.persistPlanning).toHaveBeenCalledWith('bound-session', {
+      decomposition: 'a',
+      dependencies: 'b',
+      fallbackStrategy: 'c',
+    });
+    expect(mocks.eventBusEmit).toHaveBeenCalledWith(V5Event.MODULE_SUBMITTED, {
+      sessionId: 'bound-session',
+      module: 'mb.planning',
+    });
+    expect(ack).toHaveBeenCalledWith(true);
+  });
+
+  it('planning:submit rejects missing session identity with typed validation error', async () => {
+    const { socket, emit, ee } = makeSocket();
+    registerMBHandlers({} as never, socket);
+    const ack = vi.fn();
+    await dispatchWithAck(ee, 'v5:mb:planning:submit', {
+      planning: { decomposition: 'a', dependencies: 'b', fallbackStrategy: 'c' },
+    }, ack);
+
+    expect(ack).toHaveBeenCalledWith(false);
+    expect(emit).toHaveBeenCalledWith('v5:mb:planning:submit:error', {
+      code: 'VALIDATION_ERROR',
+      message: 'v5:mb:planning:submit requires sessionId in socket handshake or payload',
+    });
+    expect(mocks.persistPlanning).not.toHaveBeenCalled();
+  });
+
   it('standards:submit drops agentContent when undefined', async () => {
     const { socket, ee } = makeSocket();
     registerMBHandlers({} as never, socket);
@@ -171,6 +208,22 @@ describe('planning / standards / audit submit', () => {
     expect(mocks.persistStandards).toHaveBeenCalledWith('s1', { rulesContent: 'rules' });
     expect(mocks.eventBusEmit).toHaveBeenCalledWith(V5Event.MODULE_SUBMITTED, {
       sessionId: 's1',
+      module: 'mb.standards',
+    });
+    expect(ack).toHaveBeenCalledWith(true);
+  });
+
+  it('standards:submit can persist with socket-bound session identity only', async () => {
+    const { socket, ee } = makeSocket({ sessionId: 'bound-session' });
+    registerMBHandlers({} as never, socket);
+    const ack = vi.fn();
+    await dispatchWithAck(ee, 'v5:mb:standards:submit', {
+      rulesContent: 'rules',
+    }, ack);
+
+    expect(mocks.persistStandards).toHaveBeenCalledWith('bound-session', { rulesContent: 'rules' });
+    expect(mocks.eventBusEmit).toHaveBeenCalledWith(V5Event.MODULE_SUBMITTED, {
+      sessionId: 'bound-session',
       module: 'mb.standards',
     });
     expect(ack).toHaveBeenCalledWith(true);
@@ -492,7 +545,10 @@ describe('error safety', () => {
       }, ack),
     ).resolves.toBeUndefined();
 
-    expect(emit).toHaveBeenCalledWith('v5:mb:planning:submit:error', { error: 'db down' });
+    expect(emit).toHaveBeenCalledWith('v5:mb:planning:submit:error', {
+      code: 'PERSIST_FAILED',
+      message: 'db down',
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 });
