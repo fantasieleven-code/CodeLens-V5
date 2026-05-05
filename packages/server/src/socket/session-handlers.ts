@@ -12,9 +12,10 @@ import { z } from 'zod';
 import { logger } from '../lib/logger.js';
 import { sessionService } from '../services/session.service.js';
 import { ackBoolean, describeSocketError, failSocketRequest } from './socket-contract.js';
+import { missingSessionMessage, resolveSocketSessionId } from './socket-session.js';
 
 const sessionEndPayloadSchema = z.object({
-  sessionId: z.string().min(1),
+  sessionId: z.string().min(1).optional(),
 });
 
 export function registerSessionHandlers(_io: SocketIOServer, socket: Socket): void {
@@ -29,7 +30,16 @@ export function registerSessionHandlers(_io: SocketIOServer, socket: Socket): vo
       return;
     }
 
-    const { sessionId } = parsed.data;
+    const sessionId = resolveSocketSessionId(socket, parsed.data);
+    if (!sessionId) {
+      const message = missingSessionMessage('session:end');
+      logger.warn('[socket:session] session:end missing session identity', {
+        socketId: socket.id,
+      });
+      failSocketRequest(socket, 'session:end', 'VALIDATION_ERROR', message, ack);
+      return;
+    }
+
     try {
       await sessionService.endSession(sessionId);
       ackBoolean(ack, true);

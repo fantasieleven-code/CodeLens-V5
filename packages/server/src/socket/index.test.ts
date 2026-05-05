@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const registerMBHandlers = vi.hoisted(() => vi.fn());
 const registerBehaviorHandlers = vi.hoisted(() => vi.fn());
@@ -9,6 +9,8 @@ const registerModuleAHandlers = vi.hoisted(() => vi.fn());
 const registerModuleCHandlers = vi.hoisted(() => vi.fn());
 const registerModuleDHandlers = vi.hoisted(() => vi.fn());
 const registerSessionHandlers = vi.hoisted(() => vi.fn());
+const registerSocketSessionIdentityMiddleware = vi.hoisted(() => vi.fn());
+const resolveSocketSessionId = vi.hoisted(() => vi.fn());
 
 vi.mock('./mb-handlers.js', () => ({ registerMBHandlers }));
 vi.mock('./behavior-handlers.js', () => ({ registerBehaviorHandlers }));
@@ -18,6 +20,10 @@ vi.mock('./moduleA-handlers.js', () => ({ registerModuleAHandlers }));
 vi.mock('./moduleC-handlers.js', () => ({ registerModuleCHandlers }));
 vi.mock('./moduleD-handlers.js', () => ({ registerModuleDHandlers }));
 vi.mock('./session-handlers.js', () => ({ registerSessionHandlers }));
+vi.mock('./socket-session.js', () => ({
+  registerSocketSessionIdentityMiddleware,
+  resolveSocketSessionId,
+}));
 vi.mock('../lib/logger.js', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
@@ -47,11 +53,19 @@ function makeIo() {
 }
 
 describe('registerSocketHandlers', () => {
+  beforeEach(() => {
+    registerSocketSessionIdentityMiddleware.mockReset();
+    resolveSocketSessionId.mockReset();
+    resolveSocketSessionId.mockReturnValue(null);
+  });
+
   it('registers the V5 handlers on root and /interview namespaces', () => {
     const { io, interviewNamespace, rootHandlers, interviewHandlers } = makeIo();
 
     registerSocketHandlers(io as never);
 
+    expect(registerSocketSessionIdentityMiddleware).toHaveBeenCalledWith(io);
+    expect(registerSocketSessionIdentityMiddleware).toHaveBeenCalledWith(interviewNamespace);
     expect(io.on).toHaveBeenCalledWith('connection', expect.any(Function));
     expect(interviewNamespace.on).toHaveBeenCalledWith('connection', expect.any(Function));
     expect(rootHandlers).toHaveLength(1);
@@ -65,6 +79,7 @@ describe('registerSocketHandlers', () => {
 
     interviewHandlers[0](socket);
 
+    expect(resolveSocketSessionId).toHaveBeenCalledWith(socket);
     expect(registerMBHandlers).toHaveBeenCalledWith(io, socket);
     expect(registerBehaviorHandlers).toHaveBeenCalledWith(io, socket);
     expect(registerSelfAssessHandlers).toHaveBeenCalledWith(io, socket);

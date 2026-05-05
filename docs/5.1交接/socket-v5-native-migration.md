@@ -19,12 +19,12 @@
 | Event                      | Direction        | Owner            | Current session source | Ack     | Error frame     | Migration classification                                          |
 | -------------------------- | ---------------- | ---------------- | ---------------------- | ------- | --------------- | ----------------------------------------------------------------- |
 | `behavior:batch`           | client -> server | MB telemetry     | payload `sessionId`    | none    | none, logs only | Keep name for V5.1; high-volume telemetry, migrate identity first |
-| `self-assess:submit`       | client -> server | SE submit        | payload `sessionId`    | boolean | `{event}:error` | Dual-accept active; V4 bridge logs usage                          |
-| `phase0:submit`            | client -> server | P0 submit        | payload `sessionId`    | boolean | `{event}:error` | V5-native payload already; identity migration only                |
-| `moduleA:submit`           | client -> server | MA submit        | payload `sessionId`    | boolean | `{event}:error` | V5-native payload already; identity migration only                |
-| `moduleD:submit`           | client -> server | MD submit        | payload `sessionId`    | boolean | `{event}:error` | V5-native payload already; identity migration only                |
-| `v5:modulec:answer`        | client -> server | MC answer        | payload `sessionId`    | boolean | `{event}:error` | V5-native payload already; identity migration only                |
-| `session:end`              | client -> server | lifecycle        | payload `sessionId`    | boolean | `{event}:error` | V5-native lifecycle; identity migration only                      |
+| `self-assess:submit`       | client -> server | SE submit        | handshake or payload   | boolean | `{event}:error` | Dual-accept active; V4 bridge logs usage                          |
+| `phase0:submit`            | client -> server | P0 submit        | handshake or payload   | boolean | `{event}:error` | V5-native payload already; payload sessionId is fallback          |
+| `moduleA:submit`           | client -> server | MA submit        | handshake or payload   | boolean | `{event}:error` | V5-native payload already; payload sessionId is fallback          |
+| `moduleD:submit`           | client -> server | MD submit        | handshake or payload   | boolean | `{event}:error` | V5-native payload already; payload sessionId is fallback          |
+| `v5:modulec:answer`        | client -> server | MC answer        | handshake or payload   | boolean | `{event}:error` | V5-native payload already; payload sessionId is fallback          |
+| `session:end`              | client -> server | lifecycle        | handshake or payload   | boolean | `{event}:error` | V5-native lifecycle; payload sessionId is fallback                |
 | `v5:mb:planning:submit`    | client -> server | MB stage         | payload `sessionId`    | boolean | `{event}:error` | Normalize via helper; preserve event                              |
 | `v5:mb:standards:submit`   | client -> server | MB stage         | payload `sessionId`    | boolean | `{event}:error` | Normalize via helper; preserve event                              |
 | `v5:mb:submit`             | client -> server | MB final         | payload `sessionId`    | boolean | `{event}:error` | Normalize via helper; preserve event                              |
@@ -39,6 +39,7 @@
 
 - Boolean ack submit / lifecycle events now use typed error frames.
 - `self-assess:submit` still accepts the V4 bridge shape; remove it only after usage logs prove the V5-native envelope has replaced it.
+- MB and `behavior:batch` still read only payload `sessionId`; migrate those after high-volume telemetry identity behavior is observed.
 - `behavior:batch` silently logs invalid schema or persist failure, because telemetry must not block candidate flow.
 - MB `safe()` wrapper catches thrown errors and emits `{event}:error`, but it does not call ack because most wrapped events are stream/fire-and-forget.
 - `self-assess:submit` is the only V4 -> V5 normalize bridge. Its event name should not be renamed until the client dual-emits or switches shape.
@@ -136,6 +137,11 @@ Acceptance:
 - Tests cover both shapes.
 
 ### PR 4 · Optional Session Middleware
+
+Status:done in V5.1 prep. `socket-session.ts` binds optional handshake
+identity from `handshake.auth.sessionId` or `handshake.query.sessionId`, and
+boolean-ack submit/lifecycle handlers resolve bound identity before payload
+fallback.
 
 Scope:
 

@@ -21,6 +21,10 @@ import { registerModuleDHandlers } from './moduleD-handlers.js';
 import { registerPhase0Handlers } from './phase0-handlers.js';
 import { registerSessionHandlers } from './session-handlers.js';
 import { registerSelfAssessHandlers } from './self-assess-handlers.js';
+import {
+  registerSocketSessionIdentityMiddleware,
+  resolveSocketSessionId,
+} from './socket-session.js';
 
 export function registerSocketHandlers(io: SocketIOServer): void {
   registerNamespaceHandlers(io, io, 'root');
@@ -32,8 +36,15 @@ function registerNamespaceHandlers(
   namespace: SocketIOServer | Namespace,
   namespaceName: string,
 ): void {
+  registerSocketSessionIdentityMiddleware(namespace);
+
   namespace.on('connection', (socket: Socket) => {
-    logger.info('[socket] connected', { socketId: socket.id, namespace: namespaceName });
+    const sessionId = resolveSocketSessionId(socket);
+    logger.info('[socket] connected', {
+      socketId: socket.id,
+      namespace: namespaceName,
+      hasSessionIdentity: Boolean(sessionId),
+    });
 
     registerMBHandlers(io, socket);
     registerBehaviorHandlers(io, socket);
@@ -45,7 +56,11 @@ function registerNamespaceHandlers(
     registerSessionHandlers(io, socket);
 
     socket.on('disconnect', (reason) => {
-      logger.info('[socket] disconnected', { socketId: socket.id, namespace: namespaceName, reason });
+      logger.info('[socket] disconnected', {
+        socketId: socket.id,
+        namespace: namespaceName,
+        reason,
+      });
     });
   });
 }

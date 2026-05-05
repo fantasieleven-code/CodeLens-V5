@@ -28,6 +28,7 @@ import { V5Event } from '@codelens-v5/shared';
 
 interface FakeSocket {
   id: string;
+  data?: Record<string, unknown>;
   emit: ReturnType<typeof vi.fn>;
   handlers: Map<string, (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>>;
   on: (
@@ -110,6 +111,31 @@ describe('registerPhase0Handlers · phase0:submit', () => {
       ...VALID_SUBMISSION,
       inputBehavior: { keystrokes: 12 },
     });
+  });
+
+  it('uses middleware-bound session identity when payload sessionId is omitted', async () => {
+    const socket = newFakeSocket();
+    socket.data = { sessionId: 's-from-handshake' };
+    registerPhase0Handlers({} as never, socket as never);
+    const ack = vi.fn();
+
+    await socket.handlers.get('phase0:submit')!({ submission: VALID_SUBMISSION }, ack);
+
+    expect(persistMock).toHaveBeenCalledWith('s-from-handshake', VALID_SUBMISSION);
+    expect(ack).toHaveBeenCalledWith(true);
+  });
+
+  it('prefers middleware-bound session identity over payload fallback', async () => {
+    const socket = newFakeSocket();
+    socket.data = { sessionId: 's-from-handshake' };
+    registerPhase0Handlers({} as never, socket as never);
+
+    await socket.handlers.get('phase0:submit')!(
+      { sessionId: 's-from-payload', submission: VALID_SUBMISSION },
+      vi.fn(),
+    );
+
+    expect(persistMock).toHaveBeenCalledWith('s-from-handshake', VALID_SUBMISSION);
   });
 
   it('schema invalid (missing sessionId) → ack(false), no persist, no emit', async () => {
