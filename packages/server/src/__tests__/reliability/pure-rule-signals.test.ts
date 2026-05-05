@@ -10,10 +10,8 @@
  * Determinism = no `Date.now()` / `Math.random()` / iteration-order hazards
  * baked into a signal's `value` / `evidence` / `algorithmVersion`. The
  * `SignalResult.computedAt` metadata stamp is intentionally stripped before
- * comparison (three-view ratify OQ4-α) because it is written by the signal
- * or registry at call time — not part of the deterministic payload. V5.0.5
- * candidate (observation #142): move the `computedAt` stamp to the
- * orchestrator/hydrator layer so `signal.compute` returns pure data.
+ * comparison (three-view ratify OQ4-α) because `computeAll` normalizes it at
+ * registry call time — not as part of the deterministic signal payload.
  *
  * Drift note — brief Appendix A listed 4 LLM signals; grep on
  * `isLLMWhitelist: true` + cross-check with md-se-signals.test.ts confirmed
