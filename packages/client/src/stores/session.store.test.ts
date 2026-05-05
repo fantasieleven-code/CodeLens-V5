@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSessionStore } from './session.store.js';
 import { useModuleStore } from './module.store.js';
 
+const setSocketSessionId = vi.hoisted(() => vi.fn());
+
+vi.mock('../lib/socket.js', () => ({ setSocketSessionId }));
+
 const ORIGINAL_FETCH = globalThis.fetch;
 
 interface SessionFetchOverride {
@@ -51,6 +55,7 @@ describe('useSessionStore — loadSession (Layer 2 · GET /api/v5/session/:id)',
   beforeEach(() => {
     useSessionStore.getState().reset();
     useModuleStore.getState().reset();
+    setSocketSessionId.mockClear();
   });
 
   afterEach(() => {
@@ -86,6 +91,7 @@ describe('useSessionStore — loadSession (Layer 2 · GET /api/v5/session/:id)',
     expect(m.suiteId).toBe('full_stack');
     expect(m.currentModule).toBe('intro');
     expect(m.moduleOrder).toEqual(s.moduleOrder);
+    expect(setSocketSessionId).toHaveBeenCalledWith('sess-uuid-1');
   });
 
   it('sets loadStatus = error with a sessionId message on 404', async () => {
@@ -135,5 +141,11 @@ describe('useSessionStore — loadSession (Layer 2 · GET /api/v5/session/:id)',
     expect(s.loadStatus).toBe('loaded');
     expect(s.loadError).toBeNull();
     expect(s.suiteId).toBe('architect');
+  });
+
+  it('clears socket session identity on reset', () => {
+    useSessionStore.getState().reset();
+
+    expect(setSocketSessionId).toHaveBeenCalledWith(null);
   });
 });

@@ -117,6 +117,7 @@ function newMockSocket(): typeof mockSocket {
 
 vi.mock('../lib/socket.js', () => ({
   getSocket: () => mockSocket,
+  setSocketSessionId: vi.fn(),
 }));
 
 import { ModuleBPage } from './ModuleBPage.js';

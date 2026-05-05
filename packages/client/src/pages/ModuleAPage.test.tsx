@@ -10,6 +10,7 @@ let mockSocket: {
 
 vi.mock('../lib/socket.js', () => ({
   getSocket: () => mockSocket,
+  setSocketSessionId: vi.fn(),
 }));
 
 import { ModuleAPage } from './ModuleAPage.js';

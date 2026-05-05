@@ -35,6 +35,7 @@ function newMockSocket(): typeof mockSocket {
 
 vi.mock('../../lib/socket.js', () => ({
   getSocket: () => mockSocket,
+  setSocketSessionId: vi.fn(),
 }));
 
 import { AIChatPanel, type ChatFile } from './AIChatPanel.js';
