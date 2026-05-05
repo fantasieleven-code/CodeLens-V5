@@ -64,7 +64,7 @@ interface AuditPayload {
 }
 
 interface ChatGeneratePayload {
-  sessionId: string;
+  sessionId?: string;
   prompt: string;
   filesContext: string;
 }
@@ -97,22 +97,6 @@ interface VisibilityChangePayload {
 interface SubmitPayload {
   sessionId?: string;
   submission: V5MBSubmission;
-}
-
-function safe<T extends unknown[]>(
-  socket: Socket,
-  event: string,
-  handler: (...args: T) => Promise<void>,
-): (...args: T) => Promise<void> {
-  return async (...args: T) => {
-    try {
-      await handler(...args);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.warn(`[socket:mb] ${event} failed`, { socketId: socket.id, error: message });
-      socket.emit(`${event}:error`, { error: message });
-    }
-  };
 }
 
 export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
@@ -219,34 +203,54 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
 
   socket.on(
     'v5:mb:chat_generate',
-    safe(socket, 'v5:mb:chat_generate', async (payload: ChatGeneratePayload) => {
+    async (payload: ChatGeneratePayload) => {
+      const sessionId = resolveSocketSessionId(socket, payload);
+      if (!sessionId) {
+        failSocketRequest(
+          socket,
+          'v5:mb:chat_generate',
+          'VALIDATION_ERROR',
+          missingSessionMessage('v5:mb:chat_generate'),
+        );
+        return;
+      }
       const systemPrompt = await promptRegistry
         .get('mb.chat_generate')
         .catch(() => 'You are a coding assistant. Reply with a unified diff where applicable.');
       const startedAt = Date.now();
       let accumulated = '';
-      for await (const chunk of modelFactory.stream('coding_agent', {
-        sessionId: payload.sessionId,
-        model: 'qwen3-coder-instruct',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'system', content: `Files context: ${payload.filesContext}` },
-          { role: 'user', content: payload.prompt },
-        ],
-      })) {
-        if (chunk.content) {
-          accumulated += chunk.content;
-          socket.emit('v5:mb:chat_stream', { content: chunk.content, done: chunk.done });
+      try {
+        for await (const chunk of modelFactory.stream('coding_agent', {
+          sessionId,
+          model: 'qwen3-coder-instruct',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'system', content: `Files context: ${payload.filesContext}` },
+            { role: 'user', content: payload.prompt },
+          ],
+        })) {
+          if (chunk.content) {
+            accumulated += chunk.content;
+            socket.emit('v5:mb:chat_stream', { content: chunk.content, done: chunk.done });
+          }
         }
-      }
-      socket.emit('v5:mb:chat_complete', { diff: accumulated });
+        socket.emit('v5:mb:chat_complete', { diff: accumulated });
 
-      void traceMB('mb.chat_generate', payload.sessionId, {
-        input: { promptLen: payload.prompt.length, filesCtxLen: payload.filesContext.length },
-        output: { responseLen: accumulated.length, latencyMs: Date.now() - startedAt },
-        metadata: { model: 'qwen3-coder-instruct' },
-      });
-    }),
+        void traceMB('mb.chat_generate', sessionId, {
+          input: { promptLen: payload.prompt.length, filesCtxLen: payload.filesContext.length },
+          output: { responseLen: accumulated.length, latencyMs: Date.now() - startedAt },
+          metadata: { model: 'qwen3-coder-instruct' },
+        });
+      } catch (err) {
+        const message = describeSocketError(err);
+        logger.warn('[socket:mb] v5:mb:chat_generate failed', {
+          socketId: socket.id,
+          sessionId,
+          error: message,
+        });
+        failSocketRequest(socket, 'v5:mb:chat_generate', 'PERSIST_FAILED', message);
+      }
+    },
   );
 
   socket.on(

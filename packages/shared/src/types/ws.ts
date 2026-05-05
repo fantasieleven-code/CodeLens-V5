@@ -299,14 +299,14 @@ export type V5ModuleCAnswerPayload = V5ModuleCAnswer & {
 
 // ─── MB Cursor-mode payloads ───
 //
-// Every Client → Server payload carries `sessionId` because the mb-handlers
-// `safe()` wrapper has no per-socket auth yet (Task 15). Shapes mirror the
-// `*Payload` interfaces declared at the top of
-// packages/server/src/socket/mb-handlers.ts so that client and server stay
-// aligned without either side importing the other's private types.
+// MB handlers resolve socket-bound session identity first and use payload
+// `sessionId` as the compatibility fallback. Shapes mirror the `*Payload`
+// interfaces declared at the top of packages/server/src/socket/mb-handlers.ts
+// so that client and server stay aligned without either side importing the
+// other's private types.
 
 export interface V5MBChatGeneratePayload {
-  sessionId: string;
+  sessionId?: string;
   prompt: string;
   filesContext: string;
 }

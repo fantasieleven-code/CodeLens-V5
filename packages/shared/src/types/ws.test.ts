@@ -72,8 +72,10 @@ describe('ws.ts v5:mb:* payload shapes', () => {
     >();
   });
 
-  it('Client → Server: every MB payload carries sessionId', () => {
-    expectTypeOf<V5MBChatGeneratePayload>().toHaveProperty('sessionId').toEqualTypeOf<string>();
+  it('Client → Server: chat can use handshake identity while other MB payloads keep fallback sessionId', () => {
+    expectTypeOf<V5MBChatGeneratePayload>()
+      .toHaveProperty('sessionId')
+      .toEqualTypeOf<string | undefined>();
     expectTypeOf<V5MBCompletionRequestPayload>().toHaveProperty('sessionId').toEqualTypeOf<string>();
     expectTypeOf<V5MBFileChangePayload>().toHaveProperty('sessionId').toEqualTypeOf<string>();
     expectTypeOf<V5MBRunTestPayload>().toHaveProperty('sessionId').toEqualTypeOf<string>();

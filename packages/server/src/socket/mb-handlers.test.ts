@@ -330,6 +330,70 @@ describe('chat_generate', () => {
     });
     expect(emit).toHaveBeenCalledWith('v5:mb:chat_complete', { diff: 'ok' });
   });
+
+  it('can stream chat with socket-bound session identity only', async () => {
+    mocks.promptRegistryGet.mockResolvedValueOnce('SYSTEM PROMPT');
+    mocks.modelStream.mockReturnValueOnce(
+      (async function* () {
+        yield { content: 'ok', done: true };
+      })(),
+    );
+    const { socket, emit, ee } = makeSocket({ sessionId: 'bound-session' });
+    registerMBHandlers({} as never, socket);
+
+    await dispatch(ee, 'v5:mb:chat_generate', {
+      prompt: 'p',
+      filesContext: '',
+    });
+
+    expect(mocks.modelStream).toHaveBeenCalledWith(
+      'coding_agent',
+      expect.objectContaining({ model: 'qwen3-coder-instruct', sessionId: 'bound-session' }),
+    );
+    expect(emit).toHaveBeenCalledWith('v5:mb:chat_complete', { diff: 'ok' });
+  });
+
+  it('rejects missing session identity before model streaming', async () => {
+    const { socket, emit, ee } = makeSocket();
+    registerMBHandlers({} as never, socket);
+
+    await dispatch(ee, 'v5:mb:chat_generate', {
+      prompt: 'p',
+      filesContext: '',
+    });
+
+    expect(emit).toHaveBeenCalledWith('v5:mb:chat_generate:error', {
+      code: 'VALIDATION_ERROR',
+      message: 'v5:mb:chat_generate requires sessionId in socket handshake or payload',
+    });
+    expect(mocks.modelStream).not.toHaveBeenCalled();
+  });
+
+  it('emits typed error when chat stream fails', async () => {
+    mocks.promptRegistryGet.mockResolvedValueOnce('SYSTEM PROMPT');
+    mocks.modelStream.mockReturnValueOnce({
+      [Symbol.asyncIterator]() {
+        return {
+          async next() {
+            throw new Error('stream down');
+          },
+        };
+      },
+    });
+    const { socket, emit, ee } = makeSocket();
+    registerMBHandlers({} as never, socket);
+
+    await dispatch(ee, 'v5:mb:chat_generate', {
+      sessionId: 's1',
+      prompt: 'p',
+      filesContext: '',
+    });
+
+    expect(emit).toHaveBeenCalledWith('v5:mb:chat_generate:error', {
+      code: 'PERSIST_FAILED',
+      message: 'stream down',
+    });
+  });
 });
 
 describe('completion_request', () => {
