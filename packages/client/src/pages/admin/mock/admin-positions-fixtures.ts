@@ -1,11 +1,11 @@
-import type { AdminPosition } from '../../../services/adminApi.types.js';
+import type { V5AdminPosition } from '@codelens-v5/shared';
 
 /**
  * Step 1 of the create wizard shows 6 pre-baked position cards. Each is a
  * techStack × domain × challengePattern combination. The candidate level is
  * chosen in Step 2 and the two together drive the Step 3 suite recommendation.
  */
-export const ADMIN_POSITIONS: readonly AdminPosition[] = [
+export const ADMIN_POSITIONS: readonly V5AdminPosition[] = [
   {
     id: 'pos-backend-payment-concurrency',
     titleZh: '后端工程师 · 支付高并发',
@@ -57,6 +57,6 @@ export const ADMIN_POSITIONS: readonly AdminPosition[] = [
   },
 ];
 
-export function findPositionById(id: string): AdminPosition | undefined {
+export function findPositionById(id: string): V5AdminPosition | undefined {
   return ADMIN_POSITIONS.find((p) => p.id === id);
 }

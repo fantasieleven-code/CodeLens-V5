@@ -1,11 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type {
-  AdminPosition,
-  CreateWizardDraft,
-  SuiteRecommendation,
-} from '../../../services/adminApi.types.js';
+import type { CreateWizardDraft } from '../../../services/adminApi.types.js';
 import type {
   V5AdminExamInstance,
+  V5AdminPosition,
+  V5AdminSuiteRecommendation,
   SuiteId,
   V5Level,
 } from '@codelens-v5/shared';
@@ -41,7 +39,7 @@ export const AdminCreateSessionPage: React.FC = () => {
   const [shareableLink, setShareableLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const recommendation = useMemo<SuiteRecommendation | null>(() => {
+  const recommendation = useMemo<V5AdminSuiteRecommendation | null>(() => {
     if (!draft.position || !draft.level) return null;
     return recommendSuite(draft.position, draft.level);
   }, [draft.position, draft.level]);
@@ -70,7 +68,7 @@ export const AdminCreateSessionPage: React.FC = () => {
     };
   }, [step, draft.level, recommendation?.primary]);
 
-  const pickPosition = (position: AdminPosition) => {
+  const pickPosition = (position: V5AdminPosition) => {
     setDraft((d) => ({ ...d, position, suiteId: null, examInstanceId: null }));
     setStep(2);
   };

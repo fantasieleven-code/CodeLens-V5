@@ -1,8 +1,9 @@
 import type {
-  AdminPosition,
-  SuiteRecommendation,
-} from '../../../services/adminApi.types.js';
-import type { SuiteId, V5Level } from '@codelens-v5/shared';
+  SuiteId,
+  V5AdminPosition,
+  V5AdminSuiteRecommendation,
+  V5Level,
+} from '@codelens-v5/shared';
 
 /**
  * Suite recommendation rules per Steve's Task 10 scope:
@@ -37,9 +38,9 @@ function alternatesFor(primary: SuiteId): readonly SuiteId[] {
 }
 
 export function recommendSuite(
-  position: AdminPosition,
+  position: V5AdminPosition,
   level: V5Level,
-): SuiteRecommendation {
+): V5AdminSuiteRecommendation {
   if (level === 'junior') {
     return {
       primary: 'quick_screen',
