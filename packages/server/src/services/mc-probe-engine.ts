@@ -5,8 +5,8 @@
  *
  *   1. `V5_DIMENSION_SIGNALS` replaces V4's 6-dimension labels — maps the six
  *      V5 dimensions (technicalJudgment / aiEngineering / systemDesign /
- *      codeQuality / communication / metacognition) to the 47 V5 signal ids
- *      (9 + 14 + 3 + 12 + 3 + 6).
+ *      codeQuality / communication / metacognition) to the 48 V5 signal ids
+ *      (9 + 14 + 3 + 12 + 3 + 7).
  *   2. Probe instruction templates load from `promptRegistry.get('mc.probe_engine.*')`
  *      instead of being hard-coded in the engine. Seed placeholders are
  *      treated as unavailable by PromptRegistry, so the built-in guidance is
@@ -22,7 +22,7 @@
  *   5: transfer       — reflection + cross-domain
  */
 
-import type { V5ProbeStrategy } from '@codelens-v5/shared';
+import { V5ScoringResultSchema, type V5ProbeStrategy } from '@codelens-v5/shared';
 import { logger } from '../lib/logger.js';
 import { getLangfuse } from '../lib/langfuse.js';
 import { promptRegistry } from './prompt-registry.service.js';
@@ -275,10 +275,7 @@ function detectContradictions(snapshot: SignalSnapshot): RawDecision[] {
   }
 
   // High code-review signals but low reasoning depth → may have guessed defects.
-  if (
-    (snapshot.sCodeReviewQuality ?? 0) >= 0.8 &&
-    (snapshot.sReasoningDepth ?? 0.5) < 0.35
-  ) {
+  if ((snapshot.sCodeReviewQuality ?? 0) >= 0.8 && (snapshot.sReasoningDepth ?? 0.5) < 0.35) {
     out.push({
       targetDimension: 'codeQuality',
       probeType: 'verify',
@@ -391,6 +388,20 @@ async function loadStrategyTemplate(strategy: V5ProbeStrategy): Promise<string> 
 function composePromptGuidance(baseGuidance: string, template: string): string {
   if (!template) return baseGuidance;
   return `${baseGuidance}\n\n[策略模板]\n${template}`;
+}
+
+type PersistedSignalResults = Record<string, { value?: number | null }>;
+
+function mergeNumericSignalValues(snapshot: SignalSnapshot, signalResults: unknown): void {
+  if (!signalResults || typeof signalResults !== 'object' || Array.isArray(signalResults)) {
+    return;
+  }
+
+  for (const [key, result] of Object.entries(signalResults as PersistedSignalResults)) {
+    if (typeof result?.value === 'number') {
+      (snapshot as Record<string, number>)[key] = result.value;
+    }
+  }
 }
 
 // ─── Langfuse trace (non-blocking, mirror of signal-registry pattern) ────
@@ -540,10 +551,10 @@ function buildWeaknessDecision(
 }
 
 /**
- * Build a signal snapshot from V5 submissions WITHOUT running the full
- * scoring pipeline. Reads pre-computed signal values from
- * `session.metadata.signalResults`; falls back to an empty snapshot so the
- * probe engine still works when no scoring has run yet.
+ * Build a signal snapshot WITHOUT running the full scoring pipeline. Reads
+ * frozen pre-computed signal values from `Session.scoringResult.signals`,
+ * then overlays `session.metadata.signalResults` for in-session MC deltas.
+ * Falls back to an empty snapshot when no scoring has run yet.
  *
  * Note: raw-submission heuristics (V4's fallback) are deliberately dropped
  * in V5 — signals land through the registry only; the engine never tries to
@@ -554,24 +565,30 @@ export async function buildSignalSnapshot(sessionId: string): Promise<SignalSnap
     const { prisma } = await import('../config/db.js');
     const session = await prisma.session.findUnique({
       where: { id: sessionId },
-      select: { metadata: true },
+      select: { metadata: true, scoringResult: true },
     });
 
-    if (!session?.metadata) return {};
-
-    const meta = session.metadata as Record<string, unknown>;
-    const signalResults = meta.signalResults as
-      | Record<string, { value?: number | null }>
-      | undefined;
-
-    if (!signalResults) return {};
+    if (!session) return {};
 
     const snapshot: SignalSnapshot = {};
-    for (const [key, result] of Object.entries(signalResults)) {
-      if (typeof result?.value === 'number') {
-        (snapshot as Record<string, number>)[key] = result.value;
+
+    if (session.scoringResult) {
+      const parsed = V5ScoringResultSchema.safeParse(session.scoringResult);
+      if (parsed.success) {
+        mergeNumericSignalValues(snapshot, parsed.data.signals);
+      } else {
+        logger.warn('[mc-probe] Ignoring invalid scoringResult snapshot', {
+          sessionId,
+          error: parsed.error.message,
+        });
       }
     }
+
+    if (session.metadata) {
+      const meta = session.metadata as Record<string, unknown>;
+      mergeNumericSignalValues(snapshot, meta.signalResults);
+    }
+
     return snapshot;
   } catch (err) {
     logger.warn('[mc-probe] Failed to build signal snapshot:', err);
