@@ -5,7 +5,7 @@
  *   - V5_DIMENSION_SIGNALS totals (48 = EXPECTED_SIGNAL_COUNT).
  *   - analyzeSignalsForProbing round dispatch (1 / 2-4 / 5 + contradiction).
  *   - PromptRegistry template is loaded per strategy (mocked).
- *   - buildSignalSnapshot reads session.metadata.signalResults only.
+ *   - buildSignalSnapshot reads Session.scoringResult, then overlays MC metadata deltas.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -41,6 +41,33 @@ import {
 } from './mc-probe-engine.js';
 import { promptRegistry } from './prompt-registry.service.js';
 import { prisma } from '../config/db.js';
+
+const VALID_SCORING_RESULT = {
+  grade: 'B',
+  composite: 72,
+  dimensions: {
+    technicalJudgment: 70,
+    aiEngineering: 74,
+  },
+  confidence: 'medium',
+  boundaryAnalysis: {},
+  reasoning: 'fixture',
+  signals: {},
+  capabilityProfiles: [
+    {
+      id: 'independent_delivery',
+      nameZh: '自主交付',
+      nameEn: 'Independent Delivery',
+      score: 72,
+      label: '熟练',
+      dimensionBreakdown: {
+        technicalJudgment: 70,
+      },
+      evidenceSignals: ['sSchemeJudgment'],
+      description: 'fixture',
+    },
+  ],
+};
 
 describe('V5_DIMENSION_SIGNALS — 6-dimension × 48-signal map', () => {
   it('total equals EXPECTED_SIGNAL_COUNT (48)', () => {
@@ -182,16 +209,21 @@ describe('buildSignalSnapshot', () => {
     expect(snap).toEqual({});
   });
 
-  it('returns empty snapshot when metadata.signalResults missing', async () => {
-    vi.mocked(prisma.session.findUnique).mockResolvedValueOnce({ metadata: {} } as never);
+  it('returns empty snapshot when neither scoringResult nor metadata.signalResults exists', async () => {
+    vi.mocked(prisma.session.findUnique).mockResolvedValueOnce({
+      metadata: {},
+      scoringResult: null,
+    } as never);
     const snap = await buildSignalSnapshot('s1');
     expect(snap).toEqual({});
   });
 
-  it('extracts numeric signal values only (ignores null / non-number)', async () => {
+  it('extracts numeric signal values from cached Session.scoringResult', async () => {
     vi.mocked(prisma.session.findUnique).mockResolvedValueOnce({
-      metadata: {
-        signalResults: {
+      metadata: {},
+      scoringResult: {
+        ...VALID_SCORING_RESULT,
+        signals: {
           sSchemeJudgment: { value: 0.8 },
           sBoundaryAwareness: { value: null },
           sPromptQuality: { value: 0.5 },
@@ -202,6 +234,47 @@ describe('buildSignalSnapshot', () => {
     const snap = await buildSignalSnapshot('s1');
     expect(snap).toEqual({
       sSchemeJudgment: 0.8,
+      sPromptQuality: 0.5,
+    });
+  });
+
+  it('overlays metadata.signalResults over cached scoringResult values', async () => {
+    vi.mocked(prisma.session.findUnique).mockResolvedValueOnce({
+      metadata: {
+        signalResults: {
+          sPromptQuality: { value: 0.6 },
+          sBeliefUpdateMagnitude: { value: 0.7 },
+        },
+      },
+      scoringResult: {
+        ...VALID_SCORING_RESULT,
+        signals: {
+          sSchemeJudgment: { value: 0.8 },
+          sPromptQuality: { value: 0.2 },
+        },
+      },
+    } as never);
+
+    const snap = await buildSignalSnapshot('s1');
+    expect(snap).toEqual({
+      sSchemeJudgment: 0.8,
+      sPromptQuality: 0.6,
+      sBeliefUpdateMagnitude: 0.7,
+    });
+  });
+
+  it('keeps metadata signal values when cached scoringResult has shape drift', async () => {
+    vi.mocked(prisma.session.findUnique).mockResolvedValueOnce({
+      metadata: {
+        signalResults: {
+          sPromptQuality: { value: 0.5 },
+        },
+      },
+      scoringResult: { grade: 'not-a-v5-grade' },
+    } as never);
+
+    const snap = await buildSignalSnapshot('s1');
+    expect(snap).toEqual({
       sPromptQuality: 0.5,
     });
   });
