@@ -4,7 +4,7 @@
 
 ## 结论
 
-当前 V5 socket 层生产可用,但不是长期形态。候选人模块 submit / telemetry payload 仍显式携带 `sessionId`,但 client 已在 session load 后把 `sessionId` 绑定到 socket handshake auth。V5.1 迁移目标不是立即改事件名,而是先建立统一 session identity / ack / error envelope,再进入 dual-accept deprecation window。
+当前 V5 socket 层生产可用,但不是长期形态。候选人模块 submit / telemetry payload 仍携带 `sessionId` 作为兼容 fallback,但 client 已在 session load 后把 `sessionId` 绑定到 socket handshake auth。V5.1 迁移目标不是立即改事件名,而是先建立统一 session identity / ack / error envelope,再进入 dual-accept deprecation window。
 
 不要直接删除 legacy event 或改成一次性 V5-only shape。正确顺序:
 
@@ -18,7 +18,7 @@
 
 | Event                      | Direction        | Owner            | Current session source | Ack     | Error frame     | Migration classification                                          |
 | -------------------------- | ---------------- | ---------------- | ---------------------- | ------- | --------------- | ----------------------------------------------------------------- |
-| `behavior:batch`           | client -> server | MB telemetry     | payload `sessionId`    | none    | none, logs only | Keep name for V5.1; high-volume telemetry, migrate identity first |
+| `behavior:batch`           | client -> server | MB telemetry     | handshake or payload   | none    | none, logs only | Telemetry batch normalized; keep legacy event name                 |
 | `self-assess:submit`       | client -> server | SE submit        | handshake or payload   | boolean | `{event}:error` | Client emits V5-native; V4 bridge retained for deprecation        |
 | `phase0:submit`            | client -> server | P0 submit        | handshake or payload   | boolean | `{event}:error` | V5-native payload already; payload sessionId is fallback          |
 | `moduleA:submit`           | client -> server | MA submit        | handshake or payload   | boolean | `{event}:error` | V5-native payload already; payload sessionId is fallback          |
@@ -40,8 +40,7 @@
 - Boolean ack submit / lifecycle events now use typed error frames.
 - Candidate socket creation now carries `handshake.auth.sessionId` after session load; payload `sessionId` remains the compatibility fallback.
 - `self-assess:submit` client emits V5-native payload; server still accepts the V4 bridge shape until usage logs prove it is unused.
-- MB planning / standards / audit / final submit and low-frequency file/visibility events resolve handshake identity first and keep payload fallback.
-- `behavior:batch` is the remaining payload-only event; migrate after high-volume telemetry identity behavior is observed.
+- MB planning / standards / audit / final submit, chat/completion/test/file/visibility, and behavior telemetry resolve handshake identity first and keep payload fallback.
 - `behavior:batch` silently logs invalid schema or persist failure, because telemetry must not block candidate flow.
 - MB handlers now emit typed `{event}:error` frames directly; stream/fire-and-forget events intentionally keep no ack contract.
 - `self-assess:submit` is the only V4 -> V5 normalize bridge. Its event name should not be renamed until the client dual-emits or switches shape.
@@ -279,6 +278,20 @@ Acceptance:
 - Missing session identity emits `VALIDATION_ERROR` before model streaming.
 - Stream/model failures emit `PERSIST_FAILED`.
 - `behavior:batch` remains unchanged.
+
+### PR 14 · Behavior Batch Socket Contract
+
+Status:done in V5.1 prep. `behavior:batch` now resolves socket-bound session
+identity before payload fallback while keeping the legacy event name, no ack,
+and log-only failure behavior for high-volume telemetry.
+
+Acceptance:
+
+- Behavior batches can persist with socket-bound identity only.
+- Payload `sessionId` remains a compatibility fallback.
+- Missing identity or invalid envelopes are silently logged/dropped; no ack or
+  typed error frame is introduced for telemetry.
+- Shared socket type marks the envelope `sessionId` optional.
 
 ## Non-Goals
 

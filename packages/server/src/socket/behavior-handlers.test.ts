@@ -6,7 +6,8 @@
  *   - persists ai_completion_responded events with full field mapping (Task 22)
  *   - dispatches chat / diff / file / edit-session events (Task 30a)
  *   - drops unmapped event types (cursor_move, key_press, etc.)
- *   - rejects invalid envelope (missing sessionId / events) without throwing
+ *   - accepts socket-bound identity with payload fallback
+ *   - rejects invalid envelope (missing identity / events) without throwing
  *   - tolerates persist errors (no socket crash)
  *   - lineNumber accepts both `line` and `lineNumber` payload keys
  */
@@ -32,10 +33,10 @@ vi.mock('../services/modules/mb.service.js', () => ({
 
 import { registerBehaviorHandlers } from './behavior-handlers.js';
 
-function makeSocket() {
+function makeSocket(sessionId?: string) {
   const ee = new EventEmitter();
   const emit = vi.fn();
-  const socket = Object.assign(ee, { id: 'sock-1', emit }) as unknown as Parameters<
+  const socket = Object.assign(ee, { id: 'sock-1', emit, data: { sessionId } }) as unknown as Parameters<
     typeof registerBehaviorHandlers
   >[1];
   return { socket, emit, ee };
@@ -387,7 +388,27 @@ describe('behavior:batch — multi-pipeline dispatch in one batch', () => {
 });
 
 describe('behavior:batch — envelope validation', () => {
-  it('drops batch with missing sessionId', async () => {
+  it('persists batch with socket-bound session identity only', async () => {
+    const { socket, ee } = makeSocket('bound-session');
+    registerBehaviorHandlers({} as never, socket);
+
+    await dispatch(ee, 'behavior:batch', {
+      events: [
+        {
+          type: 'chat_prompt_sent',
+          timestamp: '2026-04-19T10:00:00.000Z',
+          payload: { prompt: 'q', responseLength: 0, duration: 0 },
+        },
+      ],
+    });
+
+    expect(mocks.appendChatEvents).toHaveBeenCalledWith(
+      'bound-session',
+      expect.arrayContaining([expect.objectContaining({ prompt: 'q' })]),
+    );
+  });
+
+  it('drops batch with missing session identity', async () => {
     const { socket, ee } = makeSocket();
     registerBehaviorHandlers({} as never, socket);
 

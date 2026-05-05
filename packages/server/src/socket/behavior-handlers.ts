@@ -48,6 +48,7 @@ import {
   type EditSessionEvent,
   type FileNavEvent,
 } from '../services/modules/mb.service.js';
+import { resolveSocketSessionId } from './socket-session.js';
 
 const eventSchema = z.object({
   type: z.string(),
@@ -56,7 +57,7 @@ const eventSchema = z.object({
 });
 
 const batchSchema = z.object({
-  sessionId: z.string().min(1),
+  sessionId: z.string().min(1).optional(),
   events: z.array(eventSchema),
 });
 
@@ -83,7 +84,14 @@ export function registerBehaviorHandlers(_io: SocketIOServer, socket: Socket): v
       });
       return;
     }
-    const { sessionId, events } = parsed.data;
+    const sessionId = resolveSocketSessionId(socket, parsed.data);
+    if (!sessionId) {
+      logger.warn('[socket:behavior] batch missing session identity', {
+        socketId: socket.id,
+      });
+      return;
+    }
+    const { events } = parsed.data;
 
     const completions: AiCompletionEvent[] = [];
     const chats: ChatEvent[] = [];

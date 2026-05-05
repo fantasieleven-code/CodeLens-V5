@@ -44,15 +44,15 @@ export interface ClientToServerEvents {
    * event.type and persists into session.metadata.mb.editorBehavior.* — see
    * packages/server/src/socket/behavior-handlers.ts (Task 22).
    *
-   * sessionId is in the envelope (not per-event) because (a) every batch
-   * belongs to exactly one session and (b) the server has no socket-level
-   * session middleware (no io.use binding), so the client must pass it.
+   * sessionId is in the envelope (not per-event) because every batch belongs
+   * to exactly one session. Server handlers resolve socket-bound identity
+   * first and use this field as the compatibility fallback.
    * Pattern C #5: keep the legacy event name `behavior:batch` (no `v5:mb:`
    * prefix) because client + server already use it; renaming would touch
    * 4 modules with no production benefit.
    */
   'behavior:batch': (data: {
-    sessionId: string;
+    sessionId?: string;
     events: Array<{ type: string; timestamp: string; payload: Record<string, unknown> }>;
   }) => void;
   /**
