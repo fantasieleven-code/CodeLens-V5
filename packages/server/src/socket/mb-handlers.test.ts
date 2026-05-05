@@ -411,6 +411,54 @@ describe('run_test', () => {
     expect(mocks.sandboxDestroy).toHaveBeenCalledOnce();
   });
 
+  it('uses socket-bound session identity when run_test payload omits sessionId', async () => {
+    mocks.getSnapshot.mockReturnValueOnce([{ path: 'a.py', content: 'print(1)' }]);
+    const provider = {
+      create: mocks.sandboxCreate,
+      writeFiles: mocks.sandboxWriteFiles,
+      execute: mocks.sandboxExecute,
+      destroy: mocks.sandboxDestroy,
+    };
+    mocks.sandboxGetProvider.mockResolvedValueOnce(provider);
+    mocks.sandboxCreate.mockResolvedValueOnce({ id: 'sbx-bound' });
+    mocks.sandboxWriteFiles.mockResolvedValueOnce(undefined);
+    mocks.sandboxExecute.mockResolvedValueOnce({
+      stdout: '===== 3 passed in 1s =====',
+      stderr: '',
+      exitCode: 0,
+      durationMs: 1234,
+    });
+    mocks.sandboxDestroy.mockResolvedValueOnce(undefined);
+
+    const { socket, ee } = makeSocket({ sessionId: 'bound-session' });
+    registerMBHandlers({} as never, socket);
+    await dispatch(ee, 'v5:mb:run_test', {});
+
+    expect(mocks.getSnapshot).toHaveBeenCalledWith('bound-session');
+    expect(mocks.persistFinalTestRun).toHaveBeenCalledWith('bound-session', {
+      passRate: 1,
+      duration: 1234,
+    });
+    expect(mocks.eventBusEmit).toHaveBeenCalledWith(V5Event.MB_TEST_RUN, {
+      sessionId: 'bound-session',
+      passRate: 1,
+      duration: 1234,
+    });
+  });
+
+  it('rejects missing session identity before creating sandbox', async () => {
+    const { socket, emit, ee } = makeSocket();
+    registerMBHandlers({} as never, socket);
+
+    await dispatch(ee, 'v5:mb:run_test', {});
+
+    expect(emit).toHaveBeenCalledWith('v5:mb:run_test:error', {
+      code: 'VALIDATION_ERROR',
+      message: 'v5:mb:run_test requires sessionId in socket handshake or payload',
+    });
+    expect(mocks.sandboxGetProvider).not.toHaveBeenCalled();
+  });
+
   it('destroys sandbox even when execute throws', async () => {
     mocks.getSnapshot.mockReturnValueOnce([]);
     const provider = {
@@ -429,8 +477,10 @@ describe('run_test', () => {
     await dispatch(ee, 'v5:mb:run_test', { sessionId: 's1' });
 
     expect(mocks.sandboxDestroy).toHaveBeenCalledOnce();
-    // Error should surface as `{event}:error` — not crash.
-    expect(emit).toHaveBeenCalledWith('v5:mb:run_test:error', { error: 'pytest blew up' });
+    expect(emit).toHaveBeenCalledWith('v5:mb:run_test:error', {
+      code: 'PERSIST_FAILED',
+      message: 'pytest blew up',
+    });
   });
 });
 
