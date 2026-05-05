@@ -59,7 +59,7 @@ interface StandardsPayload {
 }
 
 interface AuditPayload {
-  sessionId: string;
+  sessionId?: string;
   violations: V5MBAudit['violations'];
 }
 
@@ -188,13 +188,33 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
 
   socket.on(
     'v5:mb:audit:submit',
-    safe(socket, 'v5:mb:audit:submit', async (payload: AuditPayload) => {
-      await persistAudit(payload.sessionId, { violations: payload.violations });
-      await eventBus.emit(V5Event.MODULE_SUBMITTED, {
-        sessionId: payload.sessionId,
-        module: 'mb.audit',
-      });
-    }),
+    async (payload: AuditPayload) => {
+      const sessionId = resolveSocketSessionId(socket, payload);
+      if (!sessionId) {
+        failSocketRequest(
+          socket,
+          'v5:mb:audit:submit',
+          'VALIDATION_ERROR',
+          missingSessionMessage('v5:mb:audit:submit'),
+        );
+        return;
+      }
+      try {
+        await persistAudit(sessionId, { violations: payload.violations });
+        await eventBus.emit(V5Event.MODULE_SUBMITTED, {
+          sessionId,
+          module: 'mb.audit',
+        });
+      } catch (err) {
+        const message = describeSocketError(err);
+        logger.warn('[socket:mb] v5:mb:audit:submit failed', {
+          socketId: socket.id,
+          sessionId,
+          error: message,
+        });
+        failSocketRequest(socket, 'v5:mb:audit:submit', 'PERSIST_FAILED', message);
+      }
+    },
   );
 
   socket.on(
