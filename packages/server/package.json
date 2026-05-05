@@ -19,7 +19,8 @@
     "test:golden-set": "vitest run golden-set.regression",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "verify:e2e-scoring": "tsx src/scripts/verify-e2e-scoring-simulation.ts"
+    "verify:e2e-scoring": "tsx src/scripts/verify-e2e-scoring-simulation.ts",
+    "check:llm-variance": "tsx src/scripts/check-llm-signal-variance.ts"
   },
   "dependencies": {
     "@e2b/code-interpreter": "^1.0.0",
