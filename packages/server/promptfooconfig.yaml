@@ -1,22 +1,50 @@
-# Task CI-Green-Up · C2 · V5.0 minimal prompt-regression baseline.
+# Task CI-Green-Up · C2 + A14b · MD prompt-regression baseline.
 #
-# Unblocks the `prompt-regression` CI job (previously failing on missing
-# config). Scope intentionally narrow (OQ2-α): 1 LLM whitelist signal
-# (sAiOrchestrationQuality · AE dimension · V5.0 headline value prop).
-# File-based mock provider so the eval is deterministic in CI without
-# OPENAI_API_KEY or network. V5.0.5 Task A14b expands to all 3 MD LLM
-# signals with real LLM variance monitoring.
+# C2 unblocked the `prompt-regression` CI job with 1 LLM whitelist signal.
+# A14b expands the deterministic CI baseline to all 3 MD LLM whitelist
+# signals. The provider remains file-based so main CI has no OPENAI_API_KEY,
+# network, token-cost, or provider-variance dependency. Real provider variance
+# monitoring belongs in a separate nightly/manual gate.
 #
-# The prompt below mirrors the contract enforced at
+# The prompts below mirror the contract enforced at
 # `packages/server/src/signals/md/llm-helper.ts`: SYSTEM_PROMPT requires
 # the model to return ONLY `{"score": 0-1, "notes": "<=2 sentences"}` with
-# no preamble or markdown fences. The `{{aiOrchestrationPrompts}}` +
-# `{{subModules}}` variables match the slot names produced by
-# `s-ai-orchestration-quality.ts:gradeWithLLM`.
+# no preamble or markdown fences. The variables match the slot names produced
+# by the 3 MD LLM whitelist signals' `gradeWithLLM` calls.
 
-description: "MD signal LLM prompt regression baseline (V5.0 minimal · 1 LLM signal · mock provider)"
+description: 'MD signal LLM prompt regression baseline (A14b · 3 LLM signals · mock provider)'
 
 prompts:
+  - id: sDesignDecomposition_v1
+    raw: |
+      You grade senior software engineer design submissions on a 0-1 scale.
+      Return ONLY a JSON object: {"score": <number 0-1>, "notes": "<=2 sentences>"}.
+      No preamble, no markdown fences.
+
+      Candidate sub-modules:
+      {{subModules}}
+
+      Candidate interface definitions:
+      {{interfaceDefinitions}}
+
+      Candidate data flow:
+      {{dataFlowDescription}}
+
+  - id: sTradeoffArticulation_v1
+    raw: |
+      You grade senior software engineer design submissions on a 0-1 scale.
+      Return ONLY a JSON object: {"score": <number 0-1>, "notes": "<=2 sentences>"}.
+      No preamble, no markdown fences.
+
+      Candidate tradeoff narrative:
+      {{tradeoffText}}
+
+      Candidate sub-modules:
+      {{subModules}}
+
+      Selected constraints:
+      {{constraintsSelected}}
+
   - id: sAiOrchestrationQuality_v1
     raw: |
       You grade senior software engineer design submissions on a 0-1 scale.
@@ -34,12 +62,24 @@ providers:
     label: mock-md-provider
 
 tests:
-  - description: "Deterministic mock baseline · shape + range assertion"
+  - description: 'Deterministic mock baseline · shape + range assertion'
     vars:
+      subModules: |
+        1. OrderController: validates write requests and delegates creation.
+        2. InventoryReservationService: reserves stock atomically with Redis Lua.
+        3. OrderPersistence: writes idempotent MySQL order records.
+      interfaceDefinitions: |
+        POST /orders {skuId, qty, requestId} -> 200 {orderId} / 409 Oversold
+        reserve(skuId, qty) -> Promise<{ok, remain}>
+      dataFlowDescription: 'Client -> OrderController -> InventoryReservationService -> OrderPersistence -> event bus'
+      tradeoffText: |
+        Option A keeps all writes in MySQL for strong consistency but misses peak QPS.
+        Option B uses Redis only and is fast but needs reconciliation.
+        I recommend Redis reservation plus MySQL final persistence.
+      constraintsSelected: 'performance, consistency, availability'
       aiOrchestrationPrompts: |
         1. 目标: 生成产品描述 · 约束: 50 字内 · 输出: markdown
         2. 任务: 总结评审意见 · 步骤: 先分类再汇总
-      subModules: "ProductService, ReviewAggregator"
     assert:
       - type: is-json
       - type: javascript

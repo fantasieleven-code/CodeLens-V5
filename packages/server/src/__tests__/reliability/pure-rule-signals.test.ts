@@ -22,13 +22,18 @@
  * covered by this gate.
  */
 
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   NON_DETERMINISTIC_SIGNAL_IDS,
   type SignalInput,
   type SignalResult,
   type SignalResults,
 } from '@codelens-v5/shared';
+
+const llmMockState = vi.hoisted(() => ({
+  scoresByPromptKey: new Map<string, number[]>(),
+  calls: [] as Array<{ promptKey: string; score: number }>,
+}));
 
 // Registry → langfuse → env loader would `process.exit(1)` without
 // DATABASE_URL / JWT_SECRET. Same mock the cold-start-validation harness uses;
@@ -42,12 +47,49 @@ vi.mock('../../lib/langfuse.js', () => ({
     flush: async () => {},
   }),
 }));
+
+vi.mock('../../services/prompt-registry.service.js', () => ({
+  promptRegistry: {
+    get: vi.fn(
+      async (key: string) =>
+        `promptKey=${key}\nsubmission={{subModules}}{{tradeoffText}}{{aiOrchestrationPrompts}}`,
+    ),
+  },
+}));
+
+vi.mock('../../services/model/index.js', () => ({
+  modelFactory: {
+    generate: vi.fn(
+      async (_role: string, req: { messages: Array<{ role: string; content: string }> }) => {
+        const userPrompt = req.messages.find((m) => m.role === 'user')?.content ?? '';
+        const promptKey = userPrompt.match(/promptKey=([^\n]+)/)?.[1];
+        if (!promptKey) throw new Error('A14b mock missing promptKey marker');
+        const sequence = llmMockState.scoresByPromptKey.get(promptKey);
+        const score = sequence?.shift();
+        if (score === undefined) {
+          throw new Error(`A14b mock score exhausted for ${promptKey}`);
+        }
+        llmMockState.calls.push({ promptKey, score });
+        return {
+          content: JSON.stringify({
+            score,
+            notes: `A14b deterministic variance sample for ${promptKey}`,
+          }),
+          providerId: 'a14b-mock',
+          model: 'mock-md-variance',
+          latencyMs: 12,
+        };
+      },
+    ),
+  },
+}));
 import { SignalRegistryImpl } from '../../services/signal-registry.service.js';
 import { EXPECTED_SIGNAL_COUNT, registerAllSignals } from '../../signals/index.js';
 import { liamSGradeFixture } from '../../tests/fixtures/golden-path/liam-s-grade.js';
 import { steveAGradeFixture } from '../../tests/fixtures/golden-path/steve-a-grade.js';
 import { emmaBGradeFixture } from '../../tests/fixtures/golden-path/emma-b-grade.js';
 import { maxDGradeFixture } from '../../tests/fixtures/golden-path/max-d-grade.js';
+import { modelFactory } from '../../services/model/index.js';
 
 // OQ4-α helper: compare the deterministic payload; drop the `computedAt`
 // timestamp. Matches brief §5 D5 verbatim.
@@ -72,6 +114,69 @@ const PURE_RULE_SIGNAL_IDS = registry
   .filter((def) => !def.isLLMWhitelist)
   .map((def) => def.id)
   .sort();
+
+const LLM_SIGNAL_IDS = registry
+  .listSignals()
+  .filter((def) => def.isLLMWhitelist)
+  .map((def) => def.id)
+  .sort();
+
+const LLM_VARIANCE_RUNS = 3;
+const LLM_VARIANCE_TOLERANCE = 0.04;
+
+const A14B_MD_INPUT: SignalInput = {
+  sessionId: 'a14b-md-variance',
+  suiteId: 'architect',
+  participatingModules: ['moduleD'],
+  examData: {},
+  submissions: {
+    moduleD: {
+      subModules: [
+        {
+          name: 'OrderController',
+          responsibility:
+            'Validates write requests, applies rate limits, and delegates order creation.',
+          interfaces: ['POST /orders'],
+        },
+        {
+          name: 'InventoryReservationService',
+          responsibility:
+            'Uses Redis Lua to reserve stock atomically and emits compensation events.',
+          interfaces: ['reserve(skuId, qty)', 'release(orderId)'],
+        },
+        {
+          name: 'OrderPersistence',
+          responsibility:
+            'Persists idempotent order records in MySQL and exposes reconciliation queries.',
+          interfaces: ['create(order)', 'findByRequestId(requestId)'],
+        },
+      ],
+      interfaceDefinitions: [
+        'POST /orders {skuId, qty, requestId} -> 200 {orderId} / 409 Oversold',
+        'reserve(skuId, qty) -> Promise<{ok, remain}>',
+      ],
+      dataFlowDescription:
+        'Client -> OrderController -> InventoryReservationService -> OrderPersistence -> event bus -> reconciliation worker.',
+      constraintsSelected: ['性能', '一致性', '可用性', '可维护性'],
+      tradeoffText:
+        'Option A keeps all writes in MySQL for strong consistency but cannot meet peak QPS. Option B uses Redis only and is fast but risks reconciliation gaps. I recommend Option C: Redis reservation plus MySQL final persistence, accepting reconciliation complexity to keep latency and correctness balanced.',
+      aiOrchestrationPrompts: [
+        'Goal: implement reserve(skuId, qty). Constraints: atomic, idempotent, timeout below 300ms. Output: typed result and OversoldError branch.',
+        'Task: generate compensation worker pseudocode. Steps: read failed event, release reservation, retry three times, then alert.',
+        'Objective: review OrderPersistence for idempotency. Must check unique requestId and transaction boundaries.',
+      ],
+    },
+  },
+};
+
+function seedA14bScoreSequences(): void {
+  llmMockState.calls.length = 0;
+  llmMockState.scoresByPromptKey = new Map([
+    ['md.llm_whitelist.decomposition', [0.82, 0.84, 0.81]],
+    ['md.llm_whitelist.tradeoff', [0.91, 0.89, 0.92]],
+    ['md.llm_whitelist.ai_orch', [0.77, 0.79, 0.76]],
+  ]);
+}
 
 describe('A14a · registry ↔ NON_DETERMINISTIC_SIGNAL_IDS invariants', () => {
   it('registry holds the full 48-signal catalog', () => {
@@ -139,14 +244,41 @@ describe('A14a · pure-rule algorithm version format', () => {
   });
 });
 
-// A14b (V5.0.5) will layer variance monitoring on top of the 3 LLM-whitelist
-// signals. Deferred here on purpose: LLM variance needs a different
-// contract — tolerance band, not deep-equal — and lives in the scoring-quality
-// backlog rather than the V5.0 ship gate. The skip placeholder is an
-// explicit marker so future readers see the gap is a known V5.0.5 slot, not
-// an oversight.
-describe.skip('A14b · LLM signal variance monitoring (V5.0.5 deferred)', () => {
-  it('LLM signal results remain within tolerance band across repeated runs', () => {
-    // Placeholder — implementation deferred to V5.0.5 Task A14b.
+describe('A14b · LLM signal variance monitoring', () => {
+  beforeEach(() => {
+    vi.mocked(modelFactory.generate).mockClear();
+    seedA14bScoreSequences();
+  });
+
+  it('covers all 3 LLM-whitelist signals', () => {
+    expect(LLM_SIGNAL_IDS).toEqual([
+      'sAiOrchestrationQuality',
+      'sDesignDecomposition',
+      'sTradeoffArticulation',
+    ]);
+  });
+
+  it('keeps repeated LLM samples inside the ratified tolerance band', async () => {
+    const runs: SignalResults[] = [];
+    for (let i = 0; i < LLM_VARIANCE_RUNS; i++) {
+      runs.push(await registry.computeAll(A14B_MD_INPUT));
+    }
+
+    for (const signalId of LLM_SIGNAL_IDS) {
+      const values = runs.map((r) => r[signalId]?.value);
+      expect(values, `${signalId} missing LLM values`).toHaveLength(LLM_VARIANCE_RUNS);
+      const numeric = values.filter((v): v is number => typeof v === 'number');
+      expect(numeric, `${signalId} non-numeric LLM values`).toHaveLength(LLM_VARIANCE_RUNS);
+
+      const spread = Math.max(...numeric) - Math.min(...numeric);
+      expect(spread, `${signalId} spread ${spread}`).toBeLessThanOrEqual(LLM_VARIANCE_TOLERANCE);
+
+      const versions = runs.map((r) => r[signalId]?.algorithmVersion);
+      expect(versions.every((v) => v?.endsWith('_llm'))).toBe(true);
+    }
+
+    expect(vi.mocked(modelFactory.generate)).toHaveBeenCalledTimes(
+      LLM_SIGNAL_IDS.length * LLM_VARIANCE_RUNS,
+    );
   });
 });
