@@ -1,0 +1,67 @@
+name: LLM Variance
+
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: 'Repeated samples per MD LLM signal'
+        required: false
+        default: '3'
+      tolerance:
+        description: 'Maximum allowed value spread per signal'
+        required: false
+        default: '0.08'
+      fail_on_skip:
+        description: 'Fail instead of skip when no scoring provider secret is configured'
+        required: false
+        default: 'false'
+  schedule:
+    - cron: '17 19 * * *'
+
+jobs:
+  md-llm-signal-variance:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: codelens
+          POSTGRES_PASSWORD: ci-test-only
+          POSTGRES_DB: codelens
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U codelens"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgresql://codelens:ci-test-only@localhost:5432/codelens
+      JWT_SECRET: ci-test-secret-key-at-least-16-chars
+      NODE_ENV: test
+      GLM_API_KEY: ${{ secrets.GLM_API_KEY }}
+      GLM_BASE_URL: ${{ secrets.GLM_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4/' }}
+      GLM_DEFAULT_MODEL: ${{ secrets.GLM_DEFAULT_MODEL || 'glm-4-plus' }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_BASE_URL: ${{ secrets.CLAUDE_BASE_URL || 'https://api.anthropic.com/v1/' }}
+      CLAUDE_MODEL: ${{ secrets.CLAUDE_MODEL || 'claude-sonnet-4-20250514' }}
+      LLM_VARIANCE_RUNS: ${{ github.event.inputs.runs || '3' }}
+      LLM_VARIANCE_TOLERANCE: ${{ github.event.inputs.tolerance || '0.08' }}
+      LLM_VARIANCE_FAIL_ON_SKIP: ${{ github.event.inputs.fail_on_skip || 'false' }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Build shared package
+        run: npm run build --workspace=@codelens-v5/shared
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=packages/server/prisma/schema.prisma
+      - name: Run database migrations
+        run: npx prisma migrate deploy --schema=packages/server/prisma/schema.prisma
+      - name: Seed prompt registry
+        run: npm run db:seed --workspace=@codelens-v5/server
+      - name: Run real-provider MD LLM variance gate
+        run: npx tsx packages/server/src/scripts/check-llm-signal-variance.ts
