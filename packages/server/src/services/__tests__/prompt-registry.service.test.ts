@@ -47,6 +47,11 @@ import {
   PromptRegistry,
 } from '../prompt-registry.service.js';
 import { V5_PROMPT_KEYS } from '../prompt-keys.js';
+import {
+  LIVE_PRODUCTION_PROMPT_KEYS,
+  LIVE_PRODUCTION_PROMPT_VERSION,
+  LIVE_PRODUCTION_PROMPTS,
+} from '../production-prompts.js';
 
 function resetMocks() {
   for (const fn of Object.values(mockPrisma.promptVersion)) {
@@ -65,6 +70,50 @@ describe('V5_PROMPT_KEYS', () => {
 
   it('has no duplicates', () => {
     expect(new Set(V5_PROMPT_KEYS).size).toBe(V5_PROMPT_KEYS.length);
+  });
+});
+
+describe('LIVE_PRODUCTION_PROMPTS', () => {
+  it('covers the 9 current live model-adjacent prompt keys', () => {
+    expect(LIVE_PRODUCTION_PROMPT_VERSION).toBe(2);
+    expect(LIVE_PRODUCTION_PROMPTS).toHaveLength(9);
+    expect(LIVE_PRODUCTION_PROMPT_KEYS).toEqual([
+      'mb.chat_generate',
+      'mc.probe_engine.baseline',
+      'mc.probe_engine.contradiction',
+      'mc.probe_engine.weakness',
+      'mc.probe_engine.escalation',
+      'mc.probe_engine.transfer',
+      'md.llm_whitelist.decomposition',
+      'md.llm_whitelist.tradeoff',
+      'md.llm_whitelist.ai_orch',
+    ]);
+  });
+
+  it('only uses registered V5 prompt keys', () => {
+    for (const prompt of LIVE_PRODUCTION_PROMPTS) {
+      expect(V5_PROMPT_KEYS).toContain(prompt.key);
+      expect(prompt.metadata.placeholder).toBe(false);
+      expect(prompt.metadata.seededBy).toBe('v5.1-live-prompts');
+    }
+  });
+
+  it('contains no seed TODO placeholder content', () => {
+    for (const prompt of LIVE_PRODUCTION_PROMPTS) {
+      expect(prompt.content).not.toContain('TODO: Task 9-10');
+      expect(prompt.content.toLowerCase()).not.toContain('placeholder');
+      expect(prompt.content.trim().length).toBeGreaterThan(40);
+    }
+  });
+
+  it('keeps MD LLM prompt variable contracts aligned with signal call sites', () => {
+    const byKey = new Map(LIVE_PRODUCTION_PROMPTS.map((p) => [p.key, p.content]));
+    expect(byKey.get('md.llm_whitelist.decomposition')).toContain('{{subModules}}');
+    expect(byKey.get('md.llm_whitelist.decomposition')).toContain('{{interfaceDefinitions}}');
+    expect(byKey.get('md.llm_whitelist.decomposition')).toContain('{{dataFlowDescription}}');
+    expect(byKey.get('md.llm_whitelist.tradeoff')).toContain('{{tradeoffText}}');
+    expect(byKey.get('md.llm_whitelist.tradeoff')).toContain('{{constraintsSelected}}');
+    expect(byKey.get('md.llm_whitelist.ai_orch')).toContain('{{aiOrchestrationPrompts}}');
   });
 });
 
@@ -137,7 +186,9 @@ describe('PromptRegistry.get', () => {
       updatedAt: new Date(),
     });
 
-    await expect(registry.get('mc.probe_engine.baseline')).rejects.toBeInstanceOf(PromptPlaceholderError);
+    await expect(registry.get('mc.probe_engine.baseline')).rejects.toBeInstanceOf(
+      PromptPlaceholderError,
+    );
     expect(mockPrisma.promptVersion.findFirst).toHaveBeenCalledTimes(1);
   });
 
@@ -153,7 +204,9 @@ describe('PromptRegistry.get', () => {
       updatedAt: new Date(),
     });
 
-    await expect(registry.get('md.llm_whitelist.tradeoff', 1)).rejects.toBeInstanceOf(PromptPlaceholderError);
+    await expect(registry.get('md.llm_whitelist.tradeoff', 1)).rejects.toBeInstanceOf(
+      PromptPlaceholderError,
+    );
     expect(mockPrisma.promptVersion.findUnique).toHaveBeenCalledTimes(1);
   });
 
@@ -486,16 +539,24 @@ describe('Integration flow: seeded key → get fails closed until real prompt ac
     const table = new Map<string, PromptRow>();
     const rowKey = (name: string, version: number) => `${name}::${version}`;
 
-    mockPrisma.promptVersion.findUnique.mockImplementation(async ({ where }: PromptFindUniqueArgs) => {
-      const { name, version } = where.name_version;
-      return table.get(rowKey(name, version)) ?? null;
-    });
-    mockPrisma.promptVersion.findFirst.mockImplementation(async ({ where }: PromptFindFirstArgs) => {
-      const rows = Array.from(table.values())
-        .filter((r) => r.name === where.name && (where.isActive === undefined || r.isActive === where.isActive))
-        .sort((a, b) => b.version - a.version);
-      return rows[0] ?? null;
-    });
+    mockPrisma.promptVersion.findUnique.mockImplementation(
+      async ({ where }: PromptFindUniqueArgs) => {
+        const { name, version } = where.name_version;
+        return table.get(rowKey(name, version)) ?? null;
+      },
+    );
+    mockPrisma.promptVersion.findFirst.mockImplementation(
+      async ({ where }: PromptFindFirstArgs) => {
+        const rows = Array.from(table.values())
+          .filter(
+            (r) =>
+              r.name === where.name &&
+              (where.isActive === undefined || r.isActive === where.isActive),
+          )
+          .sort((a, b) => b.version - a.version);
+        return rows[0] ?? null;
+      },
+    );
     mockPrisma.promptVersion.create.mockImplementation(async ({ data }: PromptCreateArgs) => {
       const row = {
         id: `id-${data.name}-${data.version}`,
@@ -541,12 +602,18 @@ describe('Integration flow: seeded key → get fails closed until real prompt ac
     const table = new Map<string, PromptRow>();
     const rowKey = (name: string, version: number) => `${name}::${version}`;
 
-    mockPrisma.promptVersion.findFirst.mockImplementation(async ({ where }: PromptFindFirstArgs) => {
-      const rows = Array.from(table.values())
-        .filter((r) => r.name === where.name && (where.isActive === undefined || r.isActive === where.isActive))
-        .sort((a, b) => b.version - a.version);
-      return rows[0] ?? null;
-    });
+    mockPrisma.promptVersion.findFirst.mockImplementation(
+      async ({ where }: PromptFindFirstArgs) => {
+        const rows = Array.from(table.values())
+          .filter(
+            (r) =>
+              r.name === where.name &&
+              (where.isActive === undefined || r.isActive === where.isActive),
+          )
+          .sort((a, b) => b.version - a.version);
+        return rows[0] ?? null;
+      },
+    );
 
     table.set(rowKey('mc.probe_engine.baseline', 1), {
       id: 'seed',
