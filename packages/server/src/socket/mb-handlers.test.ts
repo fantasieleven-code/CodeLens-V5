@@ -447,6 +447,37 @@ describe('file_change / visibility_change', () => {
     expect(mocks.setFileContent).toHaveBeenCalledWith('s1', 'a.py', 'print(42)', 'ai_completion');
   });
 
+  it('file_change can use socket-bound session identity without payload sessionId', async () => {
+    const { socket, ee } = makeSocket({ sessionId: 'bound-session' });
+    registerMBHandlers({} as never, socket);
+    await dispatch(ee, 'v5:mb:file_change', {
+      filePath: 'a.py',
+      content: 'print(42)',
+      source: 'ai_completion',
+    });
+    expect(mocks.setFileContent).toHaveBeenCalledWith(
+      'bound-session',
+      'a.py',
+      'print(42)',
+      'ai_completion',
+    );
+  });
+
+  it('file_change rejects missing session identity with typed validation error', async () => {
+    const { socket, emit, ee } = makeSocket();
+    registerMBHandlers({} as never, socket);
+    await dispatch(ee, 'v5:mb:file_change', {
+      filePath: 'a.py',
+      content: 'print(42)',
+      source: 'manual_edit',
+    });
+    expect(emit).toHaveBeenCalledWith('v5:mb:file_change:error', {
+      code: 'VALIDATION_ERROR',
+      message: 'v5:mb:file_change requires sessionId in socket handshake or payload',
+    });
+    expect(mocks.setFileContent).not.toHaveBeenCalled();
+  });
+
   it('visibility_change forwards to appendVisibilityEvent', async () => {
     const { socket, ee } = makeSocket();
     registerMBHandlers({} as never, socket);
@@ -458,6 +489,36 @@ describe('file_change / visibility_change', () => {
     expect(mocks.appendVisibilityEvent).toHaveBeenCalledWith('s1', {
       timestamp: 123,
       hidden: true,
+    });
+  });
+
+  it('visibility_change can use socket-bound session identity without payload sessionId', async () => {
+    const { socket, ee } = makeSocket({ sessionId: 'bound-session' });
+    registerMBHandlers({} as never, socket);
+    await dispatch(ee, 'v5:mb:visibility_change', {
+      timestamp: 123,
+      hidden: true,
+    });
+    expect(mocks.appendVisibilityEvent).toHaveBeenCalledWith('bound-session', {
+      timestamp: 123,
+      hidden: true,
+    });
+  });
+
+  it('visibility_change emits typed persist failure without adding an ack contract', async () => {
+    mocks.appendVisibilityEvent.mockRejectedValueOnce(new Error('db down'));
+    const { socket, emit, ee } = makeSocket();
+    registerMBHandlers({} as never, socket);
+
+    await dispatch(ee, 'v5:mb:visibility_change', {
+      sessionId: 's1',
+      timestamp: 123,
+      hidden: true,
+    });
+
+    expect(emit).toHaveBeenCalledWith('v5:mb:visibility_change:error', {
+      code: 'PERSIST_FAILED',
+      message: 'db down',
     });
   });
 });

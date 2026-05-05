@@ -82,14 +82,14 @@ interface RunTestPayload {
 }
 
 interface FileChangePayload {
-  sessionId: string;
+  sessionId?: string;
   filePath: string;
   content: string;
   source: 'manual_edit' | 'ai_chat' | 'ai_completion';
 }
 
 interface VisibilityChangePayload {
-  sessionId: string;
+  sessionId?: string;
   timestamp: number;
   hidden: boolean;
 }
@@ -321,24 +321,64 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
 
   socket.on(
     'v5:mb:file_change',
-    safe(socket, 'v5:mb:file_change', async (payload: FileChangePayload) => {
-      fileSnapshotService.setFileContent(
-        payload.sessionId,
-        payload.filePath,
-        payload.content,
-        payload.source,
-      );
-    }),
+    async (payload: FileChangePayload) => {
+      const sessionId = resolveSocketSessionId(socket, payload);
+      if (!sessionId) {
+        failSocketRequest(
+          socket,
+          'v5:mb:file_change',
+          'VALIDATION_ERROR',
+          missingSessionMessage('v5:mb:file_change'),
+        );
+        return;
+      }
+      try {
+        fileSnapshotService.setFileContent(
+          sessionId,
+          payload.filePath,
+          payload.content,
+          payload.source,
+        );
+      } catch (err) {
+        const message = describeSocketError(err);
+        logger.warn('[socket:mb] v5:mb:file_change failed', {
+          socketId: socket.id,
+          sessionId,
+          error: message,
+        });
+        failSocketRequest(socket, 'v5:mb:file_change', 'PERSIST_FAILED', message);
+      }
+    },
   );
 
   socket.on(
     'v5:mb:visibility_change',
-    safe(socket, 'v5:mb:visibility_change', async (payload: VisibilityChangePayload) => {
-      await appendVisibilityEvent(payload.sessionId, {
-        timestamp: payload.timestamp,
-        hidden: payload.hidden,
-      });
-    }),
+    async (payload: VisibilityChangePayload) => {
+      const sessionId = resolveSocketSessionId(socket, payload);
+      if (!sessionId) {
+        failSocketRequest(
+          socket,
+          'v5:mb:visibility_change',
+          'VALIDATION_ERROR',
+          missingSessionMessage('v5:mb:visibility_change'),
+        );
+        return;
+      }
+      try {
+        await appendVisibilityEvent(sessionId, {
+          timestamp: payload.timestamp,
+          hidden: payload.hidden,
+        });
+      } catch (err) {
+        const message = describeSocketError(err);
+        logger.warn('[socket:mb] v5:mb:visibility_change failed', {
+          socketId: socket.id,
+          sessionId,
+          error: message,
+        });
+        failSocketRequest(socket, 'v5:mb:visibility_change', 'PERSIST_FAILED', message);
+      }
+    },
   );
 
   socket.on(
