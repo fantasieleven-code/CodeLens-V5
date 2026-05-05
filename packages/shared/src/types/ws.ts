@@ -1,7 +1,17 @@
 import type { AIStreamChunk } from './ai.js';
 import type { FileState } from './sandbox.js';
 import type { TimerState, CheckpointTransition } from './session.js';
-import type { V5MBAudit, V5MBPlanning, V5MBSubmission, V5ModuleASubmission, V5ModuleCAnswer, V5ModuleDSubmission, V5Phase0Submission, V5ProbeStrategy } from './v5-submissions.js';
+import type {
+  V5MBAudit,
+  V5MBPlanning,
+  V5MBSubmission,
+  V5ModuleASubmission,
+  V5ModuleCAnswer,
+  V5ModuleDSubmission,
+  V5Phase0Submission,
+  V5ProbeStrategy,
+  V5SelfAssessSubmission,
+} from './v5-submissions.js';
 
 // Client → Server events
 export interface ClientToServerEvents {
@@ -47,22 +57,24 @@ export interface ClientToServerEvents {
     events: Array<{ type: string; timestamp: string; payload: Record<string, unknown> }>;
   }) => void;
   /**
-   * Task 24 — Cluster D self-assess submit. Frontend SelfAssessPage emits a
+   * Task 24 — Cluster D self-assess submit. The server accepts both the
    * V4-legacy field set (`selfConfidence` 0-100, `selfIdentifiedRisk`,
-   * `responseTimeMs`) that the server normalizes to V5SelfAssessSubmission
-   * before persist (see `packages/server/src/socket/self-assess-handlers.ts`).
+   * `responseTimeMs`) and the V5-native `{ submission }` envelope.
    * `sessionId` was added in Task 24 (Option C) so the handler has a target
    * for `metadata.selfAssess.*` writes — the server has no socket-level
    * session middleware (Task 15 will add it). The dual-shape bridge between
    * the V4 socket payload and V5SelfAssessSubmission is V5.0.5 cleanup.
    */
   'self-assess:submit': (
-    data: {
-      sessionId: string;
-      selfConfidence: number;
-      selfIdentifiedRisk?: string;
-      responseTimeMs: number;
-    },
+    data:
+      | {
+          sessionId: string;
+          selfConfidence: number;
+          selfIdentifiedRisk?: string;
+          responseTimeMs: number;
+          reviewedDecisions?: string[];
+        }
+      | { sessionId: string; submission: V5SelfAssessSubmission },
     ack: (ok: boolean) => void,
   ) => void;
   /**

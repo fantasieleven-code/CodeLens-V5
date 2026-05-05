@@ -19,7 +19,7 @@
 | Event                      | Direction        | Owner            | Current session source | Ack     | Error frame     | Migration classification                                          |
 | -------------------------- | ---------------- | ---------------- | ---------------------- | ------- | --------------- | ----------------------------------------------------------------- |
 | `behavior:batch`           | client -> server | MB telemetry     | payload `sessionId`    | none    | none, logs only | Keep name for V5.1; high-volume telemetry, migrate identity first |
-| `self-assess:submit`       | client -> server | SE submit        | payload `sessionId`    | boolean | none, logs only | Dual-accept required; current payload is V4 bridge                |
+| `self-assess:submit`       | client -> server | SE submit        | payload `sessionId`    | boolean | `{event}:error` | Dual-accept active; V4 bridge logs usage                          |
 | `phase0:submit`            | client -> server | P0 submit        | payload `sessionId`    | boolean | `{event}:error` | V5-native payload already; identity migration only                |
 | `moduleA:submit`           | client -> server | MA submit        | payload `sessionId`    | boolean | `{event}:error` | V5-native payload already; identity migration only                |
 | `moduleD:submit`           | client -> server | MD submit        | payload `sessionId`    | boolean | `{event}:error` | V5-native payload already; identity migration only                |
@@ -37,8 +37,8 @@
 
 ## Current Inconsistencies
 
-- Boolean ack submit / lifecycle events now use typed error frames except `self-assess:submit`.
-- `self-assess:submit` still validates with zod and `ack(false)`, but does not send typed error frames.
+- Boolean ack submit / lifecycle events now use typed error frames.
+- `self-assess:submit` still accepts the V4 bridge shape; remove it only after usage logs prove the V5-native envelope has replaced it.
 - `behavior:batch` silently logs invalid schema or persist failure, because telemetry must not block candidate flow.
 - MB `safe()` wrapper catches thrown errors and emits `{event}:error`, but it does not call ack because most wrapped events are stream/fire-and-forget.
 - `self-assess:submit` is the only V4 -> V5 normalize bridge. Its event name should not be renamed until the client dual-emits or switches shape.
@@ -117,6 +117,11 @@ Acceptance:
 - Add assertions that validation/persist errors emit typed error frames.
 
 ### PR 3 · SelfAssess Dual-Shape Bridge
+
+Status:done in V5.1 prep. `self-assess:submit` accepts both the current V4
+bridge payload and V5-native `{ sessionId, submission }`, emits typed
+validation/persist error frames, and logs V4 bridge usage for the deprecation
+window.
 
 Scope:
 
