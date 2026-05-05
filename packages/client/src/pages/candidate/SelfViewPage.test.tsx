@@ -41,8 +41,18 @@ const VALID_VIEW: V5CandidateSelfView = {
     },
   ],
   dimensionRadar: [
-    { id: 'technicalJudgment', nameZh: '技术判断', nameEn: 'Technical Judgment', relativeStrength: 'strong' },
-    { id: 'aiEngineering', nameZh: 'AI 协作成熟度', nameEn: 'AI Collaboration', relativeStrength: 'medium' },
+    {
+      id: 'technicalJudgment',
+      nameZh: '技术判断',
+      nameEn: 'Technical Judgment',
+      relativeStrength: 'strong',
+    },
+    {
+      id: 'aiEngineering',
+      nameZh: 'AI 协作成熟度',
+      nameEn: 'AI Collaboration',
+      relativeStrength: 'medium',
+    },
     { id: 'systemDesign', nameZh: '系统设计', nameEn: 'System Design', relativeStrength: 'strong' },
     { id: 'codeQuality', nameZh: '代码质量', nameEn: 'Code Quality', relativeStrength: 'weak' },
     { id: 'communication', nameZh: '沟通', nameEn: 'Communication', relativeStrength: 'medium' },
@@ -54,10 +64,7 @@ function renderAt(path = '/candidate/self-view/sess-sv/tok-abc') {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route
-          path="/candidate/self-view/:sessionId/:privateToken"
-          element={<SelfViewPage />}
-        />
+        <Route path="/candidate/self-view/:sessionId/:privateToken" element={<SelfViewPage />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -131,6 +138,17 @@ describe('<SelfViewPage />', () => {
     expect(text).not.toMatch(/\b[0-9]{2,3}\s*(分|\/\s*100|points?)\b/);
   });
 
+  it('does not link candidates to the company-facing report or admin surfaces', async () => {
+    vi.spyOn(candidateApi, 'fetchCandidateSelfView').mockResolvedValue(VALID_VIEW);
+    const { container } = renderAt();
+    await waitFor(() => {
+      expect(screen.getByTestId('self-view-page')).toBeInTheDocument();
+    });
+
+    expect(container.querySelector('a[href*="/report"]')).toBeNull();
+    expect(container.querySelector('a[href*="/admin"]')).toBeNull();
+  });
+
   it('shows the NOT_FOUND error message on a 404 from the API', async () => {
     vi.spyOn(candidateApi, 'fetchCandidateSelfView').mockRejectedValue(
       new CandidateApiError('NOT_FOUND', 404, 'Session not found'),
@@ -150,22 +168,16 @@ describe('<SelfViewPage />', () => {
     );
     renderAt();
     await waitFor(() => {
-      expect(
-        screen.getByTestId('self-view-error-SESSION_INCOMPLETE'),
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('self-view-error-SESSION_INCOMPLETE')).toBeInTheDocument();
     });
     expect(screen.getByText(/考试尚未完成/)).toBeInTheDocument();
   });
 
   it('falls back to INTERNAL_ERROR on an unknown error', async () => {
-    vi.spyOn(candidateApi, 'fetchCandidateSelfView').mockRejectedValue(
-      new Error('boom'),
-    );
+    vi.spyOn(candidateApi, 'fetchCandidateSelfView').mockRejectedValue(new Error('boom'));
     renderAt();
     await waitFor(() => {
-      expect(
-        screen.getByTestId('self-view-error-INTERNAL_ERROR'),
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('self-view-error-INTERNAL_ERROR')).toBeInTheDocument();
     });
     expect(screen.getByText(/服务端暂时无法处理请求/)).toBeInTheDocument();
   });
@@ -207,10 +219,7 @@ describe('SelfView route wiring (App.tsx)', () => {
               </ProfileGuard>
             }
           />
-          <Route
-            path="/candidate/self-view/:sessionId/:privateToken"
-            element={<SelfViewPage />}
-          />
+          <Route path="/candidate/self-view/:sessionId/:privateToken" element={<SelfViewPage />} />
           <Route
             path="/candidate/:sessionToken/consent"
             element={<div data-testid="consent-landed">consent</div>}
@@ -227,17 +236,12 @@ describe('SelfView route wiring (App.tsx)', () => {
 
   it('renders without any consent / profile localStorage flag set (URL-as-auth · no Guard redirect)', async () => {
     expect(localStorage.getItem('codelens_candidate_consent:sess-r2')).toBeNull();
-    expect(
-      localStorage.getItem('codelens_candidate_profile_submitted:sess-r2'),
-    ).toBeNull();
+    expect(localStorage.getItem('codelens_candidate_profile_submitted:sess-r2')).toBeNull();
 
     render(
       <MemoryRouter initialEntries={['/candidate/self-view/sess-r2/tok-r2']}>
         <Routes>
-          <Route
-            path="/candidate/self-view/:sessionId/:privateToken"
-            element={<SelfViewPage />}
-          />
+          <Route path="/candidate/self-view/:sessionId/:privateToken" element={<SelfViewPage />} />
           <Route
             path="/candidate/:sessionToken/consent"
             element={<div data-testid="consent-redirect">consent</div>}
