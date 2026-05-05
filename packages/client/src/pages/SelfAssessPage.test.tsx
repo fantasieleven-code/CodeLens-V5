@@ -153,11 +153,11 @@ describe('<SelfAssessPage />', () => {
     // session.store hit with canonical V5SelfAssessSubmission shape.
     const stored = useSessionStore.getState().submissions.selfAssess;
     expect(stored).toEqual({
-      confidence: 75,
+      confidence: 0.75,
       reasoning: '我觉得 Phase 0 的判断题可能选错了',
     });
 
-    // Socket emit fired with V4-compatible payload + noop ack callback.
+    // Socket emit fired with V5-native payload + noop ack callback.
     const selfAssessCall = mockSocket.emit.mock.calls.find(
       ([event]) => event === 'self-assess:submit',
     );
@@ -165,10 +165,13 @@ describe('<SelfAssessPage />', () => {
     const [, payload] = selfAssessCall!;
     expect(payload).toMatchObject({
       sessionId: 'selfassess-pending',
-      selfConfidence: 75,
-      selfIdentifiedRisk: '我觉得 Phase 0 的判断题可能选错了',
+      submission: {
+        confidence: 0.75,
+        reasoning: '我觉得 Phase 0 的判断题可能选错了',
+      },
     });
-    expect(typeof (payload as { responseTimeMs: number }).responseTimeMs).toBe('number');
+    expect(payload).not.toHaveProperty('selfConfidence');
+    expect(payload).not.toHaveProperty('selfIdentifiedRisk');
 
     await waitFor(() => expect(useModuleStore.getState().currentModule).toBe('moduleC'));
   });

@@ -32,7 +32,7 @@ const MB_SUB: V5MBSubmission = {
   finalTestPassRate: 0.85,
 };
 
-const SELF_SUB: V5SelfAssessSubmission = { confidence: 70, reasoning: 'ok' };
+const SELF_SUB: V5SelfAssessSubmission = { confidence: 0.7, reasoning: 'ok' };
 
 function seed() {
   useModuleStore.getState().reset();

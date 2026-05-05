@@ -19,7 +19,7 @@
 | Event                      | Direction        | Owner            | Current session source | Ack     | Error frame     | Migration classification                                          |
 | -------------------------- | ---------------- | ---------------- | ---------------------- | ------- | --------------- | ----------------------------------------------------------------- |
 | `behavior:batch`           | client -> server | MB telemetry     | payload `sessionId`    | none    | none, logs only | Keep name for V5.1; high-volume telemetry, migrate identity first |
-| `self-assess:submit`       | client -> server | SE submit        | handshake or payload   | boolean | `{event}:error` | Dual-accept active; V4 bridge logs usage                          |
+| `self-assess:submit`       | client -> server | SE submit        | handshake or payload   | boolean | `{event}:error` | Client emits V5-native; V4 bridge retained for deprecation        |
 | `phase0:submit`            | client -> server | P0 submit        | handshake or payload   | boolean | `{event}:error` | V5-native payload already; payload sessionId is fallback          |
 | `moduleA:submit`           | client -> server | MA submit        | handshake or payload   | boolean | `{event}:error` | V5-native payload already; payload sessionId is fallback          |
 | `moduleD:submit`           | client -> server | MD submit        | handshake or payload   | boolean | `{event}:error` | V5-native payload already; payload sessionId is fallback          |
@@ -38,7 +38,7 @@
 ## Current Inconsistencies
 
 - Boolean ack submit / lifecycle events now use typed error frames.
-- `self-assess:submit` still accepts the V4 bridge shape; remove it only after usage logs prove the V5-native envelope has replaced it.
+- `self-assess:submit` client emits V5-native payload; server still accepts the V4 bridge shape until usage logs prove it is unused.
 - MB and `behavior:batch` still read only payload `sessionId`; migrate those after high-volume telemetry identity behavior is observed.
 - `behavior:batch` silently logs invalid schema or persist failure, because telemetry must not block candidate flow.
 - MB `safe()` wrapper catches thrown errors and emits `{event}:error`, but it does not call ack because most wrapped events are stream/fire-and-forget.
@@ -152,6 +152,18 @@ Acceptance:
 
 - Existing clients unchanged.
 - New tests prove middleware session id works and payload fallback remains.
+
+### PR 5 · SelfAssess Client V5 Payload
+
+Status:done in V5.1 prep. `SelfAssessPage` now stores and emits normalized
+`V5SelfAssessSubmission` with `confidence` in `[0, 1]`; HTTP fallback still
+sends the V4 body expected by `/selfassess/submit`.
+
+Acceptance:
+
+- Client socket payload is `{ sessionId, submission }`.
+- Local session store uses the same normalized V5 shape as server scoring.
+- HTTP fallback remains compatible with the existing REST route.
 
 ## Non-Goals
 
