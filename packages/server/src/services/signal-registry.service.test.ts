@@ -101,6 +101,35 @@ describe('SignalRegistryImpl.computeAll — pure-rule signals', () => {
     expect(results.sA.algorithmVersion).toBe('test@v1');
   });
 
+  it('normalizes computedAt once per computeAll run', async () => {
+    const computedAt = 1_700_000_000_000;
+    const dateSpy = vi.spyOn(Date, 'now').mockReturnValue(computedAt);
+    try {
+      const reg = new SignalRegistryImpl();
+      reg.register({
+        id: 'sA',
+        dimension: V5Dimension.TECHNICAL_JUDGMENT,
+        moduleSource: 'MA',
+        isLLMWhitelist: false,
+        compute: async () => ({ ...ok(10), computedAt: 111 }),
+      });
+      reg.register({
+        id: 'sB',
+        dimension: V5Dimension.CODE_QUALITY,
+        moduleSource: 'MA',
+        isLLMWhitelist: false,
+        compute: async () => ({ ...ok(20), computedAt: 222 }),
+      });
+
+      const results = await reg.computeAll(baseInput(['moduleA']));
+
+      expect(results.sA.computedAt).toBe(computedAt);
+      expect(results.sB.computedAt).toBe(computedAt);
+    } finally {
+      dateSpy.mockRestore();
+    }
+  });
+
   it('marks non-participating signals as skipped (value=null, version=skipped)', async () => {
     const reg = new SignalRegistryImpl();
     reg.register({

@@ -61,6 +61,10 @@ function makeFailureResult(algorithmVersion = REGISTRY_FAILURE_VERSION): SignalR
   };
 }
 
+function withRegistryComputedAt(result: SignalResult, computedAt: number): SignalResult {
+  return result.computedAt === computedAt ? result : { ...result, computedAt };
+}
+
 function measureInputSize(input: SignalInput): number {
   try {
     return JSON.stringify({
@@ -95,6 +99,7 @@ export class SignalRegistryImpl implements SignalRegistry {
 
   async computeAll(input: SignalInput, options?: ComputeAllOptions): Promise<SignalResults> {
     const results: SignalResults = {};
+    const computedAt = Date.now();
     const participating = new Set<string>(input.participatingModules);
     const excluded = options?.excludeIds ? new Set<string>(options.excludeIds) : null;
 
@@ -103,15 +108,14 @@ export class SignalRegistryImpl implements SignalRegistry {
         if (excluded?.has(def.id)) return;
 
         if (!this.isParticipating(def, participating)) {
-          results[def.id] = makeSkippedResult();
+          results[def.id] = withRegistryComputedAt(makeSkippedResult(), computedAt);
           return;
         }
 
-        if (def.isLLMWhitelist) {
-          results[def.id] = await this.runLLMSignal(def, input);
-        } else {
-          results[def.id] = await this.runPureRuleSignal(def, input);
-        }
+        const result = def.isLLMWhitelist
+          ? await this.runLLMSignal(def, input)
+          : await this.runPureRuleSignal(def, input);
+        results[def.id] = withRegistryComputedAt(result, computedAt);
       }),
     );
 
