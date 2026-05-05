@@ -12,6 +12,7 @@ import { z } from 'zod';
 
 import { logger } from '../lib/logger.js';
 import { saveRoundAnswer } from '../services/modules/mc.service.js';
+import { ackBoolean, describeSocketError, failSocketRequest } from './socket-contract.js';
 
 const answerPayloadSchema = z.object({
   sessionId: z.string().min(1),
@@ -29,23 +30,23 @@ export function registerModuleCHandlers(_io: SocketIOServer, socket: Socket): vo
         socketId: socket.id,
         error: parsed.error.message,
       });
-      ack?.(false);
+      failSocketRequest(socket, 'v5:modulec:answer', 'VALIDATION_ERROR', parsed.error.message, ack);
       return;
     }
 
     const { sessionId, round, answer, question, probeStrategy } = parsed.data;
     try {
       await saveRoundAnswer(sessionId, round, answer, question, probeStrategy);
-      ack?.(true);
+      ackBoolean(ack, true);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = describeSocketError(err);
       logger.warn('[socket:mc] v5:modulec:answer failed', {
         socketId: socket.id,
         sessionId,
         round,
         error: message,
       });
-      ack?.(false);
+      failSocketRequest(socket, 'v5:modulec:answer', 'PERSIST_FAILED', message, ack);
     }
   });
 }

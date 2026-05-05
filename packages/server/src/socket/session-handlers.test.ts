@@ -14,17 +14,19 @@ import { registerSessionHandlers } from './session-handlers.js';
 
 interface FakeSocket {
   id: string;
+  emit: ReturnType<typeof vi.fn>;
   handlers: Map<string, (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>>;
-  on: (event: string, handler: (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>) => void;
+  on: (
+    event: string,
+    handler: (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>,
+  ) => void;
 }
 
 function newFakeSocket(): FakeSocket {
-  const handlers = new Map<
-    string,
-    (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>
-  >();
+  const handlers = new Map<string, (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>>();
   return {
     id: 'sock-1',
+    emit: vi.fn(),
     handlers,
     on: (event, handler) => {
       handlers.set(event, handler);
@@ -68,6 +70,10 @@ describe('registerSessionHandlers · session:end', () => {
     await socket.handlers.get('session:end')!({}, ack);
 
     expect(endSession).not.toHaveBeenCalled();
+    expect(socket.emit).toHaveBeenCalledWith('session:end:error', {
+      code: 'VALIDATION_ERROR',
+      message: expect.any(String),
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 
@@ -80,6 +86,10 @@ describe('registerSessionHandlers · session:end', () => {
     await socket.handlers.get('session:end')!({ sessionId: 'sess-1' }, ack);
 
     expect(endSession).toHaveBeenCalledWith('sess-1');
+    expect(socket.emit).toHaveBeenCalledWith('session:end:error', {
+      code: 'PERSIST_FAILED',
+      message: 'missing',
+    });
     expect(ack).toHaveBeenCalledWith(false);
   });
 
@@ -87,7 +97,9 @@ describe('registerSessionHandlers · session:end', () => {
     const socket = newFakeSocket();
     registerSessionHandlers({} as never, socket as never);
 
-    await expect(socket.handlers.get('session:end')!({ sessionId: 'sess-1' })).resolves.toBeUndefined();
+    await expect(
+      socket.handlers.get('session:end')!({ sessionId: 'sess-1' }),
+    ).resolves.toBeUndefined();
     expect(endSession).toHaveBeenCalledWith('sess-1');
   });
 });

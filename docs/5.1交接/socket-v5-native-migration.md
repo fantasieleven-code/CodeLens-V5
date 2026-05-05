@@ -20,11 +20,11 @@
 | -------------------------- | ---------------- | ---------------- | ---------------------- | ------- | --------------- | ----------------------------------------------------------------- |
 | `behavior:batch`           | client -> server | MB telemetry     | payload `sessionId`    | none    | none, logs only | Keep name for V5.1; high-volume telemetry, migrate identity first |
 | `self-assess:submit`       | client -> server | SE submit        | payload `sessionId`    | boolean | none, logs only | Dual-accept required; current payload is V4 bridge                |
-| `phase0:submit`            | client -> server | P0 submit        | payload `sessionId`    | boolean | none, logs only | V5-native payload already; identity/ack helper only               |
-| `moduleA:submit`           | client -> server | MA submit        | payload `sessionId`    | boolean | none, logs only | V5-native payload already; identity/ack helper only               |
-| `moduleD:submit`           | client -> server | MD submit        | payload `sessionId`    | boolean | none, logs only | V5-native payload already; identity/ack helper only               |
-| `v5:modulec:answer`        | client -> server | MC answer        | payload `sessionId`    | boolean | none, logs only | V5-native payload already; identity/ack helper only               |
-| `session:end`              | client -> server | lifecycle        | payload `sessionId`    | boolean | none, logs only | V5-native lifecycle; identity/ack helper only                     |
+| `phase0:submit`            | client -> server | P0 submit        | payload `sessionId`    | boolean | `{event}:error` | V5-native payload already; identity migration only                |
+| `moduleA:submit`           | client -> server | MA submit        | payload `sessionId`    | boolean | `{event}:error` | V5-native payload already; identity migration only                |
+| `moduleD:submit`           | client -> server | MD submit        | payload `sessionId`    | boolean | `{event}:error` | V5-native payload already; identity migration only                |
+| `v5:modulec:answer`        | client -> server | MC answer        | payload `sessionId`    | boolean | `{event}:error` | V5-native payload already; identity migration only                |
+| `session:end`              | client -> server | lifecycle        | payload `sessionId`    | boolean | `{event}:error` | V5-native lifecycle; identity migration only                      |
 | `v5:mb:planning:submit`    | client -> server | MB stage         | payload `sessionId`    | boolean | `{event}:error` | Normalize via helper; preserve event                              |
 | `v5:mb:standards:submit`   | client -> server | MB stage         | payload `sessionId`    | boolean | `{event}:error` | Normalize via helper; preserve event                              |
 | `v5:mb:submit`             | client -> server | MB final         | payload `sessionId`    | boolean | `{event}:error` | Normalize via helper; preserve event                              |
@@ -37,8 +37,8 @@
 
 ## Current Inconsistencies
 
-- Boolean ack is used for submit / lifecycle events, but only MB submit/stage events emit `{event}:error` frames.
-- P0 / MA / MD / MC / SE / session handlers validate with zod and `ack(false)`, but do not send typed error frames.
+- Boolean ack submit / lifecycle events now use typed error frames except `self-assess:submit`.
+- `self-assess:submit` still validates with zod and `ack(false)`, but does not send typed error frames.
 - `behavior:batch` silently logs invalid schema or persist failure, because telemetry must not block candidate flow.
 - MB `safe()` wrapper catches thrown errors and emits `{event}:error`, but it does not call ack because most wrapped events are stream/fire-and-forget.
 - `self-assess:submit` is the only V4 -> V5 normalize bridge. Its event name should not be renamed until the client dual-emits or switches shape.
@@ -100,6 +100,11 @@ Acceptance:
 - Omitted ack remains safe.
 
 ### PR 2 · Single-Event Submit Handler Adoption
+
+Status:done in V5.1 prep. `phase0:submit`, `moduleA:submit`,
+`moduleD:submit`, `v5:modulec:answer`, and `session:end` now use the shared
+socket contract helper for safe boolean ack and typed validation/persist error
+frames.
 
 Scope:
 

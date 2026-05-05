@@ -35,6 +35,7 @@ import { z } from 'zod';
 import { logger } from '../lib/logger.js';
 import { eventBus } from '../services/event-bus.service.js';
 import { persistModuleDSubmission } from '../services/modules/md.service.js';
+import { ackBoolean, describeSocketError, failSocketRequest } from './socket-contract.js';
 
 const subModuleSchema = z.object({
   name: z.string(),
@@ -64,7 +65,7 @@ export function registerModuleDHandlers(_io: SocketIOServer, socket: Socket): vo
         socketId: socket.id,
         error: parsed.error.message,
       });
-      ack?.(false);
+      failSocketRequest(socket, 'moduleD:submit', 'VALIDATION_ERROR', parsed.error.message, ack);
       return;
     }
     const { sessionId, submission } = parsed.data;
@@ -74,15 +75,15 @@ export function registerModuleDHandlers(_io: SocketIOServer, socket: Socket): vo
         sessionId,
         module: 'moduleD',
       });
-      ack?.(true);
+      ackBoolean(ack, true);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = describeSocketError(err);
       logger.warn('[socket:md] moduleD:submit failed', {
         socketId: socket.id,
         sessionId,
         error: message,
       });
-      ack?.(false);
+      failSocketRequest(socket, 'moduleD:submit', 'PERSIST_FAILED', message, ack);
     }
   });
 }

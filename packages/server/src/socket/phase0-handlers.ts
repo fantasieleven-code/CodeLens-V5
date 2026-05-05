@@ -24,6 +24,7 @@ import { z } from 'zod';
 import { logger } from '../lib/logger.js';
 import { eventBus } from '../services/event-bus.service.js';
 import { persistPhase0Submission } from '../services/modules/p0.service.js';
+import { ackBoolean, describeSocketError, failSocketRequest } from './socket-contract.js';
 
 const submissionSchema = z.object({
   codeReading: z.object({
@@ -62,7 +63,7 @@ export function registerPhase0Handlers(_io: SocketIOServer, socket: Socket): voi
         socketId: socket.id,
         error: parsed.error.message,
       });
-      ack?.(false);
+      failSocketRequest(socket, 'phase0:submit', 'VALIDATION_ERROR', parsed.error.message, ack);
       return;
     }
     const { sessionId, submission } = parsed.data;
@@ -72,15 +73,15 @@ export function registerPhase0Handlers(_io: SocketIOServer, socket: Socket): voi
         sessionId,
         module: 'phase0',
       });
-      ack?.(true);
+      ackBoolean(ack, true);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = describeSocketError(err);
       logger.warn('[socket:p0] phase0:submit failed', {
         socketId: socket.id,
         sessionId,
         error: message,
       });
-      ack?.(false);
+      failSocketRequest(socket, 'phase0:submit', 'PERSIST_FAILED', message, ack);
     }
   });
 }
