@@ -30,6 +30,17 @@ import type {
 import type { V5MBAudit, V5MBPlanning } from './v5-submissions.js';
 
 describe('ws.ts v5:mb:* payload shapes', () => {
+  it('Client → Server: behavior batch can use handshake identity with payload fallback', () => {
+    expectTypeOf<ClientToServerEvents['behavior:batch']>().parameters.toEqualTypeOf<
+      [
+        {
+          sessionId?: string;
+          events: Array<{ type: string; timestamp: string; payload: Record<string, unknown> }>;
+        },
+      ]
+    >();
+  });
+
   it('Client → Server: 8 MB events are all listed on ClientToServerEvents', () => {
     expectTypeOf<ClientToServerEvents['v5:mb:chat_generate']>().parameters.toEqualTypeOf<
       [V5MBChatGeneratePayload]

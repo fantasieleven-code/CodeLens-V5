@@ -18,9 +18,9 @@
  * enforces the 50KB cap and will drop oversized payloads regardless).
  *
  * The hook is module-scoped: pass sessionId + V5ModuleKey on creation so the
- * hook can route batches to the right session. sessionId is required because
- * the server has no socket-level session middleware (no io.use binding) — the
- * client carries it in the envelope (Task 22, Option β).
+ * hook can route batches to the right session. The client still carries
+ * sessionId in the envelope as a compatibility fallback; the server resolves
+ * socket-bound identity first.
  */
 
 import { useCallback, useEffect, useRef } from 'react';
