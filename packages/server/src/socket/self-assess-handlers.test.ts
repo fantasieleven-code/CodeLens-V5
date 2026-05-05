@@ -37,6 +37,7 @@ import { V5Event } from '@codelens-v5/shared';
 
 interface FakeSocket {
   id: string;
+  data?: Record<string, unknown>;
   emit: ReturnType<typeof vi.fn>;
   handlers: Map<string, (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>>;
   on: (
@@ -137,6 +138,31 @@ describe('registerSelfAssessHandlers · self-assess:submit', () => {
     });
     expect(ack).toHaveBeenCalledWith(true);
     expect(loggerInfo).not.toHaveBeenCalled();
+  });
+
+  it('V5-native envelope can use middleware-bound session identity without payload sessionId', async () => {
+    const socket = newFakeSocket();
+    socket.data = { sessionId: 's-bound' };
+    registerSelfAssessHandlers({} as never, socket as never);
+    const ack = vi.fn();
+
+    await socket.handlers.get('self-assess:submit')!(
+      {
+        submission: {
+          confidence: 0.6,
+          reasoning: '我复盘了关键判断',
+          reviewedDecisions: ['P0', 'MA', 'MB'],
+        },
+      },
+      ack,
+    );
+
+    expect(persistSelfAssessMock).toHaveBeenCalledWith('s-bound', {
+      confidence: 0.6,
+      reasoning: '我复盘了关键判断',
+      reviewedDecisions: ['P0', 'MA', 'MB'],
+    });
+    expect(ack).toHaveBeenCalledWith(true);
   });
 
   it('selfConfidence > 100 clamps to 1; < 0 clamps to 0', async () => {

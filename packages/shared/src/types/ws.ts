@@ -29,11 +29,10 @@ export interface ClientToServerEvents {
    * V5 candidate completion boundary. ModuleCPage emits this when the final
    * probe round is done so the server can mark the Session COMPLETED.
    *
-   * sessionId is explicit for the same reason as module submit events: V5
-   * module pages emit through getSocket() without socket-level session
-   * middleware.
+   * sessionId may come from socket handshake identity in V5.1; payload
+   * sessionId remains supported as the legacy fallback.
    */
-  'session:end': (data: { sessionId: string }, ack: (ok: boolean) => void) => void;
+  'session:end': (data: { sessionId?: string }, ack: (ok: boolean) => void) => void;
   // v3: Module-based events
   'module:next': (ack: (ok: boolean) => void) => void;
   'micro-verify:submit': (
@@ -68,13 +67,13 @@ export interface ClientToServerEvents {
   'self-assess:submit': (
     data:
       | {
-          sessionId: string;
+          sessionId?: string;
           selfConfidence: number;
           selfIdentifiedRisk?: string;
           responseTimeMs: number;
           reviewedDecisions?: string[];
         }
-      | { sessionId: string; submission: V5SelfAssessSubmission },
+      | { sessionId?: string; submission: V5SelfAssessSubmission },
     ack: (ok: boolean) => void,
   ) => void;
   /**
@@ -95,15 +94,15 @@ export interface ClientToServerEvents {
    * multi-event namespaces (`v5:mb:*`, `v5:modulec:*`); P0 has a single event
    * and follows the flat-event convention.
    *
-   * `sessionId` in envelope (Task 24 Option C lineage): server has no
-   * socket-level session middleware until Task 15, so the client must pass it.
+   * `sessionId` in envelope remains the legacy fallback; V5.1 socket session
+   * identity may provide it from the handshake.
    *
    * Ack contract: `(ok: boolean) => void` — matches `self-assess:submit` /
    * `v5:mb:submit` ack shape verbatim. `ok=false` is reserved for explicit
    * server failures (validation, persist throw).
    */
   'phase0:submit': (
-    data: { sessionId: string; submission: V5Phase0Submission },
+    data: { sessionId?: string; submission: V5Phase0Submission },
     ack: (ok: boolean) => void,
   ) => void;
   /**
@@ -132,8 +131,8 @@ export interface ClientToServerEvents {
    * to read clearly alongside `moduleC:*` (v5:modulec) and to avoid confusion
    * with the `ma` signal file prefix (`signals/ma/s-scheme-judgment`).
    *
-   * `sessionId` in envelope (Task 24 Option C lineage): server has no
-   * socket-level session middleware until Task 15, so the client must pass it.
+   * `sessionId` in envelope remains the legacy fallback; V5.1 socket session
+   * identity may provide it from the handshake.
    *
    * Ack contract: `(ok: boolean) => void` — matches `phase0:submit` /
    * `self-assess:submit` / `v5:mb:submit` verbatim. `ok=false` reserved for
@@ -146,7 +145,7 @@ export interface ClientToServerEvents {
    * same top-level path.
    */
   'moduleA:submit': (
-    data: { sessionId: string; submission: V5ModuleASubmission },
+    data: { sessionId?: string; submission: V5ModuleASubmission },
     ack: (ok: boolean) => void,
   ) => void;
   /**
@@ -177,8 +176,8 @@ export interface ClientToServerEvents {
    * 6-field submission client-side and emits once from `handleSubmit` after
    * the candidate confirms. No per-section emits.
    *
-   * `sessionId` in envelope (Task 24 Option C lineage): server has no
-   * socket-level session middleware until Task 15, so the client must pass it.
+   * `sessionId` in envelope remains the legacy fallback; V5.1 socket session
+   * identity may provide it from the handshake.
    *
    * Ack contract: `(ok: boolean) => void` — matches `moduleA:submit` /
    * `phase0:submit` / `self-assess:submit` / `v5:mb:submit` verbatim.
@@ -198,7 +197,7 @@ export interface ClientToServerEvents {
    * `signals/md/*` and does not affect this event shape.
    */
   'moduleD:submit': (
-    data: { sessionId: string; submission: V5ModuleDSubmission },
+    data: { sessionId?: string; submission: V5ModuleDSubmission },
     ack: (ok: boolean) => void,
   ) => void;
   // v5: ModuleC — production socket persistence is per-round answer only.
@@ -286,15 +285,15 @@ export interface InterServerEvents {
 
 // Socket data (attached to each socket)
 export interface SocketData {
-  sessionId: string;
-  candidateId: string;
-  role: 'candidate' | 'admin';
+  sessionId?: string;
+  candidateId?: string;
+  role?: 'candidate' | 'admin';
 }
 
 // ─── V5 socket event payloads ───
 
 export type V5ModuleCAnswerPayload = V5ModuleCAnswer & {
-  sessionId: string;
+  sessionId?: string;
   probeStrategy: V5ProbeStrategy;
 };
 

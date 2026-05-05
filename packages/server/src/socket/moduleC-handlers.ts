@@ -13,9 +13,10 @@ import { z } from 'zod';
 import { logger } from '../lib/logger.js';
 import { saveRoundAnswer } from '../services/modules/mc.service.js';
 import { ackBoolean, describeSocketError, failSocketRequest } from './socket-contract.js';
+import { missingSessionMessage, resolveSocketSessionId } from './socket-session.js';
 
 const answerPayloadSchema = z.object({
-  sessionId: z.string().min(1),
+  sessionId: z.string().min(1).optional(),
   round: z.number().int().min(1),
   question: z.string().min(1),
   answer: z.string().min(1),
@@ -34,7 +35,17 @@ export function registerModuleCHandlers(_io: SocketIOServer, socket: Socket): vo
       return;
     }
 
-    const { sessionId, round, answer, question, probeStrategy } = parsed.data;
+    const { round, answer, question, probeStrategy } = parsed.data;
+    const sessionId = resolveSocketSessionId(socket, parsed.data);
+    if (!sessionId) {
+      const message = missingSessionMessage('v5:modulec:answer');
+      logger.warn('[socket:mc] v5:modulec:answer missing session identity', {
+        socketId: socket.id,
+      });
+      failSocketRequest(socket, 'v5:modulec:answer', 'VALIDATION_ERROR', message, ack);
+      return;
+    }
+
     try {
       await saveRoundAnswer(sessionId, round, answer, question, probeStrategy);
       ackBoolean(ack, true);

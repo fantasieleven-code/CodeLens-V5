@@ -34,6 +34,7 @@ import { logger } from '../lib/logger.js';
 import { eventBus } from '../services/event-bus.service.js';
 import { persistModuleASubmission } from '../services/modules/ma.service.js';
 import { ackBoolean, describeSocketError, failSocketRequest } from './socket-contract.js';
+import { missingSessionMessage, resolveSocketSessionId } from './socket-session.js';
 
 const round1Schema = z.object({
   schemeId: z.enum(['A', 'B', 'C']),
@@ -80,7 +81,7 @@ const submissionSchema = z.object({
 });
 
 const payloadSchema = z.object({
-  sessionId: z.string().min(1),
+  sessionId: z.string().min(1).optional(),
   submission: submissionSchema,
 });
 
@@ -95,7 +96,16 @@ export function registerModuleAHandlers(_io: SocketIOServer, socket: Socket): vo
       failSocketRequest(socket, 'moduleA:submit', 'VALIDATION_ERROR', parsed.error.message, ack);
       return;
     }
-    const { sessionId, submission } = parsed.data;
+    const { submission } = parsed.data;
+    const sessionId = resolveSocketSessionId(socket, parsed.data);
+    if (!sessionId) {
+      const message = missingSessionMessage('moduleA:submit');
+      logger.warn('[socket:ma] moduleA:submit missing session identity', {
+        socketId: socket.id,
+      });
+      failSocketRequest(socket, 'moduleA:submit', 'VALIDATION_ERROR', message, ack);
+      return;
+    }
     try {
       await persistModuleASubmission(sessionId, submission as V5ModuleASubmission);
       await eventBus.emit(V5Event.MODULE_SUBMITTED, {

@@ -25,6 +25,7 @@ import { logger } from '../lib/logger.js';
 import { eventBus } from '../services/event-bus.service.js';
 import { persistPhase0Submission } from '../services/modules/p0.service.js';
 import { ackBoolean, describeSocketError, failSocketRequest } from './socket-contract.js';
+import { missingSessionMessage, resolveSocketSessionId } from './socket-session.js';
 
 const submissionSchema = z.object({
   codeReading: z.object({
@@ -51,7 +52,7 @@ const submissionSchema = z.object({
 });
 
 const payloadSchema = z.object({
-  sessionId: z.string().min(1),
+  sessionId: z.string().min(1).optional(),
   submission: submissionSchema,
 });
 
@@ -66,7 +67,16 @@ export function registerPhase0Handlers(_io: SocketIOServer, socket: Socket): voi
       failSocketRequest(socket, 'phase0:submit', 'VALIDATION_ERROR', parsed.error.message, ack);
       return;
     }
-    const { sessionId, submission } = parsed.data;
+    const { submission } = parsed.data;
+    const sessionId = resolveSocketSessionId(socket, parsed.data);
+    if (!sessionId) {
+      const message = missingSessionMessage('phase0:submit');
+      logger.warn('[socket:p0] phase0:submit missing session identity', {
+        socketId: socket.id,
+      });
+      failSocketRequest(socket, 'phase0:submit', 'VALIDATION_ERROR', message, ack);
+      return;
+    }
     try {
       await persistPhase0Submission(sessionId, submission as V5Phase0Submission);
       await eventBus.emit(V5Event.MODULE_SUBMITTED, {

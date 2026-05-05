@@ -40,11 +40,12 @@ import { logger } from '../lib/logger.js';
 import { eventBus } from '../services/event-bus.service.js';
 import { persistSelfAssess } from '../services/modules/se.service.js';
 import { ackBoolean, describeSocketError, failSocketRequest } from './socket-contract.js';
+import { missingSessionMessage, resolveSocketSessionId } from './socket-session.js';
 
 const reviewedDecisionsSchema = z.array(z.string()).optional();
 
 const legacyPayloadSchema = z.object({
-  sessionId: z.string().min(1),
+  sessionId: z.string().min(1).optional(),
   selfConfidence: z.number(),
   selfIdentifiedRisk: z.string().optional(),
   responseTimeMs: z.number(),
@@ -58,7 +59,7 @@ const v5SubmissionSchema = z.object({
 });
 
 const v5EnvelopeSchema = z.object({
-  sessionId: z.string().min(1),
+  sessionId: z.string().min(1).optional(),
   submission: v5SubmissionSchema,
 });
 
@@ -72,7 +73,7 @@ function clamp01(n: number): number {
 type ParsedSelfAssessPayload =
   | {
       ok: true;
-      sessionId: string;
+      payloadSessionId?: string;
       submission: V5SelfAssessSubmission;
       shape: 'v4-bridge' | 'v5-native';
     }
@@ -93,7 +94,7 @@ function parseSelfAssessPayload(raw: unknown): ParsedSelfAssessPayload {
   if (v5.success) {
     return {
       ok: true,
-      sessionId: v5.data.sessionId,
+      payloadSessionId: v5.data.sessionId,
       submission: v5.data.submission,
       shape: 'v5-native',
     };
@@ -103,7 +104,7 @@ function parseSelfAssessPayload(raw: unknown): ParsedSelfAssessPayload {
   if (legacy.success) {
     return {
       ok: true,
-      sessionId: legacy.data.sessionId,
+      payloadSessionId: legacy.data.sessionId,
       submission: normalizeLegacy(legacy.data),
       shape: 'v4-bridge',
     };
@@ -124,7 +125,17 @@ export function registerSelfAssessHandlers(_io: SocketIOServer, socket: Socket):
       return;
     }
 
-    const { sessionId, submission, shape } = parsed;
+    const { payloadSessionId, submission, shape } = parsed;
+    const sessionId = resolveSocketSessionId(socket, { sessionId: payloadSessionId });
+    if (!sessionId) {
+      const message = missingSessionMessage('self-assess:submit');
+      logger.warn('[socket:se] self-assess:submit missing session identity', {
+        socketId: socket.id,
+      });
+      failSocketRequest(socket, 'self-assess:submit', 'VALIDATION_ERROR', message, ack);
+      return;
+    }
+
     if (shape === 'v4-bridge') {
       logger.info('[socket:se] self-assess:submit V4 bridge payload received', {
         socketId: socket.id,

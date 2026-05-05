@@ -14,6 +14,7 @@ import { registerSessionHandlers } from './session-handlers.js';
 
 interface FakeSocket {
   id: string;
+  data?: Record<string, unknown>;
   emit: ReturnType<typeof vi.fn>;
   handlers: Map<string, (raw: unknown, ack?: (ok: boolean) => void) => Promise<void>>;
   on: (
@@ -59,6 +60,18 @@ describe('registerSessionHandlers · session:end', () => {
     await socket.handlers.get('session:end')!({ sessionId: 'sess-1' }, ack);
 
     expect(endSession).toHaveBeenCalledWith('sess-1');
+    expect(ack).toHaveBeenCalledWith(true);
+  });
+
+  it('uses middleware-bound session identity when payload sessionId is omitted', async () => {
+    const socket = newFakeSocket();
+    socket.data = { sessionId: 'sess-handshake' };
+    registerSessionHandlers({} as never, socket as never);
+    const ack = vi.fn();
+
+    await socket.handlers.get('session:end')!({}, ack);
+
+    expect(endSession).toHaveBeenCalledWith('sess-handshake');
     expect(ack).toHaveBeenCalledWith(true);
   });
 
