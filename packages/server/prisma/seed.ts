@@ -11,6 +11,10 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { V5_PROMPT_KEYS } from '../src/services/prompt-keys.js';
+import {
+  LIVE_PRODUCTION_PROMPT_VERSION,
+  LIVE_PRODUCTION_PROMPTS,
+} from '../src/services/production-prompts.js';
 
 const prisma = new PrismaClient();
 const PLACEHOLDER_CONTENT = 'TODO: Task 9-10 填充';
@@ -37,7 +41,43 @@ async function main() {
     });
     created += 1;
   }
-  console.log(`[V5 seed] prompts: ${created} created, ${skipped} already present (total keys: ${V5_PROMPT_KEYS.length})`);
+
+  let activated = 0;
+  for (const prompt of LIVE_PRODUCTION_PROMPTS) {
+    await prisma.promptVersion.upsert({
+      where: {
+        name_version: {
+          name: prompt.key,
+          version: LIVE_PRODUCTION_PROMPT_VERSION,
+        },
+      },
+      create: {
+        name: prompt.key,
+        version: LIVE_PRODUCTION_PROMPT_VERSION,
+        content: prompt.content,
+        isActive: true,
+        metadata: prompt.metadata,
+      },
+      update: {
+        content: prompt.content,
+        isActive: true,
+        metadata: prompt.metadata,
+      },
+    });
+    await prisma.promptVersion.updateMany({
+      where: {
+        name: prompt.key,
+        isActive: true,
+        version: { not: LIVE_PRODUCTION_PROMPT_VERSION },
+      },
+      data: { isActive: false },
+    });
+    activated += 1;
+  }
+
+  console.log(
+    `[V5 seed] prompts: ${created} placeholder v1 created, ${skipped} placeholder v1 already present, ${activated} live v2 active (total keys: ${V5_PROMPT_KEYS.length})`,
+  );
 }
 
 main()
