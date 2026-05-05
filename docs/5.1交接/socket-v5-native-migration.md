@@ -4,7 +4,7 @@
 
 ## 结论
 
-当前 V5 socket 层生产可用,但不是长期形态。所有候选人模块 submit / telemetry payload 仍显式携带 `sessionId`,原因是候选人页面通过 `getSocket()` 直连,没有 socket-level session middleware。V5.1 迁移目标不是立即改事件名,而是先建立统一 session identity / ack / error envelope,再进入 dual-accept deprecation window。
+当前 V5 socket 层生产可用,但不是长期形态。候选人模块 submit / telemetry payload 仍显式携带 `sessionId`,但 client 已在 session load 后把 `sessionId` 绑定到 socket handshake auth。V5.1 迁移目标不是立即改事件名,而是先建立统一 session identity / ack / error envelope,再进入 dual-accept deprecation window。
 
 不要直接删除 legacy event 或改成一次性 V5-only shape。正确顺序:
 
@@ -38,6 +38,7 @@
 ## Current Inconsistencies
 
 - Boolean ack submit / lifecycle events now use typed error frames.
+- Candidate socket creation now carries `handshake.auth.sessionId` after session load; payload `sessionId` remains the compatibility fallback.
 - `self-assess:submit` client emits V5-native payload; server still accepts the V4 bridge shape until usage logs prove it is unused.
 - MB and `behavior:batch` still read only payload `sessionId`; migrate those after high-volume telemetry identity behavior is observed.
 - `behavior:batch` silently logs invalid schema or persist failure, because telemetry must not block candidate flow.
@@ -164,6 +165,21 @@ Acceptance:
 - Client socket payload is `{ sessionId, submission }`.
 - Local session store uses the same normalized V5 shape as server scoring.
 - HTTP fallback remains compatible with the existing REST route.
+
+### PR 6 · Client Socket Session Identity
+
+Status:done in V5.1 prep. `packages/client/src/lib/socket.ts` keeps a
+module-level session identity, includes it in Socket.IO handshake auth, and
+reconnects an already-connected socket when the identity changes. The session
+store binds the real backend `session.id` after `loadSession` succeeds and
+clears it on reset.
+
+Acceptance:
+
+- `getSocket()` created after session binding sends `auth.sessionId`.
+- Existing `connectSocket(token)` preserves token auth while adding session identity.
+- Already-connected sockets reconnect after session identity changes so the server middleware sees the updated handshake.
+- Payload `sessionId` remains in module events until production usage proves handshake identity is stable.
 
 ## Non-Goals
 

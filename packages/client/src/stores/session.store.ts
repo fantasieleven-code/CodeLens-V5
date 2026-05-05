@@ -21,6 +21,7 @@ import type {
 } from '@codelens-v5/shared';
 import { SUITES } from '@codelens-v5/shared';
 import { useModuleStore } from './module.store.js';
+import { setSocketSessionId } from '../lib/socket.js';
 
 interface CandidateSessionResponse {
   id: string;
@@ -134,6 +135,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       loadStatus: 'loaded',
       loadError: null,
     });
+    setSocketSessionId(session.id);
     // Prime module.store so ExamRouter renders the intro (currentModule
     // becomes 'intro') and Start button is enabled.
     useModuleStore.getState().setSuite(session.suiteId as SuiteId, moduleOrder);
@@ -171,6 +173,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   reset: () => {
+    setSocketSessionId(null);
     set({ ...INITIAL_STATE });
   },
 }));

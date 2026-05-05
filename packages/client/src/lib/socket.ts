@@ -5,6 +5,18 @@ import type { ClientToServerEvents, ServerToClientEvents } from '@codelens-v5/sh
 export type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 let socket: TypedSocket | null = null;
+let sessionId: string | null = null;
+
+function authWithSession(base: unknown): Record<string, unknown> {
+  const auth: Record<string, unknown> =
+    typeof base === 'object' && base !== null ? { ...base } : {};
+  if (sessionId) {
+    auth.sessionId = sessionId;
+  } else {
+    delete auth.sessionId;
+  }
+  return auth;
+}
 
 function createSocket(autoConnect: boolean): TypedSocket {
   return io('/interview', {
@@ -17,6 +29,7 @@ function createSocket(autoConnect: boolean): TypedSocket {
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
     timeout: 120_000,
+    auth: authWithSession(undefined),
   });
 }
 
@@ -30,9 +43,21 @@ export function getSocket(): TypedSocket {
 export function connectSocket(token: string): TypedSocket {
   const s = socket ?? createSocket(false);
   socket = s;
-  s.auth = { token };
+  s.auth = authWithSession({ token });
   s.connect();
   return s;
+}
+
+export function setSocketSessionId(nextSessionId: string | null): TypedSocket | null {
+  sessionId = nextSessionId;
+  if (!socket) return null;
+
+  socket.auth = authWithSession(socket.auth);
+  if (socket.connected) {
+    socket.disconnect();
+    socket.connect();
+  }
+  return socket;
 }
 
 export function disconnectSocket() {

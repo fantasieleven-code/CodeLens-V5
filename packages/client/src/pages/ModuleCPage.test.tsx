@@ -22,6 +22,7 @@ const useVoiceRTCMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../lib/socket.js', () => ({
   getSocket: () => ({ emit: socketEmit, on: vi.fn(), off: vi.fn() }),
+  setSocketSessionId: vi.fn(),
 }));
 
 vi.mock('../hooks/useVoiceRTC.js', () => ({
