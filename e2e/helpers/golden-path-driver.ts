@@ -715,11 +715,16 @@ export class GoldenPathDriver {
   }
 
   async completeFlow(): Promise<void> {
-    await this.page
-      .locator(byTestId(CANDIDATE_TESTIDS.complete.root))
-      .waitFor({ state: 'visible', timeout: 30_000 });
-    // Candidate completion intentionally has no full-report CTA. B3 asserts
-    // the company-facing report through the admin route instead.
+    const completeRoot = this.page.locator(byTestId(CANDIDATE_TESTIDS.complete.root));
+    await completeRoot.waitFor({ state: 'visible', timeout: 30_000 });
+    // Candidate completion intentionally has no full-report/admin CTA. The
+    // company-facing report is asserted through Admin; candidates only receive
+    // the restricted private self-view summary from the hiring team.
+    await expect(completeRoot.locator('a[href*="/report"]')).toHaveCount(0);
+    await expect(completeRoot.locator('a[href*="/admin"]')).toHaveCount(0);
+    await expect(
+      this.page.locator(byTestId(CANDIDATE_TESTIDS.complete.selfViewNote)),
+    ).toContainText('private self-view');
   }
 
   // ─── Step 13 · Scoring completion poll ──────────────────

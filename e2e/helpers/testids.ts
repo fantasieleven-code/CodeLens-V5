@@ -60,6 +60,7 @@ export const CANDIDATE_TESTIDS = {
   },
   complete: {
     root: 'complete-root',
+    selfViewNote: 'complete-self-view-note',
   },
 } as const;
 
