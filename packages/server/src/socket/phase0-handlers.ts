@@ -68,7 +68,10 @@ export function registerPhase0Handlers(_io: SocketIOServer, socket: Socket): voi
       return;
     }
     const { submission } = parsed.data;
-    const sessionId = resolveSocketSessionId(socket, parsed.data);
+    const sessionId = resolveSocketSessionId(socket, parsed.data, {
+      event: 'phase0:submit',
+      socketId: socket.id,
+    });
     if (!sessionId) {
       const message = missingSessionMessage('phase0:submit');
       logger.warn('[socket:p0] phase0:submit missing session identity', {

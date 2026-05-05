@@ -105,6 +105,10 @@ describe('registerSelfAssessHandlers · self-assess:submit', () => {
     });
     expect(ack).toHaveBeenCalledWith(true);
     expect(loggerInfo).toHaveBeenCalledWith(
+      '[socket:session] payload sessionId fallback used',
+      { event: 'self-assess:submit', socketId: 'sock-1', sessionId: 's1' },
+    );
+    expect(loggerInfo).toHaveBeenCalledWith(
       '[socket:se] self-assess:submit V4 bridge payload received',
       { socketId: 'sock-1', sessionId: 's1' },
     );
@@ -137,7 +141,14 @@ describe('registerSelfAssessHandlers · self-assess:submit', () => {
       module: 'selfAssess',
     });
     expect(ack).toHaveBeenCalledWith(true);
-    expect(loggerInfo).not.toHaveBeenCalled();
+    expect(loggerInfo).toHaveBeenCalledWith(
+      '[socket:session] payload sessionId fallback used',
+      { event: 'self-assess:submit', socketId: 'sock-1', sessionId: 's-v5' },
+    );
+    expect(loggerInfo).not.toHaveBeenCalledWith(
+      '[socket:se] self-assess:submit V4 bridge payload received',
+      expect.anything(),
+    );
   });
 
   it('V5-native envelope can use middleware-bound session identity without payload sessionId', async () => {
@@ -163,6 +174,10 @@ describe('registerSelfAssessHandlers · self-assess:submit', () => {
       reviewedDecisions: ['P0', 'MA', 'MB'],
     });
     expect(ack).toHaveBeenCalledWith(true);
+    expect(loggerInfo).not.toHaveBeenCalledWith(
+      '[socket:session] payload sessionId fallback used',
+      expect.anything(),
+    );
   });
 
   it('selfConfidence > 100 clamps to 1; < 0 clamps to 0', async () => {

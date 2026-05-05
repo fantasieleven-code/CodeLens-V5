@@ -142,7 +142,9 @@ Acceptance:
 Status:done in V5.1 prep. `socket-session.ts` binds optional handshake
 identity from `handshake.auth.sessionId` or `handshake.query.sessionId`, and
 boolean-ack submit/lifecycle handlers resolve bound identity before payload
-fallback.
+fallback. Payload fallback emits a structured `[socket:session] payload
+sessionId fallback used` log with `{ event, socketId, sessionId }`, so the
+deprecation window can be driven by production usage rather than guesswork.
 
 Scope:
 
@@ -152,7 +154,8 @@ Scope:
 Acceptance:
 
 - Existing clients unchanged.
-- New tests prove middleware session id works and payload fallback remains.
+- New tests prove middleware session id works, payload fallback remains, and
+  fallback usage is observable.
 
 ### PR 5 · SelfAssess Client V5 Payload
 

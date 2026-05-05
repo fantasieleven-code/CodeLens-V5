@@ -103,7 +103,10 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
   socket.on(
     'v5:mb:planning:submit',
     async (payload: PlanningPayload, ack?: BooleanAck) => {
-      const sessionId = resolveSocketSessionId(socket, payload);
+      const sessionId = resolveSocketSessionId(socket, payload, {
+        event: 'v5:mb:planning:submit',
+        socketId: socket.id,
+      });
       if (!sessionId) {
         failSocketRequest(
           socket,
@@ -136,7 +139,10 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
   socket.on(
     'v5:mb:standards:submit',
     async (payload: StandardsPayload, ack?: BooleanAck) => {
-      const sessionId = resolveSocketSessionId(socket, payload);
+      const sessionId = resolveSocketSessionId(socket, payload, {
+        event: 'v5:mb:standards:submit',
+        socketId: socket.id,
+      });
       if (!sessionId) {
         failSocketRequest(
           socket,
@@ -173,7 +179,10 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
   socket.on(
     'v5:mb:audit:submit',
     async (payload: AuditPayload) => {
-      const sessionId = resolveSocketSessionId(socket, payload);
+      const sessionId = resolveSocketSessionId(socket, payload, {
+        event: 'v5:mb:audit:submit',
+        socketId: socket.id,
+      });
       if (!sessionId) {
         failSocketRequest(
           socket,
@@ -204,7 +213,10 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
   socket.on(
     'v5:mb:chat_generate',
     async (payload: ChatGeneratePayload) => {
-      const sessionId = resolveSocketSessionId(socket, payload);
+      const sessionId = resolveSocketSessionId(socket, payload, {
+        event: 'v5:mb:chat_generate',
+        socketId: socket.id,
+      });
       if (!sessionId) {
         failSocketRequest(
           socket,
@@ -256,7 +268,10 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
   socket.on(
     'v5:mb:completion_request',
     async (payload: CompletionRequestPayload) => {
-      const sessionId = resolveSocketSessionId(socket, payload);
+      const sessionId = resolveSocketSessionId(socket, payload, {
+        event: 'v5:mb:completion_request',
+        socketId: socket.id,
+      });
       if (!sessionId) {
         failSocketRequest(
           socket,
@@ -309,7 +324,10 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
   socket.on(
     'v5:mb:run_test',
     async (payload: RunTestPayload) => {
-      const sessionId = resolveSocketSessionId(socket, payload);
+      const sessionId = resolveSocketSessionId(socket, payload, {
+        event: 'v5:mb:run_test',
+        socketId: socket.id,
+      });
       if (!sessionId) {
         failSocketRequest(
           socket,
@@ -364,7 +382,10 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
   socket.on(
     'v5:mb:file_change',
     async (payload: FileChangePayload) => {
-      const sessionId = resolveSocketSessionId(socket, payload);
+      const sessionId = resolveSocketSessionId(socket, payload, {
+        event: 'v5:mb:file_change',
+        socketId: socket.id,
+      });
       if (!sessionId) {
         failSocketRequest(
           socket,
@@ -396,7 +417,10 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
   socket.on(
     'v5:mb:visibility_change',
     async (payload: VisibilityChangePayload) => {
-      const sessionId = resolveSocketSessionId(socket, payload);
+      const sessionId = resolveSocketSessionId(socket, payload, {
+        event: 'v5:mb:visibility_change',
+        socketId: socket.id,
+      });
       if (!sessionId) {
         failSocketRequest(
           socket,
@@ -426,7 +450,10 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
   socket.on(
     'v5:mb:submit',
     async (payload: SubmitPayload, ack?: BooleanAck) => {
-      const sessionId = resolveSocketSessionId(socket, payload);
+      const sessionId = resolveSocketSessionId(socket, payload, {
+        event: 'v5:mb:submit',
+        socketId: socket.id,
+      });
       if (!sessionId) {
         failSocketRequest(
           socket,

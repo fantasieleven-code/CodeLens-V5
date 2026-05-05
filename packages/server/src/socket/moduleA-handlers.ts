@@ -97,7 +97,10 @@ export function registerModuleAHandlers(_io: SocketIOServer, socket: Socket): vo
       return;
     }
     const { submission } = parsed.data;
-    const sessionId = resolveSocketSessionId(socket, parsed.data);
+    const sessionId = resolveSocketSessionId(socket, parsed.data, {
+      event: 'moduleA:submit',
+      socketId: socket.id,
+    });
     if (!sessionId) {
       const message = missingSessionMessage('moduleA:submit');
       logger.warn('[socket:ma] moduleA:submit missing session identity', {

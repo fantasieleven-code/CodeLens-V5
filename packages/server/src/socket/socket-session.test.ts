@@ -1,13 +1,24 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const loggerInfo = vi.hoisted(() => vi.fn());
+
+vi.mock('../lib/logger.js', () => ({
+  logger: { info: loggerInfo, warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
 
 import {
   bindSocketSessionIdentity,
   missingSessionMessage,
   registerSocketSessionIdentityMiddleware,
+  resolveSocketSessionIdentity,
   resolveSocketSessionId,
 } from './socket-session.js';
 
 describe('socket session identity helpers', () => {
+  beforeEach(() => {
+    loggerInfo.mockReset();
+  });
+
   it('binds sessionId from handshake auth before query', () => {
     const socket = {
       data: { existing: true },
@@ -39,6 +50,13 @@ describe('socket session identity helpers', () => {
         { sessionId: 'payload-session' },
       ),
     ).toBe('bound-session');
+    expect(
+      resolveSocketSessionIdentity(
+        { data: { sessionId: 'bound-session' } },
+        { sessionId: 'payload-session' },
+      ),
+    ).toEqual({ sessionId: 'bound-session', source: 'socket-bound' });
+    expect(loggerInfo).not.toHaveBeenCalled();
   });
 
   it('registers middleware that binds identity and always continues', () => {
@@ -67,12 +85,31 @@ describe('socket session identity helpers', () => {
   });
 
   it('keeps payload fallback for existing clients', () => {
-    expect(resolveSocketSessionId({}, { sessionId: 'payload-session' })).toBe('payload-session');
+    expect(
+      resolveSocketSessionId(
+        {},
+        { sessionId: 'payload-session' },
+        { event: 'phase0:submit', socketId: 'sock-1' },
+      ),
+    ).toBe('payload-session');
+    expect(resolveSocketSessionIdentity({}, { sessionId: 'payload-session' })).toEqual({
+      sessionId: 'payload-session',
+      source: 'payload-fallback',
+    });
+    expect(loggerInfo).toHaveBeenCalledWith('[socket:session] payload sessionId fallback used', {
+      event: 'phase0:submit',
+      socketId: 'sock-1',
+      sessionId: 'payload-session',
+    });
   });
 
   it('rejects blank or non-string session ids', () => {
     expect(bindSocketSessionIdentity({ handshake: { auth: { sessionId: '   ' } } })).toBeNull();
     expect(resolveSocketSessionId({ data: { sessionId: 123 } }, { sessionId: [] })).toBeNull();
+    expect(resolveSocketSessionIdentity({ data: { sessionId: 123 } }, { sessionId: [] })).toEqual({
+      sessionId: null,
+      source: 'missing',
+    });
   });
 
   it('returns a stable missing-session message', () => {

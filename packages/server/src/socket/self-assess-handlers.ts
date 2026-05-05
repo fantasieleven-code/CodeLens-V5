@@ -126,7 +126,11 @@ export function registerSelfAssessHandlers(_io: SocketIOServer, socket: Socket):
     }
 
     const { payloadSessionId, submission, shape } = parsed;
-    const sessionId = resolveSocketSessionId(socket, { sessionId: payloadSessionId });
+    const sessionId = resolveSocketSessionId(
+      socket,
+      { sessionId: payloadSessionId },
+      { event: 'self-assess:submit', socketId: socket.id },
+    );
     if (!sessionId) {
       const message = missingSessionMessage('self-assess:submit');
       logger.warn('[socket:se] self-assess:submit missing session identity', {
