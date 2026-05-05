@@ -29,7 +29,7 @@
 | `v5:mb:standards:submit`   | client -> server | MB stage         | handshake or payload   | boolean | `{event}:error` | Stage submit normalized; payload sessionId is fallback            |
 | `v5:mb:submit`             | client -> server | MB final         | handshake or payload   | boolean | `{event}:error` | Final submit normalized; payload sessionId is fallback            |
 | `v5:mb:audit:submit`       | client -> server | MB stage         | handshake or payload   | none    | `{event}:error` | Audit submit normalized; no ack contract                          |
-| `v5:mb:chat_generate`      | client -> server | MB LLM stream    | payload `sessionId`    | none    | `{event}:error` | Streaming event; do not force boolean ack                         |
+| `v5:mb:chat_generate`      | client -> server | MB LLM stream    | handshake or payload   | none    | `{event}:error` | Chat stream normalized; no ack contract                           |
 | `v5:mb:completion_request` | client -> server | MB completion    | handshake or payload   | none    | `{event}:error` | Completion response normalized; no ack contract                   |
 | `v5:mb:run_test`           | client -> server | MB sandbox       | handshake or payload   | none    | `{event}:error` | Sandbox response normalized; no ack contract                      |
 | `v5:mb:file_change`        | client -> server | MB file snapshot | handshake or payload   | none    | `{event}:error` | Fire-and-forget normalized; no ack contract                       |
@@ -41,9 +41,9 @@
 - Candidate socket creation now carries `handshake.auth.sessionId` after session load; payload `sessionId` remains the compatibility fallback.
 - `self-assess:submit` client emits V5-native payload; server still accepts the V4 bridge shape until usage logs prove it is unused.
 - MB planning / standards / audit / final submit and low-frequency file/visibility events resolve handshake identity first and keep payload fallback.
-- MB chat streaming and `behavior:batch` still read only payload `sessionId`; migrate those after high-volume telemetry identity behavior is observed.
+- `behavior:batch` is the remaining payload-only event; migrate after high-volume telemetry identity behavior is observed.
 - `behavior:batch` silently logs invalid schema or persist failure, because telemetry must not block candidate flow.
-- MB `safe()` wrapper catches thrown errors and emits `{event}:error`, but it does not call ack because most wrapped events are stream/fire-and-forget.
+- MB handlers now emit typed `{event}:error` frames directly; stream/fire-and-forget events intentionally keep no ack contract.
 - `self-assess:submit` is the only V4 -> V5 normalize bridge. Its event name should not be renamed until the client dual-emits or switches shape.
 
 ## Proposed V5.1 Contract
@@ -265,6 +265,20 @@ Acceptance:
 - Missing session identity emits `VALIDATION_ERROR` before model generation.
 - Model/event-bus failures emit `PERSIST_FAILED`.
 - Chat streaming and `behavior:batch` remain unchanged.
+
+### PR 13 · MB Chat Stream Socket Contract
+
+Status:done in V5.1 prep. `v5:mb:chat_generate` now resolves socket-bound
+session identity before payload fallback and emits typed error frames. It
+keeps the existing `v5:mb:chat_stream` / `v5:mb:chat_complete` response
+events and does not add a boolean ack.
+
+Acceptance:
+
+- Chat generation can stream with socket-bound identity only.
+- Missing session identity emits `VALIDATION_ERROR` before model streaming.
+- Stream/model failures emit `PERSIST_FAILED`.
+- `behavior:batch` remains unchanged.
 
 ## Non-Goals
 
