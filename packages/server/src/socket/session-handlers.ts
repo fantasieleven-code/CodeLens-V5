@@ -30,7 +30,10 @@ export function registerSessionHandlers(_io: SocketIOServer, socket: Socket): vo
       return;
     }
 
-    const sessionId = resolveSocketSessionId(socket, parsed.data);
+    const sessionId = resolveSocketSessionId(socket, parsed.data, {
+      event: 'session:end',
+      socketId: socket.id,
+    });
     if (!sessionId) {
       const message = missingSessionMessage('session:end');
       logger.warn('[socket:session] session:end missing session identity', {

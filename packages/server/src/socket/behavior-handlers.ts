@@ -84,7 +84,10 @@ export function registerBehaviorHandlers(_io: SocketIOServer, socket: Socket): v
       });
       return;
     }
-    const sessionId = resolveSocketSessionId(socket, parsed.data);
+    const sessionId = resolveSocketSessionId(socket, parsed.data, {
+      event: 'behavior:batch',
+      socketId: socket.id,
+    });
     if (!sessionId) {
       logger.warn('[socket:behavior] batch missing session identity', {
         socketId: socket.id,

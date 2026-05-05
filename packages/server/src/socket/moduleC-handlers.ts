@@ -36,7 +36,10 @@ export function registerModuleCHandlers(_io: SocketIOServer, socket: Socket): vo
     }
 
     const { round, answer, question, probeStrategy } = parsed.data;
-    const sessionId = resolveSocketSessionId(socket, parsed.data);
+    const sessionId = resolveSocketSessionId(socket, parsed.data, {
+      event: 'v5:modulec:answer',
+      socketId: socket.id,
+    });
     if (!sessionId) {
       const message = missingSessionMessage('v5:modulec:answer');
       logger.warn('[socket:mc] v5:modulec:answer missing session identity', {

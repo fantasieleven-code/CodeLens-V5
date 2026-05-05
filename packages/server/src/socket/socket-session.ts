@@ -7,6 +7,8 @@
  * fallback until telemetry proves payload ids can be removed.
  */
 
+import { logger } from '../lib/logger.js';
+
 interface SessionHandshake {
   auth?: Record<string, unknown>;
   query?: Record<string, unknown>;
@@ -23,6 +25,18 @@ interface SessionMiddlewareTarget {
 
 interface SessionPayload {
   sessionId?: unknown;
+}
+
+type SessionIdentitySource = 'socket-bound' | 'payload-fallback' | 'missing';
+
+interface SessionIdentityResolution {
+  sessionId: string | null;
+  source: SessionIdentitySource;
+}
+
+interface ResolveSessionOptions {
+  event?: string;
+  socketId?: string;
 }
 
 function coerceSessionId(value: unknown): string | null {
@@ -53,8 +67,35 @@ export function registerSocketSessionIdentityMiddleware(target: SessionMiddlewar
 export function resolveSocketSessionId(
   socket: SessionSocket,
   payload?: SessionPayload,
+  options?: ResolveSessionOptions,
 ): string | null {
-  return coerceSessionId(socket.data?.sessionId) ?? coerceSessionId(payload?.sessionId);
+  const resolved = resolveSocketSessionIdentity(socket, payload, options);
+  return resolved.sessionId;
+}
+
+export function resolveSocketSessionIdentity(
+  socket: SessionSocket,
+  payload?: SessionPayload,
+  options?: ResolveSessionOptions,
+): SessionIdentityResolution {
+  const socketSessionId = coerceSessionId(socket.data?.sessionId);
+  if (socketSessionId) {
+    return { sessionId: socketSessionId, source: 'socket-bound' };
+  }
+
+  const payloadSessionId = coerceSessionId(payload?.sessionId);
+  if (payloadSessionId) {
+    if (options?.event) {
+      logger.info('[socket:session] payload sessionId fallback used', {
+        event: options.event,
+        socketId: options.socketId,
+        sessionId: payloadSessionId,
+      });
+    }
+    return { sessionId: payloadSessionId, source: 'payload-fallback' };
+  }
+
+  return { sessionId: null, source: 'missing' };
 }
 
 export function missingSessionMessage(event: string): string {
