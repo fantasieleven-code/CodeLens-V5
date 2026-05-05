@@ -84,6 +84,10 @@ Do not use typed ack objects until all clients are dual-compatible. Existing tes
 
 ### PR 1 · Socket Contract Helpers
 
+Status:done in V5.1 prep. `packages/server/src/socket/socket-contract.ts` defines
+typed error frames and safe boolean ack helpers, with tests in
+`socket-contract.test.ts`.
+
 Scope:
 
 - Add helper for safe boolean ack and typed error frame.
