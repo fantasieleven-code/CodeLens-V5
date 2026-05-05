@@ -90,6 +90,12 @@ describe('LIVE_PRODUCTION_PROMPTS', () => {
     ]);
   });
 
+  it('keeps generator prompt slots fail-closed until the generator pipeline is real', () => {
+    const generatorKeys = V5_PROMPT_KEYS.filter((key) => key.startsWith('generator.'));
+    expect(generatorKeys).toHaveLength(9);
+    expect(LIVE_PRODUCTION_PROMPT_KEYS.filter((key) => key.startsWith('generator.'))).toEqual([]);
+  });
+
   it('only uses registered V5 prompt keys', () => {
     for (const prompt of LIVE_PRODUCTION_PROMPTS) {
       expect(V5_PROMPT_KEYS).toContain(prompt.key);
