@@ -88,8 +88,9 @@ export const SelfAssessPage: React.FC = () => {
       .split('\n')
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
+    const normalizedConfidence = confidence / 100;
     const submission: V5SelfAssessSubmission = {
-      confidence,
+      confidence: normalizedConfidence,
       reasoning: reasoning.trim(),
       ...(reviewedDecisions.length > 0 ? { reviewedDecisions } : {}),
     };
@@ -100,9 +101,7 @@ export const SelfAssessPage: React.FC = () => {
     const responseTimeMs = Date.now() - mountTimeRef.current;
     const payload = {
       sessionId: sessionId ?? 'selfassess-pending',
-      selfConfidence: confidence,
-      selfIdentifiedRisk: reasoning.trim() || undefined,
-      responseTimeMs,
+      submission,
     };
     const body = {
       selfConfidence: confidence,
@@ -113,9 +112,7 @@ export const SelfAssessPage: React.FC = () => {
     const persisted = await persistCandidateSubmission({
       event: 'self-assess:submit',
       payload,
-      ...(sessionId
-        ? { http: { url: `/api/v5/exam/${sessionId}/selfassess/submit`, body } }
-        : {}),
+      ...(sessionId ? { http: { url: `/api/v5/exam/${sessionId}/selfassess/submit`, body } } : {}),
     });
     if (!persisted) {
       setError('提交未保存成功,请重试。');

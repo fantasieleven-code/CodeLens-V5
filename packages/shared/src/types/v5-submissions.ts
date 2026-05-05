@@ -258,6 +258,7 @@ export interface V5ModuleDSubmission {
 // ───────────────────────────── SelfAssess ─────────────────────────────
 
 export interface V5SelfAssessSubmission {
+  /** Normalized self confidence in [0, 1]; UI sliders may display 0..100. */
   confidence: number;
   reasoning: string;
   /** V5 新增：候选人回顾了哪些前序决策摘要（用于 sMetaCognition 校准评估）。 */
