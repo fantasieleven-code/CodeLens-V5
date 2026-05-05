@@ -70,7 +70,7 @@ interface ChatGeneratePayload {
 }
 
 interface CompletionRequestPayload {
-  sessionId: string;
+  sessionId?: string;
   filePath: string;
   content: string;
   line: number;
@@ -251,35 +251,55 @@ export function registerMBHandlers(_io: SocketIOServer, socket: Socket): void {
 
   socket.on(
     'v5:mb:completion_request',
-    safe(socket, 'v5:mb:completion_request', async (payload: CompletionRequestPayload) => {
+    async (payload: CompletionRequestPayload) => {
+      const sessionId = resolveSocketSessionId(socket, payload);
+      if (!sessionId) {
+        failSocketRequest(
+          socket,
+          'v5:mb:completion_request',
+          'VALIDATION_ERROR',
+          missingSessionMessage('v5:mb:completion_request'),
+        );
+        return;
+      }
       const startedAt = Date.now();
-      const result = await modelFactory.generate('coding_agent', {
-        sessionId: payload.sessionId,
-        model: 'qwen3-coder-base',
-        maxTokens: 50,
-        messages: [
-          { role: 'system', content: 'Complete the code at the cursor position.' },
-          {
-            role: 'user',
-            content: `File: ${payload.filePath}\n\n${payload.content}\n\nCursor at line ${payload.line}, col ${payload.column}`,
-          },
-        ],
-      });
+      try {
+        const result = await modelFactory.generate('coding_agent', {
+          sessionId,
+          model: 'qwen3-coder-base',
+          maxTokens: 50,
+          messages: [
+            { role: 'system', content: 'Complete the code at the cursor position.' },
+            {
+              role: 'user',
+              content: `File: ${payload.filePath}\n\n${payload.content}\n\nCursor at line ${payload.line}, col ${payload.column}`,
+            },
+          ],
+        });
 
-      socket.emit('v5:mb:completion_response', { completion: result.content });
+        socket.emit('v5:mb:completion_response', { completion: result.content });
 
-      await eventBus.emit(V5Event.MB_COMPLETION_SHOWN, {
-        sessionId: payload.sessionId,
-        filePath: payload.filePath,
-        line: payload.line,
-      });
+        await eventBus.emit(V5Event.MB_COMPLETION_SHOWN, {
+          sessionId,
+          filePath: payload.filePath,
+          line: payload.line,
+        });
 
-      void traceMB('mb.completion_request', payload.sessionId, {
-        input: { filePath: payload.filePath, line: payload.line, column: payload.column },
-        output: { completionLen: result.content.length, latencyMs: Date.now() - startedAt },
-        metadata: { model: 'qwen3-coder-base' },
-      });
-    }),
+        void traceMB('mb.completion_request', sessionId, {
+          input: { filePath: payload.filePath, line: payload.line, column: payload.column },
+          output: { completionLen: result.content.length, latencyMs: Date.now() - startedAt },
+          metadata: { model: 'qwen3-coder-base' },
+        });
+      } catch (err) {
+        const message = describeSocketError(err);
+        logger.warn('[socket:mb] v5:mb:completion_request failed', {
+          socketId: socket.id,
+          sessionId,
+          error: message,
+        });
+        failSocketRequest(socket, 'v5:mb:completion_request', 'PERSIST_FAILED', message);
+      }
+    },
   );
 
   socket.on(

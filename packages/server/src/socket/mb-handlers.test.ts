@@ -362,6 +362,67 @@ describe('completion_request', () => {
       expect.objectContaining({ name: 'mb.completion_request' }),
     );
   });
+
+  it('can generate completion with socket-bound session identity only', async () => {
+    mocks.modelGenerate.mockResolvedValueOnce({ content: 'completed' });
+    const { socket, emit, ee } = makeSocket({ sessionId: 'bound-session' });
+    registerMBHandlers({} as never, socket);
+
+    await dispatch(ee, 'v5:mb:completion_request', {
+      filePath: 'a.py',
+      content: 'def ',
+      line: 10,
+      column: 4,
+    });
+
+    expect(mocks.modelGenerate).toHaveBeenCalledWith(
+      'coding_agent',
+      expect.objectContaining({ sessionId: 'bound-session' }),
+    );
+    expect(emit).toHaveBeenCalledWith('v5:mb:completion_response', { completion: 'completed' });
+    expect(mocks.eventBusEmit).toHaveBeenCalledWith(V5Event.MB_COMPLETION_SHOWN, {
+      sessionId: 'bound-session',
+      filePath: 'a.py',
+      line: 10,
+    });
+  });
+
+  it('rejects missing session identity before model generation', async () => {
+    const { socket, emit, ee } = makeSocket();
+    registerMBHandlers({} as never, socket);
+
+    await dispatch(ee, 'v5:mb:completion_request', {
+      filePath: 'a.py',
+      content: 'def ',
+      line: 10,
+      column: 4,
+    });
+
+    expect(emit).toHaveBeenCalledWith('v5:mb:completion_request:error', {
+      code: 'VALIDATION_ERROR',
+      message: 'v5:mb:completion_request requires sessionId in socket handshake or payload',
+    });
+    expect(mocks.modelGenerate).not.toHaveBeenCalled();
+  });
+
+  it('emits typed error when model generation fails', async () => {
+    mocks.modelGenerate.mockRejectedValueOnce(new Error('model down'));
+    const { socket, emit, ee } = makeSocket();
+    registerMBHandlers({} as never, socket);
+
+    await dispatch(ee, 'v5:mb:completion_request', {
+      sessionId: 's1',
+      filePath: 'a.py',
+      content: 'def ',
+      line: 10,
+      column: 4,
+    });
+
+    expect(emit).toHaveBeenCalledWith('v5:mb:completion_request:error', {
+      code: 'PERSIST_FAILED',
+      message: 'model down',
+    });
+  });
 });
 
 describe('run_test', () => {
