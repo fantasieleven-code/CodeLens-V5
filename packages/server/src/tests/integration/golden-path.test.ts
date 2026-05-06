@@ -7,7 +7,7 @@
  *   2) composite sits inside a target band
  *   3) every participating dimension has a score (none null, none NaN)
  *   4) capabilityProfiles are populated and in 0-100 range
- *   5) cursorBehaviorLabel is undefined (V5.1 backlog)
+ *   5) cursorBehaviorLabel is populated for full_stack MB fixtures
  *   6) monotonic ordering Liam > Steve > Emma > Max on composite
  *
  * Mocks:
@@ -66,6 +66,13 @@ const ALL_FIXTURES = [
   { name: 'max', fixture: maxDGradeFixture, expectation: FIXTURE_EXPECTATIONS.max },
 ] as const;
 
+const EXPECTED_CURSOR_LABELS = {
+  liam: '深思熟虑型',
+  steve: '深思熟虑型',
+  emma: '熟练接受型',
+  max: '快速粘贴型',
+} as const;
+
 describe('Golden Path — scoreSession end-to-end', () => {
   const results = new Map<string, V5ScoringResult>();
 
@@ -78,7 +85,8 @@ describe('Golden Path — scoreSession end-to-end', () => {
       expect(Number.isFinite(result.composite)).toBe(true);
       expect(result.dimensions).toBeDefined();
       expect(result.capabilityProfiles.length).toBeGreaterThan(0);
-      expect(result.cursorBehaviorLabel).toBeUndefined();
+      expect(result.cursorBehaviorLabel?.label).toBe(EXPECTED_CURSOR_LABELS[name]);
+      expect(result.cursorBehaviorLabel?.evidenceSignals.length).toBeGreaterThan(0);
       expect(result.confidence).toMatch(/^(high|medium|low)$/);
       expect(result.reasoning).toBeTruthy();
       expect(result.boundaryAnalysis).toBeDefined();
