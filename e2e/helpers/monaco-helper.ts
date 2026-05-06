@@ -1,7 +1,24 @@
 import type { Page } from '@playwright/test';
 
-const MONACO_SELECTOR = '.monaco-editor .view-lines';
 const MONACO_INPUT = '.monaco-editor textarea[aria-label="Editor content"], .monaco-editor textarea.inputarea, .monaco-editor textarea';
+
+interface MonacoModel {
+  getValue(): string;
+  setValue(value: string): void;
+}
+
+interface MonacoEditorInstance {
+  hasTextFocus?: () => boolean;
+  getModel(): MonacoModel | null;
+}
+
+interface MonacoWindow extends Window {
+  monaco?: {
+    editor?: {
+      getEditors?: () => MonacoEditorInstance[];
+    };
+  };
+}
 
 /**
  * Playwright helper for realistic Monaco editor interaction.
@@ -18,13 +35,14 @@ export class MonacoHelper {
     // boundary keeps the variance check alive while accommodating slow CIs.
     await page.locator('.monaco-editor').first().waitFor({ state: 'visible', timeout: 60000 });
     await page.waitForFunction(
-      () => !!(window as any).monaco?.editor?.getEditors?.()?.length,
+      () => ((window as MonacoWindow).monaco?.editor?.getEditors?.() ?? []).length > 0,
       { timeout: 30000 },
     );
     await page.evaluate((text) => {
-      const editors = (window as any).monaco.editor.getEditors();
-      const focused = editors.find((e: any) => e.hasTextFocus?.()) ?? editors[0];
+      const editors = (window as MonacoWindow).monaco?.editor?.getEditors?.() ?? [];
+      const focused = editors.find((e) => e.hasTextFocus?.()) ?? editors[0];
       const model = focused.getModel();
+      if (!model) throw new Error('No Monaco editor model found');
       const currentValue = model.getValue();
       // Append to current value (sequential typing semantics).
       model.setValue(currentValue + text);
@@ -34,7 +52,7 @@ export class MonacoHelper {
   /** Read the full content of the active Monaco editor model. */
   static async getContent(page: Page): Promise<string> {
     return page.evaluate(() => {
-      const editor = (window as any).monaco?.editor?.getEditors?.()?.[0];
+      const editor = (window as MonacoWindow).monaco?.editor?.getEditors?.()?.[0];
       if (!editor) throw new Error('No Monaco editor instance found');
       return editor.getModel()?.getValue() ?? '';
     });
@@ -47,13 +65,15 @@ export class MonacoHelper {
     // boundary keeps the variance check alive while accommodating slow CIs.
     await page.locator('.monaco-editor').first().waitFor({ state: 'visible', timeout: 60000 });
     await page.waitForFunction(
-      () => !!(window as any).monaco?.editor?.getEditors?.()?.length,
+      () => ((window as MonacoWindow).monaco?.editor?.getEditors?.() ?? []).length > 0,
       { timeout: 30000 },
     );
     await page.evaluate(() => {
-      const editors = (window as any).monaco.editor.getEditors();
-      const focused = editors.find((e: any) => e.hasTextFocus?.()) ?? editors[0];
-      focused.getModel().setValue('');
+      const editors = (window as MonacoWindow).monaco?.editor?.getEditors?.() ?? [];
+      const focused = editors.find((e) => e.hasTextFocus?.()) ?? editors[0];
+      const model = focused.getModel();
+      if (!model) throw new Error('No Monaco editor model found');
+      model.setValue('');
     });
   }
 
