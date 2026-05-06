@@ -20,6 +20,7 @@
 import {
   V5CandidateSelfViewSchema,
   type CandidateProfile,
+  type CandidateSessionStatusResponse,
   type V5CandidateSelfView,
 } from '@codelens-v5/shared';
 
@@ -146,6 +147,37 @@ export async function submitConsent(
 
   if (res.ok) {
     return res.json() as Promise<ConsentSubmitResponse>;
+  }
+
+  let body: unknown = null;
+  try {
+    body = await res.json();
+  } catch {
+    /* body not JSON — parseErrorBody treats as UNKNOWN */
+  }
+  const { code, message, details } = parseErrorBody(body, res.status);
+  throw new CandidateApiError(code, res.status, message, details);
+}
+
+export async function fetchCandidateSessionStatus(
+  sessionToken: string,
+): Promise<CandidateSessionStatusResponse> {
+  let res: Response;
+  try {
+    res = await candidateFetch('/api/candidate/session/status', {
+      method: 'POST',
+      body: JSON.stringify({ sessionToken }),
+    });
+  } catch (err) {
+    throw new CandidateApiError(
+      'NETWORK',
+      null,
+      err instanceof Error ? err.message : 'network failure',
+    );
+  }
+
+  if (res.ok) {
+    return res.json() as Promise<CandidateSessionStatusResponse>;
   }
 
   let body: unknown = null;

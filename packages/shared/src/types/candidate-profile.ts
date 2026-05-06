@@ -149,3 +149,11 @@ export const CandidateProfileSubmitRequestSchema = z
 export type CandidateProfileSubmitRequest = z.infer<
   typeof CandidateProfileSubmitRequestSchema
 >;
+
+export interface CandidateSessionStatusResponse {
+  ok: true;
+  sessionId: string;
+  status: string;
+  consentAcceptedAt: string | null;
+  profileSubmitted: boolean;
+}

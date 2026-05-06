@@ -1,42 +1,71 @@
 /**
  * ProfileGuard · wraps /candidate/:sessionToken/profile.
  *
- * Nested flag gate (V5.0 · option b / localStorage · no TTL):
- *   - consent flag absent → redirect to /candidate/:sessionToken/consent
- *   - profile flag present → redirect to /exam/:sessionToken (avoid re-submit)
+ * Server-authoritative nested gate:
+ *   - no server consent → redirect to /candidate/:sessionToken/consent
+ *   - server profile present → redirect to /exam/:sessionToken
  *   - otherwise → render children (ProfileSetup)
  *
- * Mirrors ExamGuard's Pattern D defense: flags are per-session-token
- * UX shortcuts, not the source of truth (server-side consentAcceptedAt /
- * profile record is authoritative).
+ * LocalStorage flags are cache only and are reconciled from server state.
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
+import { fetchCandidateSessionStatus } from '../../services/candidateApi.js';
 import { consentStorageKey } from './ConsentPage.js';
 import { profileStorageKey } from './ProfileSetup.js';
+
+type GuardState = 'loading' | 'needs-consent' | 'needs-profile' | 'profile-done';
 
 export const ProfileGuard: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const { sessionToken } = useParams<{ sessionToken: string }>();
+  const [state, setState] = useState<GuardState>('loading');
 
-  if (!sessionToken) {
-    return <>{children}</>;
+  useEffect(() => {
+    if (!sessionToken) {
+      setState('needs-profile');
+      return;
+    }
+    let cancelled = false;
+    fetchCandidateSessionStatus(sessionToken)
+      .then((status) => {
+        if (cancelled) return;
+        const consented = status.consentAcceptedAt !== null;
+        if (!consented) {
+          localStorage.removeItem(consentStorageKey(sessionToken));
+          localStorage.removeItem(profileStorageKey(sessionToken));
+          setState('needs-consent');
+          return;
+        }
+        localStorage.setItem(consentStorageKey(sessionToken), '1');
+        if (status.profileSubmitted) {
+          localStorage.setItem(profileStorageKey(sessionToken), '1');
+          setState('profile-done');
+          return;
+        }
+        localStorage.removeItem(profileStorageKey(sessionToken));
+        setState('needs-profile');
+      })
+      .catch(() => {
+        if (cancelled) return;
+        localStorage.removeItem(consentStorageKey(sessionToken));
+        localStorage.removeItem(profileStorageKey(sessionToken));
+        setState('needs-consent');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionToken]);
+
+  if (state === 'loading') {
+    return <div data-testid="profile-guard-loading" />;
   }
-
-  const canRead =
-    typeof localStorage !== 'undefined' &&
-    typeof localStorage.getItem === 'function';
-  const consented =
-    canRead && localStorage.getItem(consentStorageKey(sessionToken)) === '1';
-  const profileSubmitted =
-    canRead && localStorage.getItem(profileStorageKey(sessionToken)) === '1';
-
-  if (!consented) {
+  if (state === 'needs-consent' && sessionToken) {
     return <Navigate to={`/candidate/${sessionToken}/consent`} replace />;
   }
-  if (profileSubmitted) {
+  if (state === 'profile-done' && sessionToken) {
     return <Navigate to={`/exam/${sessionToken}`} replace />;
   }
   return <>{children}</>;

@@ -4,6 +4,7 @@ import type { V5CandidateSelfView } from '@codelens-v5/shared';
 import {
   submitConsent,
   submitProfile,
+  fetchCandidateSessionStatus,
   fetchCandidateSelfView,
   CandidateApiError,
 } from './candidateApi.js';
@@ -114,6 +115,63 @@ describe('submitConsent', () => {
     expect(err).toBeInstanceOf(CandidateApiError);
     expect((err as CandidateApiError).code).toBe('NETWORK');
     expect((err as CandidateApiError).status).toBeNull();
+  });
+});
+
+describe('fetchCandidateSessionStatus', () => {
+  beforeEach(() => {
+    (import.meta.env as Record<string, string | undefined>).VITE_API_URL =
+      'http://api.test';
+  });
+
+  afterEach(() => {
+    globalThis.fetch = ORIGINAL_FETCH;
+    delete (import.meta.env as Record<string, string | undefined>).VITE_API_URL;
+    vi.restoreAllMocks();
+  });
+
+  it('POSTs sessionToken to /api/candidate/session/status and returns server state', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    mockFetch(async (url, init) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return jsonResponse(200, {
+        ok: true,
+        sessionId: 'sess-abc',
+        status: 'CREATED',
+        consentAcceptedAt: '2026-04-20T10:00:00.000Z',
+        profileSubmitted: true,
+      });
+    });
+
+    const out = await fetchCandidateSessionStatus('sess-abc');
+
+    expect(out).toEqual({
+      ok: true,
+      sessionId: 'sess-abc',
+      status: 'CREATED',
+      consentAcceptedAt: '2026-04-20T10:00:00.000Z',
+      profileSubmitted: true,
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('/api/candidate/session/status');
+    expect(calls[0].init.method).toBe('POST');
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({
+      sessionToken: 'sess-abc',
+    });
+  });
+
+  it('throws CandidateApiError(AUTH_REQUIRED) on invalid session token', async () => {
+    mockFetch(async () =>
+      jsonResponse(401, {
+        error: { code: 'AUTH_REQUIRED', message: 'Invalid or expired token' },
+      }),
+    );
+
+    const err = await fetchCandidateSessionStatus('bogus').catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(CandidateApiError);
+    expect((err as CandidateApiError).code).toBe('AUTH_REQUIRED');
+    expect((err as CandidateApiError).status).toBe(401);
   });
 });
 

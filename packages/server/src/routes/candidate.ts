@@ -12,6 +12,8 @@
  *   1. POST /profile/submit — persist candidate profile and/or consent
  *      acceptance. Accepts partial bodies (profile-only / consent-only /
  *      both); empty body → 400.
+ *   2. POST /session/status — read candidate session state from the server
+ *      so frontend guards do not treat localStorage as authorization truth.
  */
 
 import { Router } from 'express';
@@ -20,6 +22,7 @@ import type { Prisma } from '@prisma/client';
 import {
   CandidateProfileSubmitRequestSchema,
   type CandidateProfile,
+  type CandidateSessionStatusResponse,
 } from '@codelens-v5/shared';
 
 import { prisma } from '../config/db.js';
@@ -35,6 +38,46 @@ interface CandidateProfileSubmitResponse {
   sessionId: string;
   profile: CandidateProfile | null;
   consentAcceptedAt: string | null;
+}
+
+/** POST /candidate/session/status */
+export async function getCandidateSessionStatus(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const sessionId = req.auth?.sessionId;
+    if (!sessionId) {
+      throw new AuthenticationError('Candidate token missing sessionId claim');
+    }
+
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      select: {
+        id: true,
+        status: true,
+        candidateProfile: true,
+        consentAcceptedAt: true,
+      },
+    });
+    if (!session) {
+      throw new NotFoundError(`Session not found: ${sessionId}`);
+    }
+
+    const response: CandidateSessionStatusResponse = {
+      ok: true,
+      sessionId: session.id,
+      status: session.status,
+      consentAcceptedAt: session.consentAcceptedAt
+        ? session.consentAcceptedAt.toISOString()
+        : null,
+      profileSubmitted: session.candidateProfile !== null,
+    };
+    res.status(200).json(response);
+  } catch (err) {
+    next(err);
+  }
 }
 
 /** POST /candidate/profile/submit */
@@ -110,6 +153,7 @@ export async function submitCandidateProfile(
 
 export const candidateRouter = Router();
 
+candidateRouter.post('/session/status', getCandidateSessionStatus);
 candidateRouter.post('/profile/submit', submitCandidateProfile);
 
-logger.debug('[candidate] routes wired (1 endpoint)');
+logger.debug('[candidate] routes wired (2 endpoints)');

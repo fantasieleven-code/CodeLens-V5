@@ -1,40 +1,53 @@
 /**
  * ExamGuard — wraps `/exam/:sessionId` to gate entry on consent.
  *
- * Reads the per-session localStorage flag
- * `codelens_candidate_consent:{sessionId}` (written by ConsentPage on 200).
- * Absent → redirects to `/candidate/:sessionId/consent` (sessionToken ≡
- * sessionId per Phase 1 ratify [B]). Present → renders children.
- *
- * Option b (V5.0) — localStorage flag, no TTL. V5.0.5 may upgrade to a
- * server-side `session-status` endpoint if Backend grows one (tracked in
- * observation #117).
- *
- * Pattern D defense: no expiry on the flag — V5.0 explicitly punts TTL
- * because (a) the flag is per-session-token, so leaking a stale flag
- * across sessions is impossible, and (b) the source of truth lives
- * server-side in the consent record; the flag is just a UX shortcut.
+ * Server-authoritative guard. LocalStorage is only a cache written after
+ * `/api/candidate/session/status` confirms consentAcceptedAt.
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
+import { fetchCandidateSessionStatus } from '../../services/candidateApi.js';
 import { consentStorageKey } from './ConsentPage.js';
 
 export const ExamGuard: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const { sessionId } = useParams<{ sessionId: string }>();
+  const [allowed, setAllowed] = useState<boolean | null>(null);
 
-  if (!sessionId) {
-    return <>{children}</>;
+  useEffect(() => {
+    if (!sessionId) {
+      setAllowed(true);
+      return;
+    }
+    let cancelled = false;
+    fetchCandidateSessionStatus(sessionId)
+      .then((status) => {
+        if (cancelled) return;
+        const consented = status.consentAcceptedAt !== null;
+        if (consented) {
+          localStorage.setItem(consentStorageKey(sessionId), '1');
+        } else {
+          localStorage.removeItem(consentStorageKey(sessionId));
+        }
+        setAllowed(consented);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        localStorage.removeItem(consentStorageKey(sessionId));
+        setAllowed(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
+
+  if (allowed === null) {
+    return <div data-testid="exam-guard-loading" />;
   }
 
-  const consented =
-    typeof localStorage !== 'undefined' &&
-    typeof localStorage.getItem === 'function' &&
-    localStorage.getItem(consentStorageKey(sessionId)) === '1';
-
-  if (!consented) {
+  if (!allowed && sessionId) {
     return <Navigate to={`/candidate/${sessionId}/consent`} replace />;
   }
   return <>{children}</>;
