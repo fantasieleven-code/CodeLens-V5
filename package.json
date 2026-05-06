@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "npm run dev --workspace=packages/server",
     "dev:client": "npm run dev --workspace=packages/client",
+    "build:shared": "npm run build --workspace=@codelens-v5/shared",
     "build": "npm run build --workspaces",
     "lint": "eslint packages/*/src --ext .ts,.tsx",
     "format": "prettier --write \"packages/*/src/**/*.{ts,tsx}\"",
@@ -18,9 +19,12 @@
     "db:migrate": "npm run db:migrate --workspace=packages/server",
     "db:seed": "npm run db:seed --workspace=packages/server",
     "db:studio": "npm run db:studio --workspace=packages/server",
+    "pretest": "npm run build:shared",
     "test": "vitest run",
+    "pretest:e2e": "npm run build:shared",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "pretest:golden-path": "npm run build:shared",
     "test:golden-path": "playwright test --config=e2e/playwright.golden-path.config.ts",
     "pilot:simulate": "npx tsx scripts/pilot-simulation.ts"
   },
