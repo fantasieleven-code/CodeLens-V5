@@ -15,9 +15,6 @@
  * delegates here, keeping the orchestrator DB-free and the Golden Path
  * fixture-driven.
  *
- * Gap #5 (Task 17): `computeCursorBehaviorLabel` is V5.1 backlog; the
- * orchestrator always returns `cursorBehaviorLabel: undefined` for now.
- *
  * Task A1 two-pass (Commit 2 seam · Commit 3 sCalibration consumer):
  *   Meta-signals need the 47-signal pass-1 composite as compute input.
  *   scoreSession runs pass-1 = registry.computeAll(input, {
@@ -31,6 +28,8 @@
  */
 
 import type {
+  CursorBehaviorLabel,
+  CursorBehaviorLabelId,
   ScoreSessionInput,
   SignalInput,
   SignalRegistry,
@@ -50,6 +49,17 @@ import {
 } from './scoring.service.js';
 
 export const SCORING_RESULT_ALGORITHM_VERSION = 'scoreSession@v1';
+
+const CURSOR_BEHAVIOR_SIGNAL_IDS = [
+  'sAiCompletionAcceptRate',
+  'sChatVsDirectRatio',
+  'sFileNavigationEfficiency',
+  'sTestFirstBehavior',
+  'sEditPatternQuality',
+  'sDecisionLatencyQuality',
+] as const;
+
+type CursorBehaviorSignalId = (typeof CURSOR_BEHAVIOR_SIGNAL_IDS)[number];
 
 /**
  * Meta-signals — V5.0 A1 guardrail constant (Gemini-ratified naming).
@@ -145,6 +155,161 @@ function getDefaultRegistry(): SignalRegistry {
   return defaultRegistry;
 }
 
+function numericSignal(
+  signals: SignalResults,
+  id: CursorBehaviorSignalId,
+): number | undefined {
+  const value = signals[id]?.value;
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function median(values: number[]): number | undefined {
+  if (values.length === 0) return undefined;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+}
+
+function formatPercent(value: number | undefined): string {
+  return value === undefined ? 'n/a' : `${Math.round(value * 100)}%`;
+}
+
+function formatRatio(chatActions: number, directActions: number): string {
+  if (chatActions === 0 && directActions === 0) return 'n/a';
+  return `${chatActions}:${directActions}`;
+}
+
+function formatSeconds(ms: number | undefined): string {
+  return ms === undefined ? 'n/a' : `${(ms / 1000).toFixed(1)}s`;
+}
+
+function evidenceSignalsFor(
+  signals: SignalResults,
+  label: CursorBehaviorLabelId,
+): string[] {
+  const priority: CursorBehaviorSignalId[] =
+    label === '无序混乱型'
+      ? [
+          'sTestFirstBehavior',
+          'sEditPatternQuality',
+          'sFileNavigationEfficiency',
+          'sAiCompletionAcceptRate',
+          'sDecisionLatencyQuality',
+        ]
+      : [
+          'sAiCompletionAcceptRate',
+          'sDecisionLatencyQuality',
+          'sChatVsDirectRatio',
+          'sTestFirstBehavior',
+          'sEditPatternQuality',
+        ];
+
+  return priority.filter((id) => numericSignal(signals, id) !== undefined);
+}
+
+export function computeCursorBehaviorLabel(
+  input: SignalInput,
+  signals: SignalResults,
+): CursorBehaviorLabel | undefined {
+  const behavior = input.submissions.mb?.editorBehavior;
+  if (!behavior) return undefined;
+
+  const aiCompletionEvents = behavior.aiCompletionEvents ?? [];
+  const chatEvents = behavior.chatEvents ?? [];
+  const diffEvents = behavior.diffEvents ?? [];
+  const fileNavigationHistory = behavior.fileNavigationHistory ?? [];
+  const editSessions = behavior.editSessions ?? [];
+  const testRuns = behavior.testRuns ?? [];
+
+  const shownCompletions = aiCompletionEvents.filter((e) => e.shown !== false);
+  const acceptedCompletions = shownCompletions.filter((e) => e.accepted);
+  const chatActions = chatEvents.length;
+  const directActions =
+    editSessions.filter((s) => s.keystrokeCount >= 10).length +
+    acceptedCompletions.length;
+  const totalActions = chatActions + directActions;
+  const eventCount =
+    shownCompletions.length +
+    chatActions +
+    diffEvents.length +
+    fileNavigationHistory.length +
+    editSessions.length +
+    testRuns.length;
+
+  const presentSignals = CURSOR_BEHAVIOR_SIGNAL_IDS.filter(
+    (id) => numericSignal(signals, id) !== undefined,
+  );
+  if (eventCount < 5 || presentSignals.length < 3 || shownCompletions.length < 3) {
+    return undefined;
+  }
+
+  const acceptRate =
+    shownCompletions.length === 0
+      ? undefined
+      : acceptedCompletions.length / shownCompletions.length;
+  const chatRatio = totalActions === 0 ? undefined : chatActions / totalActions;
+  const latencies = [
+    ...shownCompletions.map((e) => e.documentVisibleMs),
+    ...chatEvents.map((e) => e.documentVisibleMs),
+  ].filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  const medianVisibleMs = median(latencies);
+
+  const cursorAverage =
+    presentSignals.reduce((sum, id) => sum + (numericSignal(signals, id) ?? 0), 0) /
+    presentSignals.length;
+  const testFirst = numericSignal(signals, 'sTestFirstBehavior');
+  const editPattern = numericSignal(signals, 'sEditPatternQuality');
+  const fileNavigation = numericSignal(signals, 'sFileNavigationEfficiency');
+
+  const fastPaste =
+    acceptRate !== undefined &&
+    acceptRate >= 0.85 &&
+    (medianVisibleMs === undefined || medianVisibleMs <= 800) &&
+    (chatRatio === undefined || chatRatio <= 0.15);
+
+  const disordered =
+    cursorAverage < 0.45 ||
+    ((testFirst ?? 1) < 0.25 &&
+      (editPattern ?? 1) < 0.45 &&
+      (fileNavigation ?? 1) < 0.45);
+
+  const thoughtful =
+    !fastPaste &&
+    !disordered &&
+    acceptRate !== undefined &&
+    acceptRate >= 0.35 &&
+    acceptRate <= 0.7 &&
+    chatRatio !== undefined &&
+    chatRatio >= 0.25 &&
+    chatRatio <= 0.55 &&
+    (testFirst ?? 0) >= 0.75 &&
+    (editPattern ?? 0) >= 0.75 &&
+    (medianVisibleMs === undefined || medianVisibleMs >= 900);
+
+  let label: CursorBehaviorLabelId;
+  if (fastPaste) {
+    label = '快速粘贴型';
+  } else if (disordered) {
+    label = '无序混乱型';
+  } else if (thoughtful) {
+    label = '深思熟虑型';
+  } else {
+    label = '熟练接受型';
+  }
+
+  const summary = [
+    `Completion 接受率 ${formatPercent(acceptRate)}`,
+    `chat/direct ${formatRatio(chatActions, directActions)}`,
+    `决策延迟中位 ${formatSeconds(medianVisibleMs)}`,
+    `Cursor 信号均值 ${(cursorAverage * 100).toFixed(0)}分`,
+  ].join('; ');
+
+  return {
+    label,
+    summary: `${summary}。`,
+    evidenceSignals: evidenceSignalsFor(signals, label),
+  };
+}
+
 /** Test hook — lets a suite reset the cached registry between runs. */
 export function __resetDefaultRegistryForTests(): void {
   defaultRegistry = null;
@@ -195,6 +360,9 @@ export async function scoreSession(
   const composite = computeComposite(dimensions, suite);
   const gradeDecision = gradeCandidate(composite, dimensions, suite);
   const capabilityProfiles = computeAllProfiles(dimensions, participatingDimensionsOf(suite));
+  const cursorBehaviorLabel = suite.reportSections.includes('cursor-behavior-label')
+    ? computeCursorBehaviorLabel(signalInput, signals)
+    : undefined;
 
   return {
     computedAt: Date.now(),
@@ -208,8 +376,6 @@ export async function scoreSession(
     ...(gradeDecision.dangerFlag ? { dangerFlag: gradeDecision.dangerFlag } : {}),
     signals,
     capabilityProfiles,
-    // cursorBehaviorLabel: V5.1 backlog — algorithm per
-    // docs/v5-planning/v5-design-clarifications.md L640-700.
-    cursorBehaviorLabel: undefined,
+    ...(cursorBehaviorLabel ? { cursorBehaviorLabel } : {}),
   };
 }

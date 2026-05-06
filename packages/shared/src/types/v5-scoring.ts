@@ -9,8 +9,7 @@
  * Gap #4 (Task 17): Option β — additive new type alongside legacy.
  * Gap #5 (Task 17): `CursorBehaviorLabel` migrated from
  *   `packages/client/src/report/types.ts` to here so server +
- *   client share the same definition. Actual `computeCursorBehaviorLabel`
- *   remains V5.1 backlog per `v5-design-clarifications.md` L640-700.
+ *   client share the same definition.
  */
 
 import { z } from 'zod';
@@ -73,8 +72,8 @@ export interface ScoreSessionInput {
  * - `computedAt` / `algorithmVersion` stamp the top-level frozen scoring
  *   snapshot. They are optional for legacy V5.0 snapshots persisted before
  *   the V5.1 replay-policy hardening.
- * - `cursorBehaviorLabel` is optional — V5.0 returns undefined pending
- *   V5.1 implementation of `computeCursorBehaviorLabel`.
+ * - `cursorBehaviorLabel` is optional because low-sample or non-MB suites
+ *   should omit the label rather than fabricate a behavior profile.
  */
 export interface V5ScoringResult {
   computedAt?: number;
@@ -131,5 +130,11 @@ export const V5ScoringResultSchema = z.object({
       description: z.string(),
     }),
   ),
-  cursorBehaviorLabel: z.object({}).passthrough().optional(),
+  cursorBehaviorLabel: z
+    .object({
+      label: z.enum(['深思熟虑型', '熟练接受型', '快速粘贴型', '无序混乱型']),
+      summary: z.string(),
+      evidenceSignals: z.array(z.string()),
+    })
+    .optional(),
 }).strict();
