@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { recommendSuite } from './suite-recommendations.js';
 import { ADMIN_POSITIONS } from './admin-positions-fixtures.js';
-import type { AdminPosition } from '../../../services/adminApi.types.js';
+import type { V5AdminPosition } from '@codelens-v5/shared';
 
-function pos(id: string): AdminPosition {
+function pos(id: string): V5AdminPosition {
   const p = ADMIN_POSITIONS.find((x) => x.id === id);
   if (!p) throw new Error(`fixture ${id} missing`);
   return p;

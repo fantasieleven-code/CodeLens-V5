@@ -20,10 +20,7 @@
  * no rename, no "improve"). Task 12 Layer 2 migrates Frontend imports from
  * the local shim to this module without touching any field name.
  *
- * Client-only shim types NOT migrated (they are Frontend UX helpers, not
- * server-contract data):
- *   - AdminPosition        (Step 1 wizard card shape)
- *   - SuiteRecommendation  (client-side UX suggestion)
+ * Client-only shim type NOT migrated:
  *   - CreateWizardDraft    (wizard page state)
  */
 
@@ -37,6 +34,31 @@ import type { V5ModuleKey } from '../constants/module-keys.js';
 import type { V5Submissions } from './v5-submissions.js';
 import type { CursorBehaviorLabel } from './v5-scoring.js';
 import type { CandidateProfile } from './candidate-profile.js';
+import type {
+  V5ArchStyle,
+  V5ChallengePattern,
+  V5Domain,
+  V5TechStack,
+} from './v5-business-scenario.js';
+
+// ── Admin create-session UX contracts ───────────────────────────────
+
+export interface V5AdminPosition {
+  id: string;
+  titleZh: string;
+  techStack: V5TechStack;
+  domain: V5Domain;
+  challengePattern: V5ChallengePattern;
+  archStyle?: V5ArchStyle;
+  /** Short one-line blurb for the create-session Step 1 card preview. */
+  summary: string;
+}
+
+export interface V5AdminSuiteRecommendation {
+  primary: SuiteId;
+  alternates: readonly SuiteId[];
+  reasoning: string;
+}
 
 // ── /admin/stats/overview ────────────────────────────────────────────
 
