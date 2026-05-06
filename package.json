@@ -13,6 +13,7 @@
     "build:shared": "npm run build --workspace=@codelens-v5/shared",
     "build": "npm run build --workspaces",
     "lint": "eslint packages/*/src --ext .ts,.tsx",
+    "lint:e2e": "eslint e2e --ext .ts",
     "format": "prettier --write \"packages/*/src/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"packages/*/src/**/*.{ts,tsx}\"",
     "prepare": "husky",

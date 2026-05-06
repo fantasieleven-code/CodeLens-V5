@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 const MONACO_SELECTOR = '.monaco-editor .view-lines';
 const MONACO_INPUT = '.monaco-editor textarea[aria-label="Editor content"], .monaco-editor textarea.inputarea, .monaco-editor textarea';
