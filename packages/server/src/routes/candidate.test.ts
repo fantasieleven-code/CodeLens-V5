@@ -4,13 +4,16 @@
  * Strategy mirrors admin.test.ts: mock `config/db.js`, invoke the handler
  * directly with a mocked Request/Response/NextFunction triple. DB-free.
  *
- * 6 tests:
+ * 9 tests:
  *   1. profile-only submit → 200 + candidateProfile persisted
  *   2. consent-only submit → 200 + consentAcceptedAt stamped
  *   3. both submitted together → 200 + both persisted
  *   4. empty body → 400 ValidationError
  *   5. invalid profile enum → 400 ValidationError
  *   6. Prisma P2025 (session not found) → 404 NotFoundError
+ *   7. session status → 200 + consent/profile state from DB
+ *   8. session status missing sessionId claim → 401
+ *   9. session status missing DB row → 404
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -19,6 +22,7 @@ import type { CandidateProfile } from '@codelens-v5/shared';
 
 const sessionUpdate = vi.hoisted(() => vi.fn());
 const sessionFindFirst = vi.hoisted(() => vi.fn());
+const sessionFindUnique = vi.hoisted(() => vi.fn());
 
 vi.mock('../config/env.js', () => ({
   env: {
@@ -39,11 +43,12 @@ vi.mock('../config/db.js', () => ({
     session: {
       update: sessionUpdate,
       findFirst: sessionFindFirst,
+      findUnique: sessionFindUnique,
     },
   },
 }));
 
-import { submitCandidateProfile } from './candidate.js';
+import { getCandidateSessionStatus, submitCandidateProfile } from './candidate.js';
 import { requireCandidate } from '../middleware/auth.js';
 import { AuthenticationError } from '../middleware/errorHandler.js';
 
@@ -81,6 +86,67 @@ function makeNext(): NextFunction {
 beforeEach(() => {
   sessionUpdate.mockReset();
   sessionFindFirst.mockReset();
+  sessionFindUnique.mockReset();
+});
+
+describe('POST /api/candidate/session/status', () => {
+  it('returns server-side consent/profile state for the authenticated candidate session', async () => {
+    sessionFindUnique.mockResolvedValue({
+      id: 'sess-1',
+      status: 'CREATED',
+      candidateProfile: validProfile,
+      consentAcceptedAt: new Date('2026-04-20T08:00:00.000Z'),
+    });
+
+    const req = makeReq();
+    const { res, status, json } = makeRes();
+    const next = makeNext();
+
+    await getCandidateSessionStatus(req, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(sessionFindUnique).toHaveBeenCalledWith({
+      where: { id: 'sess-1' },
+      select: {
+        id: true,
+        status: true,
+        candidateProfile: true,
+        consentAcceptedAt: true,
+      },
+    });
+    expect(status).toHaveBeenCalledWith(200);
+    expect(json).toHaveBeenCalledWith({
+      ok: true,
+      sessionId: 'sess-1',
+      status: 'CREATED',
+      consentAcceptedAt: '2026-04-20T08:00:00.000Z',
+      profileSubmitted: true,
+    });
+  });
+
+  it('rejects a candidate token lacking a sessionId claim with 401', async () => {
+    const req = makeReq({
+      auth: { sub: 'cand-1', role: 'candidate' },
+    });
+    const next = vi.fn() as unknown as NextFunction;
+
+    await getCandidateSessionStatus(req, makeRes().res, next);
+
+    expect(sessionFindUnique).not.toHaveBeenCalled();
+    const err = (next as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+    expect(err.statusCode).toBe(401);
+  });
+
+  it('surfaces a missing session row as 404', async () => {
+    sessionFindUnique.mockResolvedValue(null);
+    const next = vi.fn() as unknown as NextFunction;
+
+    await getCandidateSessionStatus(makeReq(), makeRes().res, next);
+
+    const err = (next as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+    expect(err.statusCode).toBe(404);
+    expect(err.code).toBe('NOT_FOUND');
+  });
 });
 
 describe('POST /api/candidate/profile/submit', () => {
