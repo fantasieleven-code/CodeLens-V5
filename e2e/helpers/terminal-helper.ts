@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 const TERMINAL_HOST = '[data-testid="mb-terminal-host"]';
 const TERMINAL_RUN_BUTTON = '[data-testid="mb-terminal-run"]';
