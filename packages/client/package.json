@@ -4,10 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "npm run build --workspace=@codelens-v5/shared",
     "dev": "vite",
+    "prebuild": "npm run build --workspace=@codelens-v5/shared",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext .ts,.tsx",
+    "pretest": "npm run build --workspace=@codelens-v5/shared",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
