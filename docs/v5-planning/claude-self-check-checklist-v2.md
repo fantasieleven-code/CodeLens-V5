@@ -1,9 +1,13 @@
-# Claude Self-Check Checklist v2.1
+# Claude Self-Check Checklist v2.2
 
-> **目的**:防止 Pattern C/D/E/F/**H** 在 Claude brief 里再次出现。
+> **目的**:防止 Pattern C/D/E/F/**H** 和 mock-contract drift 在 Claude brief 里再次出现。
 >
 > **使用纪律**:每次发 Task brief 前,执行顶部 **4 极简动作**。若任何一条违反,stop,先解决。
-> 细则 11 条作为 reference,on-demand 查询。
+> 细则 12 条作为 reference,on-demand 查询。
+>
+> **v2.2 变更**(2026-05-06,V5.1 handoff):
+> - 新增规则 12:cross-repo / client mock sync。任何 API/shared shape 改动必须同步检查 shared type、server zod/handler、client API adapter、client mock/fixtures/tests。
+> - 目的:防止 split-repo frontend mock 继续沿用旧 shape,而 backend/shared 已迁移。
 >
 > **v2.1 变更**(2026-04-19,Day 3 start):
 > - 极简版 3 → **4** 动作(加入 Pattern H dual-direction grep)
@@ -53,7 +57,7 @@
 
 ---
 
-## 🟢 详细版:11 条细则(Karpathy 视角 — reference docs)
+## 🟢 详细版:12 条细则(Karpathy 视角 — reference docs)
 
 ### 规则 1:引用任何 function 前,grep 其实际 declaration
 
@@ -258,6 +262,37 @@
 
 ---
 
+### 规则 12(V5.1):Cross-repo / client mock sync
+
+**mock-contract drift 防御**
+
+任何 brief / PR 涉及 API response shape、shared type、server zod schema、Admin/Candidate service adapter、report view model **任一**,必须同步检查 4 个面:
+
+| 面 | Grep 对象 | 验证方式 |
+|----|----------|----------|
+| 1. Shared contract | `packages/shared/src/types/**` | canonical type / schema 是否存在 |
+| 2. Server truth | `packages/server/src/routes/**` + `packages/server/src/services/**` | handler / zod / hydrator 是否按 shared shape 输出 |
+| 3. Client adapter | `packages/client/src/services/**` | real API parser / mapper 是否按 shared shape 消费 |
+| 4. Client mock / fixture | `packages/client/src/**/*mock*` + `packages/client/src/report/__fixtures__/**` | mock 是否仍复制旧 shape |
+
+**纪律**:
+- 不能只改 client mock 让 UI 绿;shared type + server truth 是 canonical。
+- 不能只改 server/shared 后忘改 split-repo frontend mock;否则 preview / tests 会继续传播旧 contract。
+- 若 mock 是页面临时状态(如 `CreateWizardDraft`),必须在 PR/body/doc 里标明“不提升为 API contract”。
+- 若 mock 暂时不能同步,必须在 brief/PR 写 known drift + owner + removal condition。
+
+**正确示范**(V5.1 maintenance #183):
+- `V5AdminPosition` / `V5AdminSuiteRecommendation` 进入 shared。
+- client admin create/session mock/recommendation code 改用 shared type。
+- client-local `CreateWizardDraft` 保留为页面状态,不误升 shared。
+
+**错误风险**:
+- Backend/Admin API 已改 response wrapper,但 frontend mock 仍返回旧 flat shape。
+- Candidate self-view shared schema 已收紧,但 report preview fixture 仍带公司内部字段。
+- Socket payload shape 已 V5-native,但 local fallback mock 仍构造 V4 envelope。
+
+---
+
 ## 迭代频率
 
 本 checklist 每周 review 一次,累加新 Pattern 或 retire 已消除 Pattern。
@@ -280,6 +315,7 @@ V5.1 开发期新命中的 Pattern → 立即加入。
 - `field-naming-glossary.md`:Pattern C 防御依赖
 - `CI_KNOWN_RED.md`:CI 已知红 job(Task owner 追踪)
 - `v5-signal-production-coverage.md`(Day 2 end 新增):Pattern H baseline audit
+- client mocks / report fixtures:规则 12 的 drift 检查对象,不是 canonical truth
 
 ---
 
@@ -300,6 +336,18 @@ V5.1 开发期新命中的 Pattern → 立即加入。
 **Pattern D 总计 5 次**(D-1:3 + D-2:2),是 V5 开发期最顽固的 pattern family。
 
 **Pattern H 危害说明**:Pattern H 一次大规模命中(Production Coverage Audit)暴露 V5 74.5% signals 生产不可用。严重度超过 A-G 所有 pattern。规则 10/11 是 V5.0 发布前 unblock 唯一路径。
+
+---
+
+## v2.2 变更总结(对比 v2.1)
+
+**加入**:
+- 规则 12(Cross-repo / client mock sync)
+- client mocks / report fixtures 明确为 drift 检查对象,不是 canonical truth
+
+**纪律加强**:
+- API/shared shape 改动必须同时检查 shared contract、server truth、client adapter、client mock/fixture 四面
+- 页面临时状态若保留在 client-local,必须显式标明不提升为 API contract
 
 ---
 
